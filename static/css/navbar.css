@@ -1,0 +1,60 @@
+/* static/css/components/navbar.css */
+
+/* --- 1. Estilo do Contêiner Principal do Menu --- */
+.navbar {
+    background-color: var(--maida-azul); /* Usa a cor azul definida no base.css */
+    padding: 10px 40px; /* Espaçamento interno (vertical e horizontal) */
+    display: flex; /* Ativa o layout flexbox, essencial para o alinhamento */
+    justify-content: space-between; /* Coloca um espaço máximo entre o logo e os links */
+    align-items: center; /* Alinha o logo e os links verticalmente no centro */
+    
+    /* Faz o menu ficar fixo no topo da página */
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    z-index: 1000; /* Garante que o menu fique acima de outros conteúdos */
+    box-sizing: border-box; /* Garante que o padding não aumente a largura total */
+}
+
+/* --- 2. Ajuste para o Conteúdo da Página --- */
+body {
+    /* IMPORTANTE: Adiciona um espaço no topo do corpo da página */
+    /* para que o conteúdo não comece escondido atrás do menu fixo. */
+    padding-top: 70px; /* A altura deve ser um pouco maior que a altura do navbar */
+}
+
+/* --- 3. Estilo do Logo --- */
+.navbar-logo img {
+    height: 40px; /* Define uma altura fixa para a imagem do logo */
+    vertical-align: middle; /* Melhora o alinhamento da imagem */
+}
+
+/* --- 4. Estilo da Lista de Links --- */
+.navbar-links {
+    list-style: none; /* Remove os pontos (bullets) da lista */
+    margin: 0;
+    padding: 0;
+    display: flex; /* Alinha os itens da lista (os links) em uma linha */
+}
+
+.navbar-links li {
+    margin-left: 25px; /* Cria um espaçamento à esquerda de cada item */
+}
+
+/* --- 5. Estilo dos Links Individuais --- */
+.navbar-links a {
+    color: var(--branco);
+    text-decoration: none; /* Remove o sublinhado padrão dos links */
+    font-weight: bold;
+    font-size: 16px;
+    padding: 8px 12px;
+    border-radius: 5px;
+    transition: background-color 0.3s, color 0.3s; /* Animação suave na mudança de cor */
+}
+
+/* --- 6. Efeito Hover (passar o mouse por cima) --- */
+.navbar-links a:hover {
+    background-color: var(--maida-amarelo);
+    color: var(--maida-azul);
+}
