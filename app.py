@@ -4,6 +4,7 @@ import os
 from flask import Flask, render_template, request, redirect, url_for, flash, session
 from werkzeug.utils import secure_filename
 from datetime import datetime
+from processador_contracheque import ProcessadorContracheque
 import logging
 from logging.handlers import RotatingFileHandler
 
@@ -37,6 +38,7 @@ app.config.update({
     'MAX_CONTENT_LENGTH': 100 * 1024 * 1024,
     'ALLOWED_EXTENSIONS': {'pdf'},
 })
+processador = ProcessadorContracheque('config.json') 
 
 def allowed_file(filename):
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in app.config['ALLOWED_EXTENSIONS']
@@ -78,42 +80,43 @@ def extrair_mes_ano_do_texto(texto_pagina):
 
 def processar_pdf(caminho_pdf):
     """
-    Processa o PDF para extrair valores e o Mês/Ano do conteúdo.
-    Retorna uma lista de tuplas: [(mes_ano, dicionario_valores), ...] ou [] em caso de erro.
+    Processa o PDF usando a lógica centralizada do ProcessadorContracheque.
     """
     try:
         doc = fitz.open(caminho_pdf)
-        resultados_por_pagina = []  # Lista para armazenar resultados de cada página
-
-        CODIGOS = {
-            '7033': 'titular',
-            '7035': 'conjuge',
-            '7034': 'dependente',
-            '7038': 'agregado_jovem',
-            '7039': 'agregado_maior',
-            '7037': 'plano_especial',
-            '7040': 'coparticipacao',
-            '7049': 'retroativo',
-            '7088': 'parcela_risco_titular',
-            '7089': 'parcela_risco_dependente',
-            '7090': 'parcela_risco_conjuge',
-            '7091': 'parcela_risco_agregado'
-        }
+        resultados_por_pagina = []
+        
         campos_obrigatorios = [
-             'titular', 'conjuge', 'dependente', 'agregado_jovem',
+            'titular', 'conjuge', 'dependente', 'agregado_jovem',
             'agregado_maior', 'plano_especial', 'coparticipacao',
-            'retroativo', 'parcela_risco_titular', 'parcela_risco_dependente', 'parcela_risco_conjuge', 'parcela_risco_agregado'
+            'retroativo', 'parcela_risco_titular', 'parcela_risco_dependente',
+            'parcela_risco_conjuge', 'parcela_risco_agregado'
         ]
 
+        # Este é o loop que passa por cada página do PDF
         for page_num, page in enumerate(doc):
             texto_pagina = page.get_text("text")
-            linhas = texto_pagina.split('\n')
             logger.debug(f"Processando Página {page_num + 1} do arquivo {os.path.basename(caminho_pdf)}")
+            
+            mes_ano_encontrado, _ = extrair_mes_ano_do_texto(texto_pagina)
+            
+            # Chama o processador para identificar e extrair dados
+            tipo_contracheque = processador.identificar_tipo(texto_pagina)
+            logger.info(f"Arquivo '{os.path.basename(caminho_pdf)}' identificado como: '{tipo_contracheque}'")
+            dados_extraidos = processador.extrair_dados(texto_pagina, tipo_contracheque)
+            
+            # Prepara o dicionário de valores para a página atual
+            valores_pagina = {campo: 0.0 for campo in campos_obrigatorios}
+            valores_pagina.update(dados_extraidos)
 
-            mes_ano_encontrado, ano_encontrado = extrair_mes_ano_do_texto(texto_pagina)
-            logger.info(f"Mês/Ano encontrado para {os.path.basename(caminho_pdf)} (Página {page_num + 1}): {mes_ano_encontrado}")
-
-            valores = {campo: 0.0 for campo in campos_obrigatorios}  # Reinicia valores para cada página
+            # Adiciona o resultado da página à lista de resultados
+            resultados_por_pagina.append((mes_ano_encontrado, valores_pagina))
+        
+        # O return acontece AQUI, DEPOIS de processar todas as páginas
+        return resultados_por_pagina
+    except Exception as e:
+        logger.error(f"Erro ao processar PDF {caminho_pdf}: {str(e)}", exc_info=True)
+        return []
 
             for i, linha in enumerate(linhas):
                 linha_strip = linha.strip()
