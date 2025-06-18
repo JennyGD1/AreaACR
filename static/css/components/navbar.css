@@ -19,27 +19,26 @@
 
 /* --- 2. Ajuste para o Conteúdo da Página --- */
 body {
-    /* IMPORTANTE: Adiciona um espaço no topo do corpo da página */
-    /* para que o conteúdo não comece escondido atrás do menu fixo. */
+    
     padding-top: 70px; /* A altura deve ser um pouco maior que a altura do navbar */
 }
 
 /* --- 3. Estilo do Logo --- */
 .navbar-logo img {
-    height: 40px; /* Define uma altura fixa para a imagem do logo */
-    vertical-align: middle; /* Melhora o alinhamento da imagem */
+    height: 40px; 
+    vertical-align: middle; 
 }
 
 /* --- 4. Estilo da Lista de Links --- */
 .navbar-links {
-    list-style: none; /* Remove os pontos (bullets) da lista */
+    list-style: none; 
     margin: 0;
     padding: 0;
-    display: flex; /* Alinha os itens da lista (os links) em uma linha */
+    display: flex; 
 }
 
 .navbar-links li {
-    margin-left: 25px; /* Cria um espaçamento à esquerda de cada item */
+    margin-left: 25px; 
 }
 
 /* --- 5. Estilo dos Links Individuais --- */
