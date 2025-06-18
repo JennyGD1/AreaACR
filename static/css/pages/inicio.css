@@ -36,23 +36,3 @@ body.page-inicio {
     color: #333;
     margin-bottom: 35px;
 }
-
-/* --- 4. Botão Principal de Acesso --- */
-.btn-inicio {
-    display: inline-block;
-    padding: 15px 35px;
-    font-size: 1.1rem;
-    font-weight: bold;
-    text-decoration: none;
-    border-radius: 10px;
-    background-color: var(--maida-rosa);
-    color: var(--branco);
-    transition: all 0.3s ease;
-    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.15);
-}
-
-.btn-inicio:hover {
-    /* Efeito de "levantar" o botão ao passar o mouse */
-    transform: translateY(-3px);
-    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.2);
-}
