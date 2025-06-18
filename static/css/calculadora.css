@@ -235,3 +235,17 @@ tr.total-geral {
   from { transform: rotate(0deg); }
   to { transform: rotate(360deg); }
 }
+/* Estilo para o Logo na página de upload */
+.page-upload .logo {
+    margin-bottom: 20px;
+    text-align: center;
+}
+.page-upload .logo img {
+    max-width: 180px;
+}
+
+/* Garante que o footer na página de upload tenha a cor certa */
+.page-upload footer {
+    color: var(--branco);
+    margin-top: auto; /* Empurra o rodapé para o final da tela */
+}
