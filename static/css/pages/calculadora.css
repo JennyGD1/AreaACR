@@ -61,27 +61,43 @@
 }
 
 .upload-btn {
+    display: inline-block;
+    padding: 12px 25px;
+    font-size: 16px;
+    font-weight: bold;
+    border-radius: 10px;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    border: none;
     background-color: var(--maida-rosa);
     color: white;
     margin-bottom: 10px;
 }
+
 .upload-btn:hover {
     opacity: 0.9;
     transform: scale(1.02);
 }
-
 .process-btn {
+    display: inline-block;
+    padding: 12px 25px;
+    font-size: 16px;
+    font-weight: bold;
+    border-radius: 10px;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    border: none;
     background-color: var(--maida-amarelo);
     color: var(--maida-azul);
     margin-top: 15px;
 }
+
 .process-btn:hover {
     background-color: var(--maida-rosa);
     color: white;
     transform: translateY(-2px);
     box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
 }
-
 .file-name {
     margin-top: 8px;
     font-size: 14px;
