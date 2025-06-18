@@ -127,3 +127,111 @@ tr.total-geral {
   margin-top: 30px;
   font-size: 0.9em;
 }
+/* ===================================================== */
+/* --- Estilos para a Página de Upload (antigo index) --- */
+/* ===================================================== */
+
+.page-upload {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: calc(100vh - 70px); /* Subtrai a altura do navbar */
+  background-color: var(--fundo-azul);
+  padding: 20px;
+  box-sizing: border-box;
+}
+
+.borda-animada {
+  position: relative;
+  border-radius: 40px;
+  padding: 4px;
+  margin: 20px;
+  overflow: hidden;
+  background: conic-gradient(
+    from var(--gradient-angle, 0deg),
+    var(--branco) 0deg 120deg,
+    var(--maida-rosa) 120deg 150deg,
+    var(--branco) 150deg 270deg,
+    var(--maida-amarelo) 270deg 300deg,
+    var(--branco) 300deg 360deg
+  );
+  animation: fluxoContinuoBorda 4s linear infinite;
+}
+
+@keyframes fluxoContinuoBorda {
+  to { --gradient-angle: 360deg; }
+}
+
+.content-box {
+  background-color: white;
+  border-radius: 36px;
+  padding: 40px;
+  position: relative;
+  z-index: 1;
+  text-align: center;
+}
+
+.upload-btn {
+  display: inline-block;
+  padding: 12px 25px;
+  font-size: 16px;
+  font-weight: bold;
+  border-radius: 10px;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  border: none;
+  background-color: var(--maida-rosa);
+  color: white;
+  margin-bottom: 10px;
+}
+
+.upload-btn:hover {
+  opacity: 0.9;
+  transform: scale(1.02);
+}
+
+.process-btn {
+  display: inline-block;
+  padding: 12px 25px;
+  font-size: 16px;
+  font-weight: bold;
+  border-radius: 10px;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  border: none;
+  background-color: var(--maida-amarelo);
+  color: var(--maida-azul);
+  margin-top: 15px;
+}
+
+.process-btn:hover {
+  background-color: var(--maida-rosa);
+  color: white;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
+}
+
+.file-name {
+  margin-top: 8px;
+  font-size: 14px;
+  color: var(--maida-azul);
+  min-height: 20px;
+}
+
+.spinner {
+  display: inline-block;
+  width: 16px;
+  height: 16px;
+  border: 2px solid rgba(0, 0, 0, 0.2);
+  border-top: 2px solid var(--maida-azul);
+  border-radius: 50%;
+  animation: spinBtn 0.8s linear infinite;
+  margin-right: 8px;
+  vertical-align: middle;
+}
+
+@keyframes spinBtn {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
