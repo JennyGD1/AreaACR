@@ -3,8 +3,7 @@
 /* --- 1. Estilo do Corpo da Página Inicial --- */
 body.page-inicio {
     /* Define a imagem de fundo */
-    background: url("../img/wallpaper_maida.png") no-repeat center center fixed;
-    background-size: cover;
+    background-color: #ffffff;
 
     /* Centraliza o conteúdo vertical e horizontalmente */
     display: flex;
