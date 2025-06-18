@@ -1,29 +1,37 @@
-body.page-inicio {
-    /* Define a cor de fundo como branca */
-    background-color: #ffffff;
+/* static/css/pages/inicio.css */
 
-    /* As 3 linhas mágicas para a centralização perfeita */
+/* 1. Ajuste no Body:
+   O body vai organizar a página em seções (cabeçalho, conteúdo, rodapé). */
+body.page-inicio {
+    background-color: #ffffff;
     display: flex;
-    justify-content: center; /* Centraliza na horizontal (eixo X) */
-    align-items: center;   /* Centraliza na vertical (eixo Y) */
-    
-    /* Garante que o body ocupe a tela toda para a centralização funcionar */
-    min-height: calc(100vh - 70px); /* 100% da altura da tela menos a altura do navbar */
-    
-    /* Garante que o texto dentro do container, caso ele não tivesse uma regra, também começasse centralizado */
-    text-align: center;
+    flex-direction: column; /* Empilha os filhos na vertical */
+    min-height: 100vh; /* Ocupa no mínimo a altura toda da tela */
+    box-sizing: border-box; /* Garante que padding não afete o tamanho total */
 }
 
-/* --- 2. A Caixa de Boas-Vindas --- */
+/* 2. Ajuste no Main:
+   O main vai crescer para ocupar o espaço vazio e centralizar o container. */
+.page-inicio main {
+    flex-grow: 1; /* Faz o <main> crescer para ocupar o espaço disponível entre o menu e o rodapé */
+
+    /* As 3 linhas mágicas para a centralização, aplicadas ao pai direto! */
+    display: flex;
+    justify-content: center; /* Centraliza o .welcome-container na horizontal */
+    align-items: center;   /* Centraliza o .welcome-container na vertical */
+}
+
+/* 3. A Caixa de Boas-Vindas (nenhuma mudança aqui, mas mantemos para clareza) */
 .welcome-container {
-    background-color: rgba(255, 255, 255, 0.92); /* Fundo branco com leve transparência */
+    background-color: rgba(238, 238, 238, 0.92); /* Fundo cinza claro com leve transparência */
     padding: 50px;
     border-radius: 15px;
-    box-shadow: 0 5px 20px rgba(0, 0, 0, 0.1); /* Sombra suave para dar profundidade */
+    box-shadow: 0 5px 20px rgba(0, 0, 0, 0.1);
     max-width: 650px;
+    border: 1px solid #ddd;
 }
 
-/* --- 3. Textos dentro da Caixa --- */
+/* 4. Textos dentro da Caixa (nenhuma mudança aqui) */
 .welcome-container h1 {
     font-size: 2.8rem;
     color: var(--maida-azul);
@@ -33,5 +41,5 @@ body.page-inicio {
 .welcome-container p {
     font-size: 1.2rem;
     color: #333;
-    margin-bottom: 35px;
+    margin-bottom: 0; /* Removemos a margem do botão que não existe mais */
 }
