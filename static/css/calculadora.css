@@ -1,8 +1,120 @@
 /* static/css/pages/calculadora.css */
 
-/* Estilos para as páginas da calculadora (upload, resultados, detalhes) */
+/* ================================================= */
+/* --- ESTILOS DA PÁGINA DE UPLOAD (RESTAURADOS) --- */
+/* ================================================= */
 
-/* --- Containers Principais --- */
+.page-upload {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    /* justify-content: center; */ /* Removido para o logo ficar no topo */
+    min-height: 100vh;
+    background-color: var(--fundo-azul);
+    padding: 20px;
+    box-sizing: border-box;
+    color: var(--branco);
+}
+
+.page-upload .logo {
+    margin-top: 30px;
+    margin-bottom: 20px;
+    text-align: center;
+}
+
+.page-upload .logo img {
+    max-width: 180px;
+}
+
+.borda-animada {
+    position: relative;
+    border-radius: 40px;
+    padding: 4px;
+    margin: 20px;
+    overflow: hidden;
+    background: conic-gradient(
+      from var(--gradient-angle, 0deg),
+      var(--branco) 0deg 120deg,
+      var(--maida-rosa) 120deg 150deg,
+      var(--branco) 150deg 270deg,
+      var(--maida-amarelo) 270deg 300deg,
+      var(--branco) 300deg 360deg
+    );
+    animation: fluxoContinuoBorda 4s linear infinite;
+}
+
+@keyframes fluxoContinuoBorda {
+    to { --gradient-angle: 360deg; }
+}
+
+.content-box {
+    background-color: white;
+    border-radius: 36px;
+    padding: 40px;
+    position: relative;
+    z-index: 1;
+    text-align: center;
+}
+.content-box h1 {
+    color: var(--maida-azul);
+    margin-bottom: 20px;
+}
+
+.upload-btn {
+    background-color: var(--maida-rosa);
+    color: white;
+    margin-bottom: 10px;
+}
+.upload-btn:hover {
+    opacity: 0.9;
+    transform: scale(1.02);
+}
+
+.process-btn {
+    background-color: var(--maida-amarelo);
+    color: var(--maida-azul);
+    margin-top: 15px;
+}
+.process-btn:hover {
+    background-color: var(--maida-rosa);
+    color: white;
+    transform: translateY(-2px);
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
+}
+
+.file-name {
+    margin-top: 8px;
+    font-size: 14px;
+    color: var(--maida-azul);
+    min-height: 20px;
+}
+
+.spinner {
+    display: inline-block;
+    width: 16px;
+    height: 16px;
+    border: 2px solid rgba(0, 0, 0, 0.2);
+    border-top: 2px solid var(--maida-azul);
+    border-radius: 50%;
+    animation: spinBtn 0.8s linear infinite;
+    margin-right: 8px;
+    vertical-align: middle;
+}
+
+@keyframes spinBtn {
+    from { transform: rotate(0deg); }
+    to { transform: rotate(360deg); }
+}
+
+.page-upload footer {
+    color: var(--branco);
+    margin-top: auto; /* Empurra o rodapé para o final da tela */
+}
+
+/* ===================================================== */
+/* --- ESTILOS DAS PÁGINAS DE RESULTADO E DETALHES --- */
+/* ===================================================== */
+
 .container-centralizado, .container {
     max-width: 800px;
     margin: 20px auto;
@@ -13,239 +125,101 @@
 }
 
 .container {
-    max-width: 900px; /* Um pouco maior para a página de detalhes */
+    max-width: 900px;
 }
 
-/* --- Títulos --- */
-h1, h2, h3, h4 {
-  color: var(--maida-azul);
-}
-
-h1 {
-  text-align: center;
-  margin-bottom: 30px;
-  border-bottom: 2px solid rgba(0,0,0,0.1);
-  padding-bottom: 10px;
-}
-
-/* --- Tabelas de Resultado --- */
 table {
-  width: 100%;
-  border-collapse: collapse;
-  margin: 20px 0;
-  box-shadow: 0 1px 3px rgba(0,0,0,0.1);
-  background-color: rgba(255, 255, 255, 0.6);
+    width: 100%;
+    border-collapse: collapse;
+    margin: 20px 0;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+    background-color: rgba(255, 255, 255, 0.6);
 }
 
 th, td {
-  padding: 12px 15px;
-  text-align: left;
-  border-bottom: 1px solid rgba(0,0,0,0.1);
+    padding: 12px 15px;
+    text-align: left;
+    border-bottom: 1px solid rgba(0,0,0,0.1);
 }
 
 th {
-  font-weight: 600;
-  background-color: rgba(255, 255, 255, 0.8);
+    font-weight: 600;
+    background-color: rgba(255, 255, 255, 0.8);
 }
 
 tr.total-geral {
-  font-size: 1.1em;
-  font-weight: bold;
-  color: var(--branco);
-  background-color: var(--maida-azul);
-  border-top: 2px solid var(--maida-azul);
+    font-size: 1.1em;
+    font-weight: bold;
+    color: var(--branco);
+    background-color: var(--maida-azul);
+    border-top: 2px solid var(--maida-azul);
 }
 
-/* --- Botões --- */
 .btn-container {
-  display: flex;
-  justify-content: center;
-  gap: 15px;
-  margin: 40px 0;
-  flex-wrap: wrap;
+    display: flex;
+    justify-content: center;
+    gap: 15px;
+    margin: 40px 0;
+    flex-wrap: wrap;
 }
 .btn {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
-  padding: 12px 24px;
-  border-radius: 10px;
-  font-weight: bold;
-  text-decoration: none;
-  font-size: 16px;
-  transition: all 0.3s ease;
-  cursor: pointer;
-  border: none;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    padding: 12px 24px;
+    border-radius: 10px;
+    font-weight: bold;
+    text-decoration: none;
+    font-size: 16px;
+    transition: all 0.3s ease;
+    cursor: pointer;
+    border: none;
 }
 .btn-primary {
-  background-color: var(--maida-amarelo);
-  color: var(--maida-azul);
+    background-color: var(--maida-amarelo);
+    color: var(--maida-azul);
 }
 .btn-secondary {
-  background-color: var(--maida-rosa);
-  color: white;
+    background-color: var(--maida-rosa);
+    color: white;
 }
 .btn:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+    transform: translateY(-2px);
+    box-shadow: 0 4px 8px rgba(0,0,0,0.2);
 }
 
-/* --- Estilos específicos da página de detalhes (movidos de dentro do HTML) --- */
 .year-selector {
-  margin: 20px 0;
-  padding: 10px;
-  background-color: #f5f5f5;
-  border-radius: 5px;
-  text-align: center;
-}
-.year-selector label {
-  margin-right: 10px;
-  font-weight: bold;
-}
-.year-selector select {
-  padding: 8px;
-  border-radius: 4px;
-  border: 1px solid #ddd;
-  font-size: 16px;
-}
-.mes-container {
-  margin-bottom: 20px;
-  transition: all 0.3s ease;
-}
-.mes-header {
-  background-color: rgba(6, 57, 112, 0.1);
-  padding: 12px 16px;
-  border-radius: 10px;
-  margin-bottom: 10px;
-}
-
-/* --- Outros --- */
-.info-text {
-  text-align: center;
-  color: var(--maida-azul);
-  margin-top: 30px;
-  font-size: 0.9em;
-}
-/* ===================================================== */
-/* --- Estilos para a Página de Upload (antigo index) --- */
-/* ===================================================== */
-
-.page-upload {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  min-height: calc(100vh - 70px); /* Subtrai a altura do navbar */
-  background-color: var(--fundo-azul);
-  padding: 20px;
-  box-sizing: border-box;
-}
-
-.borda-animada {
-  position: relative;
-  border-radius: 40px;
-  padding: 4px;
-  margin: 20px;
-  overflow: hidden;
-  background: conic-gradient(
-    from var(--gradient-angle, 0deg),
-    var(--branco) 0deg 120deg,
-    var(--maida-rosa) 120deg 150deg,
-    var(--branco) 150deg 270deg,
-    var(--maida-amarelo) 270deg 300deg,
-    var(--branco) 300deg 360deg
-  );
-  animation: fluxoContinuoBorda 4s linear infinite;
-}
-
-@keyframes fluxoContinuoBorda {
-  to { --gradient-angle: 360deg; }
-}
-
-.content-box {
-  background-color: white;
-  border-radius: 36px;
-  padding: 40px;
-  position: relative;
-  z-index: 1;
-  text-align: center;
-}
-
-.upload-btn {
-  display: inline-block;
-  padding: 12px 25px;
-  font-size: 16px;
-  font-weight: bold;
-  border-radius: 10px;
-  cursor: pointer;
-  transition: all 0.3s ease;
-  border: none;
-  background-color: var(--maida-rosa);
-  color: white;
-  margin-bottom: 10px;
-}
-
-.upload-btn:hover {
-  opacity: 0.9;
-  transform: scale(1.02);
-}
-
-.process-btn {
-  display: inline-block;
-  padding: 12px 25px;
-  font-size: 16px;
-  font-weight: bold;
-  border-radius: 10px;
-  cursor: pointer;
-  transition: all 0.3s ease;
-  border: none;
-  background-color: var(--maida-amarelo);
-  color: var(--maida-azul);
-  margin-top: 15px;
-}
-
-.process-btn:hover {
-  background-color: var(--maida-rosa);
-  color: white;
-  transform: translateY(-2px);
-  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
-}
-
-.file-name {
-  margin-top: 8px;
-  font-size: 14px;
-  color: var(--maida-azul);
-  min-height: 20px;
-}
-
-.spinner {
-  display: inline-block;
-  width: 16px;
-  height: 16px;
-  border: 2px solid rgba(0, 0, 0, 0.2);
-  border-top: 2px solid var(--maida-azul);
-  border-radius: 50%;
-  animation: spinBtn 0.8s linear infinite;
-  margin-right: 8px;
-  vertical-align: middle;
-}
-
-@keyframes spinBtn {
-  from { transform: rotate(0deg); }
-  to { transform: rotate(360deg); }
-}
-/* Estilo para o Logo na página de upload */
-.page-upload .logo {
-    margin-bottom: 20px;
+    margin: 20px 0;
+    padding: 10px;
+    background-color: #f5f5f5;
+    border-radius: 5px;
     text-align: center;
 }
-.page-upload .logo img {
-    max-width: 180px;
+.year-selector label {
+    margin-right: 10px;
+    font-weight: bold;
+}
+.year-selector select {
+    padding: 8px;
+    border-radius: 4px;
+    border: 1px solid #ddd;
+    font-size: 16px;
+}
+.mes-container {
+    margin-bottom: 20px;
+    transition: all 0.3s ease;
+}
+.mes-header {
+    background-color: rgba(6, 57, 112, 0.1);
+    padding: 12px 16px;
+    border-radius: 10px;
+    margin-bottom: 10px;
 }
 
-/* Garante que o footer na página de upload tenha a cor certa */
-.page-upload footer {
-    color: var(--branco);
-    margin-top: auto; /* Empurra o rodapé para o final da tela */
+.info-text {
+    text-align: center;
+    color: var(--maida-azul);
+    margin-top: 30px;
+    font-size: 0.9em;
 }
