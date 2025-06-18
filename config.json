@@ -3,15 +3,33 @@
     "tjba": {
       "identificadores": ["TJBA", "TRIBUNAL DE JUSTIÇA DA BAHIA"],
       "campos": {
-        "plano_saude_servidor": "PLANO DE SAUDE DOS SERV.PUBLICOS ESTADUA",
-        "planserv_especial": "PLANSERV ESPECIAL",
-        "planserv_conjuge": "PLANSERV CONJUGE/COMPANHEIRO (A)",
-        "planserv_agregado": "PLANSERV AGREGADO MAIOR",
-        "coparticipacao_planserv": "CO-PARTICIPAÇÃO PLANSERV"
+        "titular": "PLANO DE SAUDE DOS SERV.PUBLICOS ESTADUA",
+        "plano_especial": "PLANSERV ESPECIAL",
+        "conjuge": "PLANSERV CONJUGE/COMPANHEIRO (A)",
+        "agregado_maior": "PLANSERV AGREGADO MAIOR",
+        "coparticipacao": "CO-PARTICIPAÇÃO PLANSERV"
       }
     },
     "rh_bahia": {
-      "identificadores": ["GOVERNO DO ESTADO DA BAHIA", "SAEB", "SECRETARIA DA ADMINISTRAÇÃO"]
+      "identificadores": [
+        "GOVERNO DO ESTADO DA BAHIA", 
+        "SAEB", 
+        "SECRETARIA DA ADMINISTRAÇÃO"
+      ],
+      "campos": {
+        "titular": "7033",
+        "conjuge": "7035",
+        "dependente": "7034",
+        "agregado_jovem": "7038",
+        "agregado_maior": "7039",
+        "plano_especial": "7037",
+        "coparticipacao": "7040",
+        "retroativo": "7049",
+        "parcela_risco_titular": "7088",
+        "parcela_risco_dependente": "7089",
+        "parcela_risco_conjuge": "7090",
+        "parcela_risco_agregado": "7091"
+      }
     }
   }
 }
