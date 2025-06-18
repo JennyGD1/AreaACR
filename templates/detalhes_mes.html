@@ -94,7 +94,7 @@
             Processado em {{ now.strftime('%d/%m/%Y às %H:%M') }}
         </p>
     </div>
-    
+    {% include 'components/_footer.html' %}
     <script src="{{ url_for('static', filename='js/main.js') }}" defer></script>
     <script>
         document.addEventListener('DOMContentLoaded', function() {
