@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Bem-vindo - Ferramenta Maida Health</title>
+    <link rel="icon" href="{{ url_for('static', filename='img/logo_maida.png') }}" />
+
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/base.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/components/navbar.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/pages/inicio.css') }}">
+</head>
+<body class="page-inicio">
+
+    {% include 'components/_preloader.html' %}
+
+    {% include 'components/_navbar.html' %}
+
+    <div class="scrollbar-container">
+        <div class="scrollbar-thumb" id="scrollThumb"></div>
+    </div>
+
+    <main>
+        <div class="welcome-container">
+            <h1>Ferramenta Unificada</h1>
+            <p>Selecione uma das ferramentas abaixo para iniciar ou utilize o menu de navegação no topo da página.</p>
+            
+            <a href="{{ url_for('calculadora_index') }}" class="btn-inicio">
+                🚀 Acessar Calculadora de Mensalidades
+            </a>
+        </div>
+    </main>
+
+    <script src="{{ url_for('static', filename='js/main.js') }}" defer></script>
+</body>
+</html>
