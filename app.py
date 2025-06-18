@@ -103,6 +103,7 @@ def processar_pdf(caminho_pdf):
             # Chama o processador para identificar e extrair dados
             tipo_contracheque = processador.identificar_tipo(texto_pagina)
             logger.info(f"Arquivo '{os.path.basename(caminho_pdf)}' identificado como: '{tipo_contracheque}'")
+            
             dados_extraidos = processador.extrair_dados(texto_pagina, tipo_contracheque)
             
             # Prepara o dicionário de valores para a página atual
@@ -111,61 +112,17 @@ def processar_pdf(caminho_pdf):
 
             # Adiciona o resultado da página à lista de resultados
             resultados_por_pagina.append((mes_ano_encontrado, valores_pagina))
-        
+            
         # O return acontece AQUI, DEPOIS de processar todas as páginas
         return resultados_por_pagina
+
     except Exception as e:
         logger.error(f"Erro ao processar PDF {caminho_pdf}: {str(e)}", exc_info=True)
         return []
 
-            for i, linha in enumerate(linhas):
-                linha_strip = linha.strip()
-
-                codigo_match = re.match(r'^(\d{4})\b', linha_strip)
-                codigo_encontrado = None
-                campo_alvo = None
-
-                if codigo_match:
-                    codigo_encontrado = codigo_match.group(1)
-                    if codigo_encontrado in CODIGOS:
-                        campo_alvo = CODIGOS[codigo_encontrado]
-
-                if not campo_alvo:
-                    if re.search(r'Assistência a Saúde|PLANO DE SAUDE DOS SERV', linha, re.IGNORECASE):
-                        campo_alvo = 'titular'
-                    elif re.search(r'Planserv Especial|PLANSERV ESPECIAL', linha, re.IGNORECASE):
-                        campo_alvo = 'plano_especial'
-                    elif re.search(r'Planserv Agregado Jovem', linha, re.IGNORECASE):
-                        campo_alvo = 'agregado_jovem'
-                    elif re.search(r'CO-PARTICIPAÇÃO PLANSERV|coparticipacao', linha, re.IGNORECASE):
-                        campo_alvo = 'coparticipacao'
-
-                if campo_alvo:
-                    valor_linha = extrair_valor_linha(linha)
-                    if valor_linha > 0:
-                        valores[campo_alvo] += valor_linha
-                        logger.debug(f"'{campo_alvo}' (Cod: {codigo_encontrado if codigo_encontrado else 'Texto'}) - Valor {valor_linha} encontrado na mesma linha.")
-                    else:
-                        for offset in range(1, 4):
-                            if i + offset < len(linhas):
-                                valor_prox = extrair_valor_linha(linhas[i + offset])
-                                if valor_prox > 0:
-                                    valores[campo_alvo] += valor_prox
-                                    logger.debug(f"'{campo_alvo}' (Cod: {codigo_encontrado if codigo_encontrado else 'Texto'}) - Valor {valor_prox} encontrado na linha +{offset}.")
-                                    break
-
-            resultados_por_pagina.append((mes_ano_encontrado, valores))  # Adiciona resultado da página à lista
-
-        return resultados_por_pagina
-
-    except Exception as e:
-        logger.error(f"Erro ao processar PDF {caminho_pdf}: {str(e)}", exc_info=True)
-        return []  # Retorna uma lista vazia em caso de erro
-
-# Rota Index (igual)
+# --- ROTAS DA APLICAÇÃO ---
 @app.route('/')
 def index():
-   
     return render_template('index.html')
 
 @app.route('/calculadora')
