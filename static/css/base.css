@@ -84,3 +84,51 @@ footer {
 .page-detalhes footer {
     color: var(--maida-azul); /* Texto azul em páginas com fundo claro */
 }
+/* --- Estilos do Preloader --- */
+#preloader {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background-color: var(--fundo-azul); /* Fundo azul do preloader */
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  z-index: 9999;
+  opacity: 1;
+  visibility: visible;
+  transition: opacity 0.6s ease-out, visibility 0.6s ease-out;
+}
+
+/* Esta classe é adicionada pelo JavaScript para esconder o preloader */
+#preloader.hidden {
+  opacity: 0;
+  visibility: hidden;
+}
+
+.preloader-logo {
+  max-width: 180px;
+  margin-bottom: 30px;
+}
+
+.preloader-spinner {
+  width: 60px;
+  height: 60px;
+  animation: girarInfinito 1.5s linear infinite;
+}
+
+@keyframes girarInfinito {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+/* Círculos do spinner (opcional, mas completa o visual) */
+.preloader-spinner circle {
+  fill: none;
+  stroke: var(--maida-amarelo);
+  stroke-width: 6;
+  stroke-linecap: round;
+  transform-origin: center;
+}
