@@ -162,20 +162,29 @@ def processar_pdf(caminho_pdf):
 # Rota Index (igual)
 @app.route('/')
 def index():
-    session.clear()
+   
     return render_template('index.html')
+
+@app.route('/calculadora')
+def calculadora_index():
+    """ 
+    Esta rota leva para a página de upload da calculadora.
+    É o que a sua antiga rota principal fazia.
+    """
+    session.clear() # É uma boa prática limpar a sessão aqui
+    return render_template('indexcalculadora.html')
 
 # Rota Upload MODIFICADA para agrupar por ano
 @app.route('/upload', methods=['POST'])
 def upload():
     if 'files' not in request.files:
         flash('Nenhum arquivo selecionado')
-        return redirect(url_for('index'))
+        return redirect(url_for('calculadora_index'))
 
     files = request.files.getlist('files')
     if not files or all(f.filename == '' for f in files):
         flash('Nenhum arquivo selecionado')
-        return redirect(url_for('index'))
+        return redirect(url_for('calculadora_index'))
 
     # Estrutura para agrupar por ano
     resultados_por_ano = {}
@@ -279,7 +288,7 @@ def upload():
             flash(f'Falha ao processar todos os arquivos enviados. Erros: {"; ".join(erros)}', 'error')
         else:
             flash('Nenhum arquivo PDF válido encontrado ou processado.', 'warning')
-        return redirect(url_for('index'))
+        return redirect(url_for('calculadora_index'))
 
     # Salva na sessão
     session['resultados_por_ano'] = resultados_por_ano
@@ -296,7 +305,7 @@ def upload():
 def mostrar_resultados():
     if 'resultados_por_ano' not in session:
         flash('Nenhum resultado encontrado. Por favor, faça o upload dos arquivos primeiro.', 'warning')
-        return redirect(url_for('index'))
+        return redirect(url_for('calculadora_index'))
 
     resultados_por_ano = session.get('resultados_por_ano', {})
     erros_proc = session.get('erros', []) # Pega a lista de erros da sessão
@@ -325,7 +334,7 @@ def mostrar_resultados():
 @app.route('/detalhes')
 def detalhes_mensais():
     if 'resultados_por_ano' not in session:
-        return redirect(url_for('index'))
+        return redirect(url_for('calculadora_index'))
 
     resultados_por_ano = session['resultados_por_ano']
     detalhes = []
