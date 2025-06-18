@@ -94,15 +94,15 @@ def processar_pdf(caminho_pdf):
             '7037': 'plano_especial',
             '7040': 'coparticipacao',
             '7049': 'retroativo',
-            '7088': 'parcela_risco',
-            '7089': 'parcela_risco',
-            '7090': 'parcela_risco',
-            '7091': 'parcela_risco'
+            '7088': 'parcela_risco_titular',
+            '7089': 'parcela_risco_dependente',
+            '7090': 'parcela_risco_conjuge',
+            '7091': 'parcela_risco_agregado'
         }
         campos_obrigatorios = [
-            'titular', 'conjuge', 'dependente', 'agregado_jovem',
+             'titular', 'conjuge', 'dependente', 'agregado_jovem',
             'agregado_maior', 'plano_especial', 'coparticipacao',
-            'retroativo', 'parcela_risco'
+            'retroativo', 'parcela_risco_titular', 'parcela_risco_dependente', 'parcela_risco_conjuge', 'parcela_risco_agregado'
         ]
 
         for page_num, page in enumerate(doc):
@@ -191,12 +191,14 @@ def upload():
     erros = []
     arquivos_processados_count = 0 # Contador de arquivos (não páginas)
 
-    campos_base = [ # Define os campos esperados na estrutura 'geral'
-            'titular', 'conjuge', 'dependente',
-            'agregado_jovem', 'agregado_maior',
-            'plano_especial', 'coparticipacao',
-            'retroativo', 'parcela_risco'
-        ]
+   # Define os campos esperados na estrutura 'geral'
+     campos_base = [ 
+        'titular', 'conjuge', 'dependente',
+        'agregado_jovem', 'agregado_maior',
+        'plano_especial', 'coparticipacao',
+        'retroativo', 'parcela_risco_titular', 'parcela_risco_dependente', 
+        'parcela_risco_conjuge', 'parcela_risco_agregado'
+    ]
 
     for file in files:
         if file.filename == '' or not allowed_file(file.filename):
