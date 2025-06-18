@@ -1,17 +1,16 @@
-/* static/css/pages/inicio.css */
-
-/* --- 1. Estilo do Corpo da Página Inicial --- */
 body.page-inicio {
-    /* Define a imagem de fundo */
+    /* Define a cor de fundo como branca */
     background-color: #ffffff;
 
-    /* Centraliza o conteúdo vertical e horizontalmente */
+    /* As 3 linhas mágicas para a centralização perfeita */
     display: flex;
-    justify-content: center;
-    align-items: center;
+    justify-content: center; /* Centraliza na horizontal (eixo X) */
+    align-items: center;   /* Centraliza na vertical (eixo Y) */
     
-    /* Garante que a centralização funcione em qualquer tamanho de tela */
-    min-height: calc(100vh - 70px); /* 100% da altura da tela menos o padding do navbar */
+    /* Garante que o body ocupe a tela toda para a centralização funcionar */
+    min-height: calc(100vh - 70px); /* 100% da altura da tela menos a altura do navbar */
+    
+    /* Garante que o texto dentro do container, caso ele não tivesse uma regra, também começasse centralizado */
     text-align: center;
 }
 
