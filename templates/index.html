@@ -13,7 +13,6 @@
 <body class="page-inicio">
 
     {% include 'components/_preloader.html' %}
-
     {% include 'components/_navbar.html' %}
 
     <div class="scrollbar-container">
@@ -23,16 +22,12 @@
     <main>
         <div class="welcome-container">
             <h1>Ferramenta Unificada</h1>
-            <p>Selecione uma das ferramentas abaixo para iniciar ou utilize o menu de navegação no topo da página.</p>
-            
-            <a href="{{ url_for('calculadora_index') }}" class="btn-inicio">
-                🚀 Acessar Calculadora de Mensalidades
-            </a>
+            <p>Selecione uma das ferramentas no menu de navegação no topo para ser direcionado.</p>
         </div>
     </main>
 
     {% include 'components/_footer.html' %}
+
     <script src="{{ url_for('static', filename='js/main.js') }}" defer></script>
-    
 </body>
 </html>
