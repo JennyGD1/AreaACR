@@ -1,0 +1,59 @@
+/* static/css/pages/inicio.css */
+
+/* --- 1. Estilo do Corpo da Página Inicial --- */
+body.page-inicio {
+    /* Define a imagem de fundo */
+    background: url("../img/wallpaper_maida.png") no-repeat center center fixed;
+    background-size: cover;
+
+    /* Centraliza o conteúdo vertical e horizontalmente */
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    
+    /* Garante que a centralização funcione em qualquer tamanho de tela */
+    min-height: calc(100vh - 70px); /* 100% da altura da tela menos o padding do navbar */
+    text-align: center;
+}
+
+/* --- 2. A Caixa de Boas-Vindas --- */
+.welcome-container {
+    background-color: rgba(255, 255, 255, 0.92); /* Fundo branco com leve transparência */
+    padding: 50px;
+    border-radius: 15px;
+    box-shadow: 0 5px 20px rgba(0, 0, 0, 0.1); /* Sombra suave para dar profundidade */
+    max-width: 650px;
+}
+
+/* --- 3. Textos dentro da Caixa --- */
+.welcome-container h1 {
+    font-size: 2.8rem;
+    color: var(--maida-azul);
+    margin-bottom: 15px;
+}
+
+.welcome-container p {
+    font-size: 1.2rem;
+    color: #333;
+    margin-bottom: 35px;
+}
+
+/* --- 4. Botão Principal de Acesso --- */
+.btn-inicio {
+    display: inline-block;
+    padding: 15px 35px;
+    font-size: 1.1rem;
+    font-weight: bold;
+    text-decoration: none;
+    border-radius: 10px;
+    background-color: var(--maida-rosa);
+    color: var(--branco);
+    transition: all 0.3s ease;
+    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.15);
+}
+
+.btn-inicio:hover {
+    /* Efeito de "levantar" o botão ao passar o mouse */
+    transform: translateY(-3px);
+    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.2);
+}
