@@ -1,8 +1,8 @@
-/* static/css/pages/calculadora.css */
-
-/* ================================================= */
-/* --- ESTILOS DA PÁGINA DE UPLOAD (RESTAURADOS) --- */
-/* ================================================= */
+@property --gradient-angle {
+  syntax: '<angle>';
+  inherits: false;
+  initial-value: 0deg;
+}
 
 .page-upload {
     display: flex;
