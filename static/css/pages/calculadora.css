@@ -246,3 +246,34 @@ tr.total-geral {
     margin-top: 30px;
     font-size: 0.9em;
 }
+.page-upload .logo {
+    margin-bottom: 20px;
+    text-align: center;
+}
+.page-upload .logo img {
+    max-width: 180px;
+}
+
+/* Garante que o footer na página de upload tenha a cor certa */
+.page-upload footer {
+    color: var(--branco);
+    margin-top: auto; /* Empurra o rodapé para o final da tela */
+}
+
+/* ======================================= */
+/* --- NOVA SEÇÃO DE RESTITUIÇÃO --- */
+/* ======================================= */
+
+.restituicao-card {
+    background-color: #e8f5e9; /* Fundo verde claro */
+    color: #2e7d32; /* Texto verde escuro */
+    border: 1px solid #a5d6a7;
+    border-left: 5px solid #4caf50;
+    padding: 15px;
+    margin: -10px auto 20px auto; /* Margem para alinhar com a tabela */
+    border-radius: 8px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 1.1em;
+}
