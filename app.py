@@ -163,16 +163,12 @@ def upload():
                                     'detalhes_mensais': []
                                 }
 
-                            total_pagina = 0.0
+                            # Agregação dos valores para a visão geral do ano
                             for campo, valor in valores_pagina.items():
                                 if campo in resultados_por_ano[ano]['geral']:
                                     resultados_por_ano[ano]['geral'][campo] += valor
-                                    total_pagina += valor
-                                else:
-                                    logger.warning(f"Campo '{campo}' da pág/mês {mes_ano_str} (arq: {filename}) não encontrado na estrutura do ano {ano}.")
-
-                            resultados_por_ano[ano]['total_ano'] += total_pagina 
-
+                            
+                            # Adiciona os detalhes deste mês para a outra página
                             resultados_por_ano[ano]['detalhes_mensais'].append({
                                 'mes': mes_ano_str,
                                 'arquivo': filename,
@@ -202,6 +198,11 @@ def upload():
                 try: os.remove(filepath)
                 except OSError as re: logger.error(f"Erro ao remover {filepath} após erro: {re}")
 
+    # Calcula o total de cada ano DEPOIS de processar todos os arquivos
+    for ano in resultados_por_ano:
+        total_do_ano = sum(resultados_por_ano[ano]['geral'].values())
+        resultados_por_ano[ano]['total_ano'] = total_do_ano
+
     if not resultados_por_ano and arquivos_processados_count == 0:
         if erros:
             flash(f'Falha ao processar todos os arquivos enviados. Erros: {"; ".join(erros)}', 'error')
@@ -226,10 +227,8 @@ def mostrar_resultados():
     resultados_por_ano = session.get('resultados_por_ano', {})
     erros_proc = session.get('erros', []) 
     
-    total_geral_calculado = 0.0
-    for ano, dados_ano in resultados_por_ano.items():
-        if ano.isdigit() and len(ano) == 4:
-            total_geral_calculado += dados_ano.get('total_ano', 0.0)
+    # O total geral agora é a soma dos totais de cada ano, que já foram calculados
+    total_geral_calculado = sum(dados_ano.get('total_ano', 0.0) for dados_ano in resultados_por_ano.values())
 
     anos_ordenados = sorted([a for a in resultados_por_ano.keys() if a.isdigit()], key=int, reverse=True)
     outros_anos = sorted([a for a in resultados_por_ano.keys() if not a.isdigit()])
