@@ -36,23 +36,22 @@
                 <div class="ano-container" data-ano="{{ ano }}">
                     <h2>Ano: {{ ano }}</h2>
                     
-                    <!-- TABELA DE DESCONTOS DETALHADA -->
-                    <h4>Descontos do Período</h4>
+                    <h4>Cobranças do Período</h4>
                     <table>
-                        <!-- Loop para mostrar cada rubrica que teve valor > 0 -->
-                        {% for chave, valor in dados_ano.geral.items() %}
-                            {% if valor > 0 and chave != 'restituicao' %}
+                        <!-- NOVO LOOP ORDENADO -->
+                        {% for chave in ordem_descontos %}
+                            {# Apenas mostra a linha se a cobrança existiu naquele ano e não é restituição #}
+                            {% if dados_ano.geral.get(chave, 0) > 0 and chave != 'restituicao' %}
                                 <tr>
-                                    <!-- A chave (ex: 'titular') é capitalizada para o título -->
-                                    <th scope="col">{{ chave.replace('_', ' ')|title }}</th>
-                                    <td>R$ {{ "%.2f"|format(valor) }}</td>
+                                    <th scope="row">{{ chave.replace('_', ' ')|title }}</th>
+                                    <td>R$ {{ "%.2f"|format(dados_ano.geral.get(chave)) }}</td>
                                 </tr>
                             {% endif %}
                         {% endfor %}
                         
-                        <!-- Linha do Total de Descontos do Ano -->
+                        <!-- Linha do Total de Cobranças -->
                         <tr class="total-geral">
-                            <th scope="col">Total de Descontos do Ano</th>
+                            <th scope="row">Total de Cobranças do Ano</th>
                             <td>R$ {{ "%.2f"|format(dados_ano.get('total_ano', 0)) }}</td>
                         </tr>
                     </table>
@@ -72,7 +71,7 @@
         {% endif %}
 
         <div class="total-geral-container">
-            <h3>Total Geral de Descontos</h3>
+            <h3>Total Geral de Cobranças</h3>
             <p>R$ {{ "%.2f"|format(total_geral) }}</p>
         </div>
 
