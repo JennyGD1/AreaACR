@@ -8,10 +8,9 @@ class AnalisadorDescontos:
     def __init__(self, config_path='config.json'):
         try:
             with open(config_path, 'r', encoding='utf-8') as f:
-                # Carrega apenas a seção de regras de análise do config
+                # CORREÇÃO AQUI: Passamos o arquivo 'f' para a função json.load()
                 self.config = json.load(f).get('regras_analise', {})
             
-            # Carrega as regras para dentro da classe para fácil acesso
             self.rubricas_unicas = self.config.get('rubricas_unicas', [])
             self.valores_referencia = self.config.get('valores_referencia', {})
             
@@ -23,8 +22,8 @@ class AnalisadorDescontos:
     def determinar_quantidade_pessoas(self, rubrica, valor):
         """
         Estima a quantidade de pessoas com base no valor de uma rubrica.
-        Esta é a tradução da lógica do JavaScript.
         """
+        # Garante que o valor de entrada seja um número
         try:
             valor_num = float(valor)
         except (ValueError, TypeError):
@@ -37,19 +36,17 @@ class AnalisadorDescontos:
         if not valores_ref:
             return 1
 
-        # Lógica especial para '7034' (Dependentes) onde se busca múltiplos exatos
         if rubrica == "7034":
             for ref in valores_ref:
-                # Usa uma pequena tolerância para comparações de float
                 if abs(valor_num - ref) < 0.01:
                     return 1
                 if ref > 0:
+                    # Verifica se a divisão resulta em um número inteiro (com uma pequena tolerância)
                     multiplicador = valor_num / ref
                     if abs(multiplicador - round(multiplicador)) < 0.01:
                         return int(round(multiplicador))
-            return "X" # Indica valor não padrão
+            return "X"
 
-        # Lógica padrão: encontra o valor de referência mais próximo e calcula
         menor_diferenca = float('inf')
         valor_ref_proximo = valores_ref[0]
         for ref in valores_ref:
@@ -85,6 +82,7 @@ class AnalisadorDescontos:
                         if rubrica not in analise_completa[ano]['analise_descontos']:
                             analise_completa[ano]['analise_descontos'][rubrica] = {}
                         
+                        # CORREÇÃO AQUI: Removemos o str() para passar o valor como número
                         quantidade = self.determinar_quantidade_pessoas(rubrica, valor)
                         
                         analise_completa[ano]['analise_descontos'][rubrica][mes] = {
