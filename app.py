@@ -1,5 +1,3 @@
-# app.py - VERSÃO FINAL, COMPLETA E COM INDENTAÇÃO CORRIGIDA
-
 import fitz
 import re
 import os
@@ -7,6 +5,7 @@ from flask import Flask, render_template, request, redirect, url_for, flash, ses
 from werkzeug.utils import secure_filename
 from datetime import datetime
 from processador_contracheque import ProcessadorContracheque
+from analisador import AnalisadorDescontos
 import logging
 from logging.handlers import RotatingFileHandler
 
@@ -42,8 +41,9 @@ app.config.update({
     'ALLOWED_EXTENSIONS': {'pdf'},
 })
 
-# Instância do processador
+# Instâncias dos nossos especialistas
 processador = ProcessadorContracheque('config.json')
+analisador = AnalisadorDescontos('config.json')
 
 # --- FUNÇÕES AUXILIARES ---
 def allowed_file(filename):
@@ -56,7 +56,6 @@ def extrair_mes_ano_do_texto(texto_pagina):
         mes_nome = match.group(1).capitalize()
         ano = match.group(2)
         mes_num = MESES_ORDEM.get(mes_nome[:3].upper())
-        # Encontra o nome completo do mês para padronização
         for nome_completo, num in MESES_ORDEM.items():
             if num == mes_num and len(nome_completo) > 3:
                 return f"{nome_completo} {ano}", ano
@@ -196,9 +195,7 @@ def upload():
                 try: os.remove(filepath)
                 except OSError as re: logger.error(f"Erro ao remover {filepath} após erro: {re}")
 
-    # Calcula o total de cada ano DEPOIS de processar todos os arquivos
     for ano in resultados_por_ano:
-        # CORREÇÃO: Soma todos os valores, exceto 'restituicao'
         total_do_ano = sum(valor for chave, valor in resultados_por_ano[ano]['geral'].items() if chave != 'restituicao')
         resultados_por_ano[ano]['total_ano'] = total_do_ano
 
@@ -291,6 +288,23 @@ def detalhes_mensais():
                            anos_disponiveis=sorted(list(anos_disponiveis), reverse=True),
                            erros_processamento=erros_proc,
                            now=datetime.now())
+
+@app.route('/analise')
+def mostrar_analise_detalhada():
+    if 'resultados_por_ano' not in session:
+        flash('Nenhum resultado encontrado. Por favor, faça o upload dos arquivos primeiro.', 'warning')
+        return redirect(url_for('calculadora_index'))
+
+    resultados_por_ano = session.get('resultados_por_ano', {})
+    
+    dados_analisados = analisador.analisar_resultados(resultados_por_ano)
+    
+    anos_ordenados = sorted([a for a in dados_analisados.keys() if a.isdigit()], key=int, reverse=True)
+    
+    return render_template('analise_detalhada.html', 
+                           dados_analisados=dados_analisados,
+                           anos_ordenados=anos_ordenados,
+                           config=processador.config)
 
 
 if __name__ == '__main__':
