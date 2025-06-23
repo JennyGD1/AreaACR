@@ -1,3 +1,5 @@
+# app.py - VERSÃO FINAL, COMPLETA E CORRIGIDA
+
 import fitz
 import re
 import os
@@ -14,7 +16,7 @@ app.secret_key = 'sua-chave-secreta-aqui'
 
 # Configuração do logger
 logging.basicConfig(
-    level=logging.DEBUG,
+    level=logging.INFO,
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
     handlers=[
         RotatingFileHandler('app.log', maxBytes=100000, backupCount=3),
@@ -23,14 +25,12 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-# Dicionário de meses
+# Dicionário de meses para ordenação
 MESES_ORDEM = {
     'Janeiro': 1, 'Fevereiro': 2, 'Março': 3, 'Abril': 4,
     'Maio': 5, 'Junho': 6, 'Julho': 7, 'Agosto': 8,
     'Setembro': 9, 'Outubro': 10, 'Novembro': 11, 'Dezembro': 12
 }
-for mes in list(MESES_ORDEM.keys()):
-    MESES_ORDEM[mes[:3].upper()] = MESES_ORDEM[mes]
 
 # Configurações do app
 UPLOAD_FOLDER = '/tmp/uploads'
@@ -50,15 +50,12 @@ def allowed_file(filename):
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in app.config['ALLOWED_EXTENSIONS']
 
 def extrair_mes_ano_do_texto(texto_pagina):
-    padrao_mes_ano = r'(Janeiro|Fevereiro|Março|Abril|Maio|Junho|Julho|Agosto|Setembro|Outubro|Novembro|Dezembro|JAN|FEV|MAR|ABR|MAI|JUN|JUL|AGO|SET|OUT|NOV|DEZ)\s*[/.-]?\s*(\d{4})'
+    padrao_mes_ano = r'(Janeiro|Fevereiro|Março|Abril|Maio|Junho|Julho|Agosto|Setembro|Outubro|Novembro|Dezembro)\s*[/.-]?\s*(\d{4})'
     match = re.search(padrao_mes_ano, texto_pagina, re.IGNORECASE)
     if match:
         mes_nome = match.group(1).capitalize()
         ano = match.group(2)
-        mes_num = MESES_ORDEM.get(mes_nome[:3].upper())
-        for nome_completo, num in MESES_ORDEM.items():
-            if num == mes_num and len(nome_completo) > 3:
-                return f"{nome_completo}/{ano}", ano
+        return f"{mes_nome}/{ano}", ano
     logger.warning("Mês/Ano não encontrado no texto da página.")
     return "Período não identificado", None
 
@@ -74,7 +71,6 @@ def processar_pdf(caminho_pdf):
         ]
         for page_num, page in enumerate(doc):
             texto_pagina = page.get_text("text")
-            logger.debug(f"Processando Página {page_num + 1} do arquivo {os.path.basename(caminho_pdf)}")
             mes_ano_encontrado, _ = extrair_mes_ano_do_texto(texto_pagina)
             tipo_contracheque = processador.identificar_tipo(texto_pagina)
             dados_extraidos = processador.extrair_dados(texto_pagina, tipo_contracheque)
@@ -105,77 +101,60 @@ def upload():
     if not files or all(f.filename == '' for f in files):
         flash('Nenhum arquivo selecionado')
         return redirect(url_for('calculadora_index'))
+
     resultados_por_ano = {}
     erros = []
-    arquivos_processados_count = 0
     campos_base = [
         'titular', 'conjuge', 'dependente', 'agregado_jovem', 'agregado_maior',
         'plano_especial', 'coparticipacao', 'retroativo', 'restituicao',
         'parcela_risco_titular', 'parcela_risco_dependente', 'parcela_risco_conjuge', 'parcela_risco_agregado'
     ]
+
     for file in files:
-        if file.filename == '' or not allowed_file(file.filename):
-            continue
         filename = secure_filename(file.filename)
         filepath = os.path.join(app.config['UPLOAD_FOLDER'], filename)
-        arquivo_teve_erro = False
         try:
             file.save(filepath)
             resultados_pagina = processar_pdf(filepath)
-            if resultados_pagina:
-                arquivos_processados_count += 1
-                for mes_ano_str, valores_pagina in resultados_pagina:
-                    if mes_ano_str != "Período não identificado":
-                        try:
-                            ano = mes_ano_str.split('/')[1]
-                            if not ano.isdigit() or len(ano) != 4: raise ValueError("Ano inválido")
-                            if ano not in resultados_por_ano:
-                                resultados_por_ano[ano] = {
-                                    'geral': {campo: 0.0 for campo in campos_base},
-                                    'total_ano': 0.0,
-                                    'detalhes_mensais': {}
-                                }
-                            if mes_ano_str not in resultados_por_ano[ano]['detalhes_mensais']:
-                                resultados_por_ano[ano]['detalhes_mensais'][mes_ano_str] = {'valores': {campo: 0.0 for campo in campos_base}}
+            for mes_ano_str, valores_pagina in resultados_pagina:
+                if mes_ano_str != "Período não identificado":
+                    _, ano = mes_ano_str.split('/')
+                    if ano not in resultados_por_ano:
+                        resultados_por_ano[ano] = {'geral': {c: 0.0 for c in campos_base}, 'detalhes_mensais': {}}
+                    
+                    if mes_ano_str not in resultados_por_ano[ano]['detalhes_mensais']:
+                         resultados_por_ano[ano]['detalhes_mensais'][mes_ano_str] = {'valores': {c: 0.0 for c in campos_base}}
 
-                            for campo, valor in valores_pagina.items():
-                                resultados_por_ano[ano]['geral'][campo] += valor
-                                resultados_por_ano[ano]['detalhes_mensais'][mes_ano_str]['valores'][campo] += valor
-                        except (IndexError, ValueError) as e:
-                            logger.error(f"Erro ao processar o mês/ano '{mes_ano_str}': {e}")
-                            if not arquivo_teve_erro: erros.append(f"{filename} (dados inválidos)"); arquivo_teve_erro = True
-                    else:
-                        if not arquivo_teve_erro: erros.append(f"{filename} (período não id.)"); arquivo_teve_erro = True
-            else:
-                if not arquivo_teve_erro: erros.append(f"{filename} (falha no processamento)"); arquivo_teve_erro = True
+                    for campo, valor in valores_pagina.items():
+                        if campo in campos_base:
+                            resultados_por_ano[ano]['geral'][campo] += valor
+                            resultados_por_ano[ano]['detalhes_mensais'][mes_ano_str]['valores'][campo] += valor
         except Exception as e:
-            logger.error(f"Erro GERAL no loop para o arquivo {filename}: {e}", exc_info=True)
-            if not arquivo_teve_erro: erros.append(f"{filename} (erro inesperado)")
+            logger.error(f"Erro no upload do arquivo {filename}: {e}", exc_info=True)
+            erros.append(filename)
         finally:
             if os.path.exists(filepath):
-                try: os.remove(filepath)
-                except OSError as re_err: logger.error(f"Erro ao remover {filepath}: {re_err}")
+                try:
+                    os.remove(filepath)
+                except OSError as re_err:
+                    logger.error(f"Erro ao remover {filepath}: {re_err}")
     
-    for ano in resultados_por_ano:
-        total_do_ano = sum(valor for chave, valor in resultados_por_ano[ano]['geral'].items() if chave != 'restituicao')
-        resultados_por_ano[ano]['total_ano'] = total_do_ano
-
-    if not resultados_por_ano and arquivos_processados_count > 0:
+    if not resultados_por_ano:
         flash('Nenhum dado válido pôde ser extraído dos arquivos PDF fornecidos.', 'warning')
         return redirect(url_for('calculadora_index'))
-    elif not resultados_por_ano:
-        flash('Nenhum arquivo PDF válido foi enviado.', 'warning')
-        return redirect(url_for('calculadora_index'))
+
+    for ano in resultados_por_ano:
+        total_do_ano = sum(v for k, v in resultados_por_ano[ano]['geral'].items() if k != 'restituicao')
+        resultados_por_ano[ano]['total_ano'] = total_do_ano
 
     session['resultados_por_ano'] = resultados_por_ano
-    if erros: flash(f'Processamento concluído com {len(erros)} erro(s): {", ".join(erros)}', 'warning')
+    if erros: flash(f'Processamento concluído com erros em: {", ".join(erros)}', 'warning')
     return redirect(url_for('mostrar_resultados'))
 
 
 @app.route('/resultados')
 def mostrar_resultados():
     if 'resultados_por_ano' not in session:
-        flash('Nenhum resultado encontrado. Faça o upload dos arquivos primeiro.', 'warning')
         return redirect(url_for('calculadora_index'))
     resultados_por_ano = session.get('resultados_por_ano', {})
     total_geral = sum(dados_ano.get('total_ano', 0.0) for dados_ano in resultados_por_ano.values())
@@ -194,29 +173,49 @@ def mostrar_resultados():
 @app.route('/detalhes')
 def detalhes_mensais():
     if 'resultados_por_ano' not in session:
-        flash('Nenhum resultado encontrado. Faça o upload dos arquivos primeiro.', 'warning')
         return redirect(url_for('calculadora_index'))
-    return render_template('detalhes_mes.html', resultados_por_ano=session.get('resultados_por_ano', {}))
+    return render_template('detalhes_mes.html', resultados_por_ano=session.get('resultados_por_ano', {}), meses_ordem=MESES_ORDEM)
 
 @app.route('/analise')
 def mostrar_analise_detalhada():
     if 'resultados_por_ano' not in session:
-        flash('Nenhum resultado encontrado. Faça o upload dos arquivos primeiro.', 'warning')
         return redirect(url_for('calculadora_index'))
+    
     resultados_por_ano = session.get('resultados_por_ano', {})
     dados_analisados = analisador.analisar_resultados(resultados_por_ano)
-    anos_ordenados = sorted(dados_analisados.keys(), key=int, reverse=True)
+    
+    todas_competencias = []
+    colunas_ativas = set()
+    
+    for dados_ano in dados_analisados.values():
+        for mes, detalhe_mensal in dados_ano.get('detalhes_mensais', {}).items():
+            comp_dict = {'competencia': mes}
+            comp_dict.update(detalhe_mensal.get('valores', {}))
+            todas_competencias.append(comp_dict)
+            for chave, valor in detalhe_mensal.get('valores', {}).items():
+                if valor > 0: colunas_ativas.add(chave)
+
+    def chave_de_ordenacao(item):
+        try:
+            mes_nome, ano = item['competencia'].split('/')
+            return int(ano) * 100 + MESES_ORDEM.get(mes_nome, 0)
+        except: return 0
+    todas_competencias.sort(key=chave_de_ordenacao)
+
+    ordem_desejada = ["titular", "parcela_risco_titular", "conjuge", "parcela_risco_conjuge", "dependente", "parcela_risco_dependente", "agregado_jovem", "agregado_maior", "parcela_risco_agregado", "plano_especial", "coparticipacao", "retroativo"]
+    colunas_ordenadas = [chave for chave in ordem_desejada if chave in colunas_ativas]
+
     descricao_rubricas = {
         'titular': 'Titular', 'conjuge': 'Cônjuge', 'dependente': 'Dependente', 'agregado_jovem': 'Agregado Jovem', 
         'agregado_maior': 'Agregado Maior', 'plano_especial': 'Plano Especial', 'coparticipacao': 'Coparticipação', 
         'retroativo': 'Retroativo', 'restituicao': 'Restituição', 'parcela_risco_titular': 'P. Risco Titular', 
         'parcela_risco_dependente': 'P. Risco Dependente', 'parcela_risco_conjuge': 'P. Risco Cônjuge', 'parcela_risco_agregado': 'P. Risco Agregado'
     }
+    
     return render_template('analise_detalhada.html', 
-                           dados_analisados=dados_analisados,
-                           anos_ordenados=anos_ordenados,
+                           todas_competencias=todas_competencias,
+                           colunas_ordenadas=colunas_ordenadas,
                            descricao_rubricas=descricao_rubricas)
-
 
 if __name__ == '__main__':
     app.run(debug=True)
