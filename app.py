@@ -1,5 +1,3 @@
-# app.py - VERSÃO FINAL, COMPLETA E COM INDENTAÇÃO CORRIGIDA
-
 import fitz
 import re
 import os
@@ -64,7 +62,6 @@ def extrair_mes_ano_do_texto(texto_pagina):
     return "Período não identificado", None
 
 def processar_pdf(caminho_pdf):
-    def processar_pdf(caminho_pdf):
     """
     Processa o PDF usando a lógica centralizada do ProcessadorContracheque.
     """
@@ -79,32 +76,23 @@ def processar_pdf(caminho_pdf):
             'parcela_risco_conjuge', 'parcela_risco_agregado'
         ]
 
-        # Este é o loop que passa por cada página do PDF
         for page_num, page in enumerate(doc):
             texto_pagina = page.get_text("text")
             logger.debug(f"Processando Página {page_num + 1} do arquivo {os.path.basename(caminho_pdf)}")
             
             mes_ano_encontrado, _ = extrair_mes_ano_do_texto(texto_pagina)
             
-            # Chama o processador para identificar e extrair dados
             tipo_contracheque = processador.identificar_tipo(texto_pagina)
             logger.info(f"Arquivo '{os.path.basename(caminho_pdf)}' identificado como: '{tipo_contracheque}'")
             
             dados_extraidos = processador.extrair_dados(texto_pagina, tipo_contracheque)
             
-            # Prepara o dicionário de valores para a página atual
             valores_pagina = {campo: 0.0 for campo in campos_obrigatorios}
             valores_pagina.update(dados_extraidos)
 
-            # Adiciona o resultado da página à lista de resultados
             resultados_por_pagina.append((mes_ano_encontrado, valores_pagina))
             
-        # O return acontece AQUI, DEPOIS de processar todas as páginas
         return resultados_por_pagina
-
-    except Exception as e:
-        logger.error(f"Erro ao processar PDF {caminho_pdf}: {str(e)}", exc_info=True)
-        return []
 
     except Exception as e:
         logger.error(f"Erro ao processar PDF {caminho_pdf}: {str(e)}", exc_info=True)
