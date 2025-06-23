@@ -1,5 +1,3 @@
-# analisador.py (VERSÃO FINAL E CORRIGIDA)
-
 import json
 import logging
 
@@ -10,9 +8,10 @@ class AnalisadorDescontos:
     def __init__(self, config_path='config.json'):
         try:
             with open(config_path, 'r', encoding='utf-8') as f:
-                # CORREÇÃO AQUI: Passamos o arquivo 'f' para a função json.load()
+                # Carrega apenas a seção de regras de análise do config
                 self.config = json.load(f).get('regras_analise', {})
             
+            # Carrega as regras para dentro da classe para fácil acesso
             self.rubricas_unicas = self.config.get('rubricas_unicas', [])
             self.valores_referencia = self.config.get('valores_referencia', {})
             
@@ -24,36 +23,44 @@ class AnalisadorDescontos:
     def determinar_quantidade_pessoas(self, rubrica, valor):
         """
         Estima a quantidade de pessoas com base no valor de uma rubrica.
+        Esta é a tradução da lógica do JavaScript.
         """
+        try:
+            valor_num = float(valor)
+        except (ValueError, TypeError):
+            return "N/A" # Retorna N/A se o valor não for numérico
+
         if rubrica in self.rubricas_unicas:
             return 1
         
-        valores_ref = self.valores_referencia.get(rubrica)
+        valores_ref = self.valores_referencia.get(str(rubrica))
         if not valores_ref:
             return 1
 
+        # Lógica especial para '7034' (Dependentes) onde se busca múltiplos exatos
         if rubrica == "7034":
             for ref in valores_ref:
-                if abs(valor - ref) < 0.01:
+                # Usa uma pequena tolerância para comparações de float
+                if abs(valor_num - ref) < 0.01:
                     return 1
                 if ref > 0:
-                    # Verifica se a divisão resulta em um número inteiro (com uma pequena tolerância)
-                    multiplicador = valor / ref
+                    multiplicador = valor_num / ref
                     if abs(multiplicador - round(multiplicador)) < 0.01:
-                        return round(multiplicador)
-            return "X"
+                        return int(round(multiplicador))
+            return "X" # Indica valor não padrão
 
+        # Lógica padrão: encontra o valor de referência mais próximo e calcula
         menor_diferenca = float('inf')
         valor_ref_proximo = valores_ref[0]
         for ref in valores_ref:
-            diferenca = abs(valor - ref)
+            diferenca = abs(valor_num - ref)
             if diferenca < menor_diferenca:
                 menor_diferenca = diferenca
                 valor_ref_proximo = ref
         
         if valor_ref_proximo > 0:
-            quantidade = round(valor / valor_ref_proximo)
-            return quantidade if quantidade > 0 else 1
+            quantidade = round(valor_num / valor_ref_proximo)
+            return int(quantidade if quantidade > 0 else 1)
         
         return 1
 
@@ -67,10 +74,10 @@ class AnalisadorDescontos:
             analise_completa[ano] = dados_ano.copy()
             analise_completa[ano]['analise_descontos'] = {}
 
-            todos_os_meses = dados_ano.get('detalhes_mensais', [])
+            # A estrutura agora é um dicionário, então usamos .items()
+            todos_os_meses = dados_ano.get('detalhes_mensais', {})
             
-            for detalhe_mensal in todos_os_meses:
-                mes = detalhe_mensal.get('mes')
+            for mes, detalhe_mensal in todos_os_meses.items():
                 valores = detalhe_mensal.get('valores', {})
                 
                 for rubrica, valor in valores.items():
@@ -78,7 +85,7 @@ class AnalisadorDescontos:
                         if rubrica not in analise_completa[ano]['analise_descontos']:
                             analise_completa[ano]['analise_descontos'][rubrica] = {}
                         
-                        quantidade = self.determinar_quantidade_pessoas(rubrica, str(valor))
+                        quantidade = self.determinar_quantidade_pessoas(rubrica, valor)
                         
                         analise_completa[ano]['analise_descontos'][rubrica][mes] = {
                             'valor': valor,
