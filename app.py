@@ -7,6 +7,7 @@ from flask import Flask, render_template, request, redirect, url_for, flash, ses
 from werkzeug.utils import secure_filename
 from datetime import datetime
 from processador_contracheque import ProcessadorContracheque
+from analisador import AnalisadorDescontos
 import logging
 from logging.handlers import RotatingFileHandler
 
@@ -44,6 +45,7 @@ app.config.update({
 
 # Instância do processador
 processador = ProcessadorContracheque('config.json')
+analisador = AnalisadorDescontos('config.json')
 
 # --- FUNÇÕES AUXILIARES ---
 def allowed_file(filename):
@@ -294,6 +296,22 @@ def detalhes_mensais():
                            erros_processamento=erros_proc,
                            now=datetime.now())
 
+@app.route('/analise')
+def mostrar_analise_detalhada():
+    if 'resultados_por_ano' not in session:
+        flash('Nenhum resultado encontrado. Por favor, faça o upload dos arquivos primeiro.', 'warning')
+        return redirect(url_for('calculadora_index'))
 
+    resultados_por_ano = session.get('resultados_por_ano', {})
+    
+    # CHAMA O ANALISADOR PARA ENRIQUECER OS DADOS
+    dados_analisados = analisador.analisar_resultados(resultados_por_ano)
+    
+    # Ordena os anos para exibição
+    anos_ordenados = sorted([a for a in dados_analisados.keys() if a.isdigit()], key=int, reverse=True)
+    
+    return render_template('analise_detalhada.html', 
+                           dados_analisados=dados_analisados,
+                           anos_ordenados=anos_ordenados)
 if __name__ == '__main__':
     app.run(debug=True)
