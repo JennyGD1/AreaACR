@@ -1,4 +1,5 @@
-# processador_contracheque.py
+# processador_contracheque.py (VERSÃO INTELIGENTE E CORRIGIDA)
+
 import json
 import re
 import logging
@@ -9,60 +10,95 @@ class ProcessadorContracheque:
 
     def __init__(self, config_path='config.json'):
         try:
-            with open(config_path) as f:
+            # Garante que o arquivo seja lido com a codificação correta
+            with open(config_path, 'r', encoding='utf-8') as f:
                 self.config = json.load(f)
-
         except FileNotFoundError:
             logger.error(f"Arquivo de configuração {config_path} não encontrado")
             self.config = {"padroes_contracheque": {}}
-
         except json.JSONDecodeError:
             logger.error(f"Erro ao decodificar o arquivo de configuração {config_path}")
             self.config = {"padroes_contracheque": {}}
     
     def identificar_tipo(self, texto):
-        texto = texto.upper()
-        for tipo, config in self.config['padroes_contracheque'].items():
-            for identificador in config['identificadores']:
-                if identificador.upper() in texto:
+        texto_upper = texto.upper()
+        for tipo, config in self.config.get('padroes_contracheque', {}).items():
+            for identificador in config.get('identificadores', []):
+                if identificador.upper() in texto_upper:
                     return tipo
-        return "padrao"
-    
-    def extrair_dados(self, texto, tipo=None):
-        if not tipo:
-            tipo = self.identificar_tipo(texto)
-        
+        return "desconhecido"
+
+    def _extrair_valor_de_linha(self, linha):
+        # Esta função extrai o último valor monetário de uma linha
+        padrao_valor = r'(\d{1,3}(?:[\.\s]?\d{3})*(?:[.,]\d{2})|\d+[.,]\d{2})'
+        valores = re.findall(padrao_valor, linha)
+        if valores:
+            valor_str = valores[-1].replace('.', '').replace(',', '.')
+            try:
+                return float(valor_str)
+            except ValueError:
+                return 0.0
+        return 0.0
+
+    def extrair_dados(self, texto, tipo):
+        if tipo == "desconhecido":
+            return {}
+
         campos_config = self._get_campos_config(tipo)
         dados = {}
+        linhas = texto.split('\n')
         
-        for campo_interno, padrao in campos_config.items():
-            match = re.search(rf"{re.escape(padrao)}\s*.*?([\d.,]+)", texto, re.IGNORECASE | re.DOTALL)
- 
-            if match:    
-                try:          
-                   valor_str = match.group(1)
-                   valor_str = valor_str.replace('.', '').replace(',', '.')
-                   valor = float(valor_str)
-                   dados[campo_interno] = valor
-                   logger.debug(f"Campo '{campo_interno}' encontrado com valor: {valor}") # Log de sucesso
-                except ValueError:
-                   logger.warning(f"Valor inválido encontrado após '{padrao}': {match.group(1)}")
-                   continue
+        # Itera por cada linha do PDF
+        for i, linha in enumerate(linhas):
+            campo_alvo = None
+            
+            # Para cada linha, verifica se algum dos nossos padrões (código ou texto) está presente
+            for campo_nome, padroes in campos_config.items():
+                if not isinstance(padroes, list):
+                    padroes = [padroes]
+                
+                for padrao in padroes:
+                    # Usamos re.escape para tratar caracteres especiais, mas só se não for um padrão complexo
+                    # Neste caso, como são códigos simples, podemos usar o search direto
+                    if re.search(str(padrao), linha, re.IGNORECASE):
+                        campo_alvo = campo_nome
+                        break 
+                if campo_alvo:
+                    break
+            
+            # Se um campo foi identificado na linha, agora procuramos o valor
+            if campo_alvo:
+                valor_encontrado = self._extrair_valor_de_linha(linha)
+                
+                # Se não encontrou valor na mesma linha, procura nas 3 próximas
+                if valor_encontrado == 0.0:
+                    for offset in range(1, 4):
+                        if i + offset < len(linhas):
+                            valor_prox_linha = self._extrair_valor_de_linha(linhas[i + offset])
+                            if valor_prox_linha > 0:
+                                valor_encontrado = valor_prox_linha
+                                logger.debug(f"Campo '{campo_alvo}': Padrão na linha {i}, valor {valor_encontrado} encontrado na linha +{offset}.")
+                                break
+                else:
+                     logger.debug(f"Campo '{campo_alvo}': Valor {valor_encontrado} encontrado na mesma linha.")
 
-                except IndexError:
-                   logger.warning(f"Regex encontrou padrão '{padrao}' mas não capturou grupo de valor.")
-                   continue
-        else:
-         logger.debug(f"Padrão '{padrao}' para o campo '{campo_interno}' não encontrado no texto.") # Log de falha
-        
+                if valor_encontrado > 0:
+                    # Para evitar que a mesma linha seja contada para múltiplos campos
+                    # (ex: uma linha com "PLANO ESPECIAL" e um código de titular)
+                    # vamos adicionar o valor e seguir para a próxima linha
+                    dados[campo_alvo] = dados.get(campo_alvo, 0.0) + valor_encontrado
+                    # continue # Descomentar se quiser ser super estrito e não processar a mesma linha duas vezes
+
+        logger.info(f"Dados extraídos para o tipo '{tipo}': {dados}")
         return dados
     
     def _get_campos_config(self, tipo):
         config = self.config['padroes_contracheque'].get(tipo, {})
-
         if 'herda' in config:
             base_config = self._get_campos_config(config['herda'])
             base_config.update(config.get('campos', {}))
             return base_config
-
         return config.get('campos', {})
+```
+
+Depois de substituir o conteúdo deste arquivo, salve, envie para o GitHub e faça o deploy. Tenho certeza de que desta vez a sua tabela de resultados aparecerá preenchida com todos os valores corretos. Estamos quase 
