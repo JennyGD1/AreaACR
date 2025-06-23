@@ -1,5 +1,3 @@
-# processador_contracheque.py (VERSÃO FINAL E APRIMORADA)
-
 import json
 import re
 import logging
