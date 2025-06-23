@@ -204,7 +204,14 @@ tr.total-geral {
     transform: translateY(-2px);
     box-shadow: 0 4px 8px rgba(0,0,0,0.2);
 }
+.btn-success {
+  background-color: #27ae60; /* Um verde bonito */
+  color: white;
+}
 
+.btn-success:hover {
+  background-color: #219150; /* Um tom de verde um pouco mais escuro para o hover */
+}
 .year-selector {
     margin: 20px 0;
     padding: 10px;
