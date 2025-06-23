@@ -180,10 +180,30 @@ def mostrar_analise_detalhada():
         return redirect(url_for('calculadora_index'))
     
     resultados_por_ano = session.get('resultados_por_ano', {})
-    dados_analisados = analisador.analisar_resultados(resultados_por_ano)
     
-    anos_ordenados = sorted(dados_analisados.keys(), key=int, reverse=True)
+    # Prepara os dados para a tabela mestre
+    todas_competencias = []
+    colunas_ativas = set()
     
+    for dados_ano in resultados_por_ano.values():
+        for mes, detalhe_mensal in dados_ano.get('detalhes_mensais', {}).items():
+            comp_dict = {'competencia': mes}
+            valores = detalhe_mensal.get('valores', {})
+            comp_dict.update(valores)
+            todas_competencias.append(comp_dict)
+            for chave, valor in valores.items():
+                if valor > 0: colunas_ativas.add(chave)
+
+    def chave_de_ordenacao(item):
+        try:
+            mes_nome, ano = item['competencia'].split('/')
+            return int(ano) * 100 + MESES_ORDEM.get(mes_nome, 0)
+        except: return 0
+    todas_competencias.sort(key=chave_de_ordenacao)
+
+    ordem_desejada = ["titular", "parcela_risco_titular", "conjuge", "parcela_risco_conjuge", "dependente", "parcela_risco_dependente", "agregado_jovem", "agregado_maior", "parcela_risco_agregado", "plano_especial", "coparticipacao", "retroativo"]
+    colunas_ordenadas = [chave for chave in ordem_desejada if chave in colunas_ativas]
+
     descricao_rubricas = {
         'titular': 'Titular', 'conjuge': 'Cônjuge', 'dependente': 'Dependente', 'agregado_jovem': 'Agregado Jovem', 
         'agregado_maior': 'Agregado Maior', 'plano_especial': 'Plano Especial', 'coparticipacao': 'Coparticipação', 
@@ -192,8 +212,8 @@ def mostrar_analise_detalhada():
     }
     
     return render_template('analise_detalhada.html', 
-                           dados_analisados=dados_analisados,
-                           anos_ordenados=anos_ordenados,
+                           todas_competencias=todas_competencias,
+                           colunas_ordenadas=colunas_ordenadas,
                            descricao_rubricas=descricao_rubricas)
 
 
