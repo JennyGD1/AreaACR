@@ -1,3 +1,5 @@
+# analisador.py (VERSÃO FINAL E CORRIGIDA)
+
 import json
 import logging
 
@@ -8,7 +10,7 @@ class AnalisadorDescontos:
     def __init__(self, config_path='config.json'):
         try:
             with open(config_path, 'r', encoding='utf-8') as f:
-                # CORREÇÃO AQUI: Passamos o arquivo 'f' para a função json.load()
+                # Carrega apenas a seção de regras de análise do config
                 self.config = json.load(f).get('regras_analise', {})
             
             self.rubricas_unicas = self.config.get('rubricas_unicas', [])
@@ -23,7 +25,6 @@ class AnalisadorDescontos:
         """
         Estima a quantidade de pessoas com base no valor de uma rubrica.
         """
-        # Garante que o valor de entrada seja um número
         try:
             valor_num = float(valor)
         except (ValueError, TypeError):
@@ -32,6 +33,7 @@ class AnalisadorDescontos:
         if rubrica in self.rubricas_unicas:
             return 1
         
+        # A chave no JSON é uma string, então garantimos que a busca também seja.
         valores_ref = self.valores_referencia.get(str(rubrica))
         if not valores_ref:
             return 1
@@ -41,7 +43,6 @@ class AnalisadorDescontos:
                 if abs(valor_num - ref) < 0.01:
                     return 1
                 if ref > 0:
-                    # Verifica se a divisão resulta em um número inteiro (com uma pequena tolerância)
                     multiplicador = valor_num / ref
                     if abs(multiplicador - round(multiplicador)) < 0.01:
                         return int(round(multiplicador))
@@ -71,7 +72,6 @@ class AnalisadorDescontos:
             analise_completa[ano] = dados_ano.copy()
             analise_completa[ano]['analise_descontos'] = {}
 
-            # A estrutura agora é um dicionário, então usamos .items()
             todos_os_meses = dados_ano.get('detalhes_mensais', {})
             
             for mes, detalhe_mensal in todos_os_meses.items():
@@ -82,7 +82,7 @@ class AnalisadorDescontos:
                         if rubrica not in analise_completa[ano]['analise_descontos']:
                             analise_completa[ano]['analise_descontos'][rubrica] = {}
                         
-                        # CORREÇÃO AQUI: Removemos o str() para passar o valor como número
+                        # CORREÇÃO: Passamos o `valor` diretamente como número.
                         quantidade = self.determinar_quantidade_pessoas(rubrica, valor)
                         
                         analise_completa[ano]['analise_descontos'][rubrica][mes] = {
