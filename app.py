@@ -231,12 +231,25 @@ def mostrar_resultados():
     outros_anos = sorted([a for a in resultados_por_ano.keys() if not a.isdigit()])
     chaves_ordenadas = anos_ordenados + outros_anos
     resultados_por_ano_ordenado = {chave: resultados_por_ano[chave] for chave in chaves_ordenadas}
+    
+    # Define a ordem correta para exibição das colunas/rubricas
+    ordem_descontos = [
+        "titular", "parcela_risco_titular", 
+        "conjuge", "parcela_risco_conjuge", 
+        "dependente", "parcela_risco_dependente", 
+        "agregado_jovem", 
+        "agregado_maior", 
+        "parcela_risco_agregado",
+        "plano_especial", "coparticipacao", "retroativo", "restituicao"
+    ]
 
     return render_template('resultado.html',
                            resultados_por_ano=resultados_por_ano_ordenado,
                            total_geral=total_geral_calculado,
                            erros_processamento=erros_proc,
+                           ordem_descontos=ordem_descontos,  # Passa a lista de ordem para o template
                            now=datetime.now())
+
 
 @app.route('/detalhes')
 def detalhes_mensais():
