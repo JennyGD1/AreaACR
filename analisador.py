@@ -1,4 +1,4 @@
-# analisador.py
+# analisador.py (VERSÃO FINAL E CORRIGIDA)
 
 import json
 import logging
@@ -10,9 +10,9 @@ class AnalisadorDescontos:
     def __init__(self, config_path='config.json'):
         try:
             with open(config_path, 'r', encoding='utf-8') as f:
-                self.config = json.load().get('regras_analise', {})
+                # CORREÇÃO AQUI: Passamos o arquivo 'f' para a função json.load()
+                self.config = json.load(f).get('regras_analise', {})
             
-            # Carrega as regras do config para dentro da classe
             self.rubricas_unicas = self.config.get('rubricas_unicas', [])
             self.valores_referencia = self.config.get('valores_referencia', {})
             
@@ -24,7 +24,6 @@ class AnalisadorDescontos:
     def determinar_quantidade_pessoas(self, rubrica, valor):
         """
         Estima a quantidade de pessoas com base no valor de uma rubrica.
-        Esta é a tradução da lógica do JavaScript.
         """
         if rubrica in self.rubricas_unicas:
             return 1
@@ -33,17 +32,17 @@ class AnalisadorDescontos:
         if not valores_ref:
             return 1
 
-        # Lógica especial para '7034' (Dependentes) onde se busca múltiplos exatos
         if rubrica == "7034":
             for ref in valores_ref:
-                # Usa uma pequena tolerância para comparações de float
                 if abs(valor - ref) < 0.01:
                     return 1
-                if ref > 0 and abs(valor % ref) < 0.01:
-                    return round(valor / ref)
-            return "X" # Indica valor não padrão
+                if ref > 0:
+                    # Verifica se a divisão resulta em um número inteiro (com uma pequena tolerância)
+                    multiplicador = valor / ref
+                    if abs(multiplicador - round(multiplicador)) < 0.01:
+                        return round(multiplicador)
+            return "X"
 
-        # Lógica padrão: encontra o valor de referência mais próximo e calcula
         menor_diferenca = float('inf')
         valor_ref_proximo = valores_ref[0]
         for ref in valores_ref:
@@ -65,11 +64,9 @@ class AnalisadorDescontos:
         analise_completa = {}
         
         for ano, dados_ano in resultados_por_ano.items():
-            # Copia os dados existentes para não os perder
             analise_completa[ano] = dados_ano.copy()
             analise_completa[ano]['analise_descontos'] = {}
 
-            # Pega todos os meses e valores dos detalhes mensais
             todos_os_meses = dados_ano.get('detalhes_mensais', [])
             
             for detalhe_mensal in todos_os_meses:
@@ -81,11 +78,11 @@ class AnalisadorDescontos:
                         if rubrica not in analise_completa[ano]['analise_descontos']:
                             analise_completa[ano]['analise_descontos'][rubrica] = {}
                         
-                        quantidade = self.determinar_quantidade_pessoas(rubrica, valor)
+                        quantidade = self.determinar_quantidade_pessoas(rubrica, str(valor))
+                        
                         analise_completa[ano]['analise_descontos'][rubrica][mes] = {
                             'valor': valor,
                             'pessoas': quantidade
                         }
 
         return analise_completa
-
