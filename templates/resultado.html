@@ -6,7 +6,6 @@
     <title>📊 Resultados - Extrator de Contracheques</title>
     <link rel="icon" href="{{ url_for('static', filename='img/logo_maida.png') }}" />
     
-    <!-- Links para os arquivos CSS unificados -->
     <link rel="stylesheet" href="{{ url_for('static', filename='css/base.css') }}">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/components/navbar.css') }}">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/pages/calculadora.css') }}">
@@ -22,7 +21,6 @@
     <div class="container-centralizado">
         <h1>📊 Resumo Geral por Ano</h1>
 
-        <!-- Filtro de Ano -->
         <div class="year-selector">
             <label for="anoSelecionado">Filtrar por ano:</label>
             <select id="anoSelecionado">
@@ -38,52 +36,52 @@
                 <div class="ano-container" data-ano="{{ ano }}">
                     <h2>Ano: {{ ano }}</h2>
                     
-                    <!-- Tabela Única e Robusta -->
                     <table>
-                        {% if dados_ano['geral']['titular'] > 0 %}
-                            <tr><th scope="col">Titular</th><td>R$ {{ "%.2f"|format(dados_ano['geral']['titular']) }}</td></tr>
+                        <!-- CORREÇÃO: Usando .get(chave, 0) para checar os valores de forma segura -->
+                        {% if dados_ano.geral.get('titular', 0) > 0 %}
+                            <tr><th scope="col">Titular</th><td>R$ {{ "%.2f"|format(dados_ano.geral.get('titular', 0)) }}</td></tr>
                         {% endif %}
-                        {% if dados_ano['geral']['conjuge'] > 0 %}
-                            <tr><th scope="col">Cônjuge</th><td>R$ {{ "%.2f"|format(dados_ano['geral']['conjuge']) }}</td></tr>
+                        {% if dados_ano.geral.get('conjuge', 0) > 0 %}
+                            <tr><th scope="col">Cônjuge</th><td>R$ {{ "%.2f"|format(dados_ano.geral.get('conjuge', 0)) }}</td></tr>
                         {% endif %}
-                        {% if dados_ano['geral']['dependente'] > 0 %}
-                            <tr><th scope="col">Dependente</th><td>R$ {{ "%.2f"|format(dados_ano['geral']['dependente']) }}</td></tr>
+                        {% if dados_ano.geral.get('dependente', 0) > 0 %}
+                            <tr><th scope="col">Dependente</th><td>R$ {{ "%.2f"|format(dados_ano.geral.get('dependente', 0)) }}</td></tr>
                         {% endif %}
-                        {% if dados_ano['geral']['agregado_jovem'] > 0 %}
-                            <tr><th scope="col">Agregado Jovem</th><td>R$ {{ "%.2f"|format(dados_ano['geral']['agregado_jovem']) }}</td></tr>
+                        {% if dados_ano.geral.get('agregado_jovem', 0) > 0 %}
+                            <tr><th scope="col">Agregado Jovem</th><td>R$ {{ "%.2f"|format(dados_ano.geral.get('agregado_jovem', 0)) }}</td></tr>
                         {% endif %}
-                        {% if dados_ano['geral']['agregado_maior'] > 0 %}
-                            <tr><th scope="col">Agregado Maior</th><td>R$ {{ "%.2f"|format(dados_ano['geral']['agregado_maior']) }}</td></tr>
+                        {% if dados_ano.geral.get('agregado_maior', 0) > 0 %}
+                            <tr><th scope="col">Agregado Maior</th><td>R$ {{ "%.2f"|format(dados_ano.geral.get('agregado_maior', 0)) }}</td></tr>
                         {% endif %}
-                        {% if dados_ano['geral']['plano_especial'] > 0 %}
-                            <tr><th scope="col">Plano Especial</th><td>R$ {{ "%.2f"|format(dados_ano['geral']['plano_especial']) }}</td></tr>
+                        {% if dados_ano.geral.get('plano_especial', 0) > 0 %}
+                            <tr><th scope="col">Plano Especial</th><td>R$ {{ "%.2f"|format(dados_ano.geral.get('plano_especial', 0)) }}</td></tr>
                         {% endif %}
-                        {% if dados_ano['geral']['coparticipacao'] > 0 %}
-                            <tr><th scope="col">Co-participação</th><td>R$ {{ "%.2f"|format(dados_ano['geral']['coparticipacao']) }}</td></tr>
+                        {% if dados_ano.geral.get('coparticipacao', 0) > 0 %}
+                            <tr><th scope="col">Co-participação</th><td>R$ {{ "%.2f"|format(dados_ano.geral.get('coparticipacao', 0)) }}</td></tr>
                         {% endif %}
-                        {% if dados_ano['geral']['retroativo'] > 0 %}
-                            <tr><th scope="col">Retroativo</th><td>R$ {{ "%.2f"|format(dados_ano['geral']['retroativo']) }}</td></tr>
+                        {% if dados_ano.geral.get('retroativo', 0) > 0 %}
+                            <tr><th scope="col">Retroativo</th><td>R$ {{ "%.2f"|format(dados_ano.geral.get('retroativo', 0)) }}</td></tr>
                         {% endif %}
-                        {% if dados_ano['geral']['restituicao'] > 0 %}
-                            <tr><th scope="col">Restituição</th><td>R$ {{ "%.2f"|format(dados_ano['geral']['restituicao']) }}</td></tr>
+                        {% if dados_ano.geral.get('restituicao', 0) > 0 %}
+                            <tr><th scope="col">Restituição</th><td>R$ {{ "%.2f"|format(dados_ano.geral.get('restituicao', 0)) }}</td></tr>
                         {% endif %}
-                        {% if dados_ano['geral']['parcela_risco_titular'] > 0 %}
-                            <tr><th scope="col">Parcela de Risco Titular</th><td>R$ {{ "%.2f"|format(dados_ano['geral']['parcela_risco_titular']) }}</td></tr>
+                        {% if dados_ano.geral.get('parcela_risco_titular', 0) > 0 %}
+                            <tr><th scope="col">Parcela de Risco Titular</th><td>R$ {{ "%.2f"|format(dados_ano.geral.get('parcela_risco_titular', 0)) }}</td></tr>
                         {% endif %}
-                        {% if dados_ano['geral']['parcela_risco_dependente'] > 0 %}
-                            <tr><th scope="col">Parcela de Risco Dependente</th><td>R$ {{ "%.2f"|format(dados_ano['geral']['parcela_risco_dependente']) }}</td></tr>
+                        {% if dados_ano.geral.get('parcela_risco_dependente', 0) > 0 %}
+                            <tr><th scope="col">Parcela de Risco Dependente</th><td>R$ {{ "%.2f"|format(dados_ano.geral.get('parcela_risco_dependente', 0)) }}</td></tr>
                         {% endif %}
-                        {% if dados_ano['geral']['parcela_risco_conjuge'] > 0 %}
-                            <tr><th scope="col">Parcela de Risco Cônjuge</th><td>R$ {{ "%.2f"|format(dados_ano['geral']['parcela_risco_conjuge']) }}</td></tr>
+                        {% if dados_ano.geral.get('parcela_risco_conjuge', 0) > 0 %}
+                            <tr><th scope="col">Parcela de Risco Cônjuge</th><td>R$ {{ "%.2f"|format(dados_ano.geral.get('parcela_risco_conjuge', 0)) }}</td></tr>
                         {% endif %}
-                        {% if dados_ano['geral']['parcela_risco_agregado'] > 0 %}
-                            <tr><th scope="col">Parcela de Risco Agregado</th><td>R$ {{ "%.2f"|format(dados_ano['geral']['parcela_risco_agregado']) }}</td></tr>
+                        {% if dados_ano.geral.get('parcela_risco_agregado', 0) > 0 %}
+                            <tr><th scope="col">Parcela de Risco Agregado</th><td>R$ {{ "%.2f"|format(dados_ano.geral.get('parcela_risco_agregado', 0)) }}</td></tr>
                         {% endif %}
                         
                         <!-- Linha do Total do Ano -->
                         <tr class="total-geral">
                             <th scope="col">Total do Ano</th>
-                            <td>R$ {{ "%.2f"|format(dados_ano['total_ano']) }}</td>
+                            <td>R$ {{ "%.2f"|format(dados_ano.get('total_ano', 0)) }}</td>
                         </tr>
                     </table>
                     <hr>
@@ -93,14 +91,12 @@
             <p>Nenhum resultado encontrado.</p>
         {% endif %}
 
-        <!-- Total Geral de todos os anos -->
         <div class="total-geral-container">
             <h3>Total Geral de Todos os Anos</h3>
             <p>R$ {{ "%.2f"|format(total_geral) }}</p>
         </div>
 
         <div class="btn-container">
-             <!-- Botão de Análise Avançada com a classe correta -->
             <a href="{{ url_for('mostrar_analise_detalhada') }}" class="btn btn-success">
                 🔬 Análise Avançada
             </a>
@@ -117,7 +113,6 @@
     
     <script src="{{ url_for('static', filename='js/main.js') }}" defer></script>
     
-    <!-- SCRIPT DO FILTRO DE ANO -->
     <script>
         document.addEventListener('DOMContentLoaded', function() {
             const anoSelecionado = document.getElementById('anoSelecionado');
@@ -127,7 +122,6 @@
                 const anoContainers = document.querySelectorAll('.ano-container');
                 const totalGeralContainer = document.querySelector('.total-geral-container');
                 
-                // Esconde ou mostra o container do total geral se um filtro for aplicado
                 totalGeralContainer.style.display = (ano === 'todos') ? 'block' : 'none';
 
                 anoContainers.forEach(container => {
@@ -139,7 +133,6 @@
                 });
             });
             
-            // Dispara o evento change para aplicar o filtro inicial se necessário
             anoSelecionado.dispatchEvent(new Event('change'));
         });
     </script>
