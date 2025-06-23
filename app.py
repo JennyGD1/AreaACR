@@ -293,6 +293,7 @@ def detalhes_mensais():
 
 @app.route('/analise')
 def mostrar_analise_detalhada():
+    
     if 'resultados_por_ano' not in session:
         flash('Nenhum resultado encontrado. Por favor, faça o upload dos arquivos primeiro.', 'warning')
         return redirect(url_for('calculadora_index'))
@@ -303,11 +304,19 @@ def mostrar_analise_detalhada():
     
     anos_ordenados = sorted([a for a in dados_analisados.keys() if a.isdigit()], key=int, reverse=True)
     
+    descricao_rubricas = {
+        'titular': 'Titular', 'conjuge': 'Cônjuge', 'dependente': 'Dependente', 
+        'agregado_jovem': 'Agregado Jovem', 'agregado_maior': 'Agregado Maior',
+        'plano_especial': 'Plano Especial', 'coparticipacao': 'Coparticipação',
+        'retroativo': 'Retroativo', 'restituicao': 'Restituição',
+        'parcela_risco_titular': 'P. Risco Titular', 'parcela_risco_dependente': 'P. Risco Dependente',
+        'parcela_risco_conjuge': 'P. Risco Cônjuge', 'parcela_risco_agregado': 'P. Risco Agregado'
+    }
+    
     return render_template('analise_detalhada.html', 
                            dados_analisados=dados_analisados,
                            anos_ordenados=anos_ordenados,
-                           config=processador.config)
-
+                           descricao_rubricas=descricao_rubricas)
 
 if __name__ == '__main__':
     app.run(debug=True)
