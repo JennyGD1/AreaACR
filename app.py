@@ -1,4 +1,4 @@
-# app.py - VERSÃO FINAL, COMPLETA E CORRIGIDA
+# app.py - VERSÃO FINAL E CORRIGIDA
 
 import fitz
 import re
@@ -134,10 +134,8 @@ def upload():
             erros.append(filename)
         finally:
             if os.path.exists(filepath):
-                try:
-                    os.remove(filepath)
-                except OSError as re_err:
-                    logger.error(f"Erro ao remover {filepath}: {re_err}")
+                try: os.remove(filepath)
+                except OSError as re_err: logger.error(f"Erro ao remover {filepath}: {re_err}")
     
     if not resultados_por_ano:
         flash('Nenhum dado válido pôde ser extraído dos arquivos PDF fornecidos.', 'warning')
@@ -184,27 +182,9 @@ def mostrar_analise_detalhada():
     resultados_por_ano = session.get('resultados_por_ano', {})
     dados_analisados = analisador.analisar_resultados(resultados_por_ano)
     
-    todas_competencias = []
-    colunas_ativas = set()
+    anos_ordenados = sorted(dados_analisados.keys(), key=int, reverse=True)
     
-    for dados_ano in dados_analisados.values():
-        for mes, detalhe_mensal in dados_ano.get('detalhes_mensais', {}).items():
-            comp_dict = {'competencia': mes}
-            comp_dict.update(detalhe_mensal.get('valores', {}))
-            todas_competencias.append(comp_dict)
-            for chave, valor in detalhe_mensal.get('valores', {}).items():
-                if valor > 0: colunas_ativas.add(chave)
-
-    def chave_de_ordenacao(item):
-        try:
-            mes_nome, ano = item['competencia'].split('/')
-            return int(ano) * 100 + MESES_ORDEM.get(mes_nome, 0)
-        except: return 0
-    todas_competencias.sort(key=chave_de_ordenacao)
-
-    ordem_desejada = ["titular", "parcela_risco_titular", "conjuge", "parcela_risco_conjuge", "dependente", "parcela_risco_dependente", "agregado_jovem", "agregado_maior", "parcela_risco_agregado", "plano_especial", "coparticipacao", "retroativo"]
-    colunas_ordenadas = [chave for chave in ordem_desejada if chave in colunas_ativas]
-
+    # Adicionamos uma lista de descrições para usar no HTML
     descricao_rubricas = {
         'titular': 'Titular', 'conjuge': 'Cônjuge', 'dependente': 'Dependente', 'agregado_jovem': 'Agregado Jovem', 
         'agregado_maior': 'Agregado Maior', 'plano_especial': 'Plano Especial', 'coparticipacao': 'Coparticipação', 
@@ -213,9 +193,12 @@ def mostrar_analise_detalhada():
     }
     
     return render_template('analise_detalhada.html', 
-                           todas_competencias=todas_competencias,
-                           colunas_ordenadas=colunas_ordenadas,
-                           descricao_rubricas=descricao_rubricas)
+                           dados_analisados=dados_analisados,
+                           anos_ordenados=anos_ordenados,
+                           descricao_rubricas=descricao_rubricas,
+                           meses_ordem_keys=list(MESES_ORDEM.keys()))
+
 
 if __name__ == '__main__':
     app.run(debug=True)
+
