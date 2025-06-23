@@ -7,7 +7,6 @@ from flask import Flask, render_template, request, redirect, url_for, flash, ses
 from werkzeug.utils import secure_filename
 from datetime import datetime
 from processador_contracheque import ProcessadorContracheque
-from analisador import AnalisadorDescontos
 import logging
 from logging.handlers import RotatingFileHandler
 
@@ -45,7 +44,6 @@ app.config.update({
 
 # Instância do processador
 processador = ProcessadorContracheque('config.json')
-analisador = AnalisadorDescontos('config.json')
 
 # --- FUNÇÕES AUXILIARES ---
 def allowed_file(filename):
@@ -76,7 +74,7 @@ def processar_pdf(caminho_pdf):
         campos_obrigatorios = [
             'titular', 'conjuge', 'dependente', 'agregado_jovem',
             'agregado_maior', 'plano_especial', 'coparticipacao',
-            'retroativo', 'parcela_risco_titular', 'parcela_risco_dependente',
+            'retroativo', 'restituicao', 'parcela_risco_titular', 'parcela_risco_dependente',
             'parcela_risco_conjuge', 'parcela_risco_agregado'
         ]
 
@@ -131,7 +129,7 @@ def upload():
         'titular', 'conjuge', 'dependente',
         'agregado_jovem', 'agregado_maior',
         'plano_especial', 'coparticipacao',
-        'retroativo', 'parcela_risco_titular', 'parcela_risco_dependente', 
+        'retroativo', 'restituicao', 'parcela_risco_titular', 'parcela_risco_dependente', 
         'parcela_risco_conjuge', 'parcela_risco_agregado'
     ]
 
@@ -165,12 +163,10 @@ def upload():
                                     'detalhes_mensais': []
                                 }
 
-                            # Agregação dos valores para a visão geral do ano
                             for campo, valor in valores_pagina.items():
                                 if campo in resultados_por_ano[ano]['geral']:
                                     resultados_por_ano[ano]['geral'][campo] += valor
                             
-                            # Adiciona os detalhes deste mês para a outra página
                             resultados_por_ano[ano]['detalhes_mensais'].append({
                                 'mes': mes_ano_str,
                                 'arquivo': filename,
@@ -202,7 +198,8 @@ def upload():
 
     # Calcula o total de cada ano DEPOIS de processar todos os arquivos
     for ano in resultados_por_ano:
-        total_do_ano = sum(resultados_por_ano[ano]['geral'].values())
+        # CORREÇÃO: Soma todos os valores, exceto 'restituicao'
+        total_do_ano = sum(valor for chave, valor in resultados_por_ano[ano]['geral'].items() if chave != 'restituicao')
         resultados_por_ano[ano]['total_ano'] = total_do_ano
 
     if not resultados_por_ano and arquivos_processados_count == 0:
@@ -229,7 +226,6 @@ def mostrar_resultados():
     resultados_por_ano = session.get('resultados_por_ano', {})
     erros_proc = session.get('erros', []) 
     
-    # O total geral agora é a soma dos totais de cada ano, que já foram calculados
     total_geral_calculado = sum(dados_ano.get('total_ano', 0.0) for dados_ano in resultados_por_ano.values())
 
     anos_ordenados = sorted([a for a in resultados_por_ano.keys() if a.isdigit()], key=int, reverse=True)
@@ -296,22 +292,6 @@ def detalhes_mensais():
                            erros_processamento=erros_proc,
                            now=datetime.now())
 
-@app.route('/analise')
-def mostrar_analise_detalhada():
-    if 'resultados_por_ano' not in session:
-        flash('Nenhum resultado encontrado. Por favor, faça o upload dos arquivos primeiro.', 'warning')
-        return redirect(url_for('calculadora_index'))
 
-    resultados_por_ano = session.get('resultados_por_ano', {})
-    
-    # CHAMA O ANALISADOR PARA ENRIQUECER OS DADOS
-    dados_analisados = analisador.analisar_resultados(resultados_por_ano)
-    
-    # Ordena os anos para exibição
-    anos_ordenados = sorted([a for a in dados_analisados.keys() if a.isdigit()], key=int, reverse=True)
-    
-    return render_template('analise_detalhada.html', 
-                           dados_analisados=dados_analisados,
-                           anos_ordenados=anos_ordenados)
 if __name__ == '__main__':
     app.run(debug=True)
