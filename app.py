@@ -1,4 +1,4 @@
-# app.py - VERSÃO FINAL E CORRIGIDA
+# app.py - VERSÃO FINAL, COMPLETA E CORRIGIDA
 
 import fitz
 import re
@@ -184,7 +184,6 @@ def mostrar_analise_detalhada():
     
     anos_ordenados = sorted(dados_analisados.keys(), key=int, reverse=True)
     
-    # Adicionamos uma lista de descrições para usar no HTML
     descricao_rubricas = {
         'titular': 'Titular', 'conjuge': 'Cônjuge', 'dependente': 'Dependente', 'agregado_jovem': 'Agregado Jovem', 
         'agregado_maior': 'Agregado Maior', 'plano_especial': 'Plano Especial', 'coparticipacao': 'Coparticipação', 
@@ -195,10 +194,8 @@ def mostrar_analise_detalhada():
     return render_template('analise_detalhada.html', 
                            dados_analisados=dados_analisados,
                            anos_ordenados=anos_ordenados,
-                           descricao_rubricas=descricao_rubricas,
-                           meses_ordem_keys=list(MESES_ORDEM.keys()))
+                           descricao_rubricas=descricao_rubricas)
 
 
 if __name__ == '__main__':
     app.run(debug=True)
-
