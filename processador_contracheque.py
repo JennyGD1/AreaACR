@@ -1,4 +1,4 @@
-# processador_contracheque.py (VERSÃO INTELIGENTE E CORRIGIDA)
+# processador_contracheque.py (VERSÃO FINAL E LIMPA)
 
 import json
 import re
@@ -58,8 +58,6 @@ class ProcessadorContracheque:
                     padroes = [padroes]
                 
                 for padrao in padroes:
-                    # Usamos re.escape para tratar caracteres especiais, mas só se não for um padrão complexo
-                    # Neste caso, como são códigos simples, podemos usar o search direto
                     if re.search(str(padrao), linha, re.IGNORECASE):
                         campo_alvo = campo_nome
                         break 
@@ -83,11 +81,7 @@ class ProcessadorContracheque:
                      logger.debug(f"Campo '{campo_alvo}': Valor {valor_encontrado} encontrado na mesma linha.")
 
                 if valor_encontrado > 0:
-                    # Para evitar que a mesma linha seja contada para múltiplos campos
-                    # (ex: uma linha com "PLANO ESPECIAL" e um código de titular)
-                    # vamos adicionar o valor e seguir para a próxima linha
                     dados[campo_alvo] = dados.get(campo_alvo, 0.0) + valor_encontrado
-                    # continue # Descomentar se quiser ser super estrito e não processar a mesma linha duas vezes
 
         logger.info(f"Dados extraídos para o tipo '{tipo}': {dados}")
         return dados
@@ -99,6 +93,3 @@ class ProcessadorContracheque:
             base_config.update(config.get('campos', {}))
             return base_config
         return config.get('campos', {})
-```
-
-Depois de substituir o conteúdo deste arquivo, salve, envie para o GitHub e faça o deploy. Tenho certeza de que desta vez a sua tabela de resultados aparecerá preenchida com todos os valores corretos. Estamos quase 
