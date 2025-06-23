@@ -21,7 +21,7 @@
     <div class="container">
         <h1>🔬 Análise Avançada</h1>
         <p>Análise de múltiplos dependentes e linha do tempo das cobranças, com base nos arquivos enviados.</p>
-
+        
         {% if dados_analisados %}
             {% for ano in anos_ordenados %}
                 <div class="ano-container">
@@ -29,60 +29,48 @@
                     
                     {% set analise_do_ano = dados_analisados[ano]['analise_descontos'] %}
                     
-                    {# Define a ordem de exibição dos descontos #}
-                    {% set ordem_descontos = [
-                        "titular", "parcela_risco_titular", 
-                        "conjuge", "parcela_risco_conjuge", 
-                        "dependente", "parcela_risco_dependente", 
-                        "agregado_jovem", 
-                        "agregado_maior", 
-                        "parcela_risco_agregado",
-                        "plano_especial", "coparticipacao", "retroativo"
-                    ] %}
-
-                    {# Itera na ordem definida #}
-                    {% for rubrica in ordem_descontos %}
-                        {% if rubrica in analise_do_ano %}
-                            {% set meses = analise_do_ano[rubrica] %}
-                            <div class="rubrica-card">
-                                <div class="rubrica-title">
-                                    {{ descricao_rubricas.get(rubrica, rubrica|replace('_', ' ')|title) }}
-                                    <span class="info-icon" title="Análise da rubrica {{ rubrica }}">i</span>
-                                </div>
-
-                                <div class="timeline">
-                                    {% set meses_nomes = ["Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho", "Julho", "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro"] %}
-                                    {% for i in range(12) %}
-                                        {% set mes_nome = meses_nomes[i] %}
-                                        {% set mes_key = mes_nome + " " + ano %}
-                                        {% set dados_mes = meses.get(mes_key) %} {# Usamos .get() que é mais seguro #}
-
-                                        <div class="month-indicator {{ 'present' if dados_mes else 'absent' }}">
-                                            {{ mes_nome[:3] }}/{{ ano[2:] }}
-                                            
-                                            {% if dados_mes and dados_mes.pessoas %}
-                                                {% if dados_mes.pessoas == 'X' %}
-                                                    <span class="people-count error" title="Valor não corresponde a múltiplos exatos">X</span>
-                                                {% elif dados_mes.pessoas > 1 %}
-                                                    <span class="people-count">{{ dados_mes.pessoas }}</span>
-                                                {% endif %}
-                                            {% endif %}
-                                            
-                                            <div class="tooltip">
-                                                {% if dados_mes %}
-                                                    {{ mes_key }}: R$ {{ "%.2f"|format(dados_mes.valor) }}
-                                                    {% if dados_mes.pessoas != 'X' and dados_mes.pessoas > 1 %}
-                                                        ({{ dados_mes.pessoas }} pessoas)
-                                                    {% endif %}
-                                                {% else %}
-                                                    Não cobrado
-                                                {% endif %}
-                                            </div>
-                                        </div>
-                                    {% endfor %}
-                                </div>
+                    {% for rubrica, meses in analise_do_ano.items()|sort %}
+                        <div class="rubrica-card">
+                            <div class="rubrica-title">
+                                {{ descricao_rubricas.get(rubrica, rubrica|replace('_', ' ')|title) }}
+                                <span class="info-icon" title="Análise da rubrica {{ rubrica }}">i</span>
                             </div>
-                        {% endif %}
+
+                            <div class="timeline">
+                                {% for mes_num in range(1, 13) %}
+                                    {% set mes_nome_completo = none %}
+                                    {% set dados_mes = none %}
+
+                                    {% for mes_key, mes_data in meses.items() if (mes_key.split('/')[0] | replace('Janeiro', '1') | replace('Fevereiro', '2') | replace('Março', '3') | replace('Abril', '4') | replace('Maio', '5') | replace('Junho', '6') | replace('Julho', '7') | replace('Agosto', '8') | replace('Setembro', '9') | replace('Outubro', '10') | replace('Novembro', '11') | replace('Dezembro', '12'))|int == mes_num %}
+                                        {% set mes_nome_completo = mes_key %}
+                                        {% set dados_mes = mes_data %}
+                                    {% endfor %}
+
+                                    <div class="month-indicator {{ 'present' if dados_mes else 'absent' }}">
+                                        {{ ["Jan", "Fev", "Mar", "Abr", "Mai", "Jun", "Jul", "Ago", "Set", "Out", "Nov", "Dez"][mes_num-1] }}/{{ ano[2:] }}
+                                        
+                                        {% if dados_mes and dados_mes.pessoas %}
+                                            {% if dados_mes.pessoas == 'X' %}
+                                                <span class="people-count error" title="Valor não corresponde a múltiplos exatos">X</span>
+                                            {% elif dados_mes.pessoas > 1 %}
+                                                <span class="people-count">{{ dados_mes.pessoas }}</span>
+                                            {% endif %}
+                                        {% endif %}
+                                        
+                                        <div class="tooltip">
+                                            {% if dados_mes %}
+                                                {{ mes_nome_completo }}: R$ {{ "%.2f"|format(dados_mes.valor) }}
+                                                {% if dados_mes.pessoas != 'X' and dados_mes.pessoas > 1 %}
+                                                    ({{ dados_mes.pessoas }} pessoas)
+                                                {% endif %}
+                                            {% else %}
+                                                Não cobrado
+                                            {% endif %}
+                                        </div>
+                                    </div>
+                                {% endfor %}
+                            </div>
+                        </div>
                     {% endfor %}
                 </div>
             {% endfor %}
@@ -101,4 +89,3 @@
     <script src="{{ url_for('static', filename='js/main.js') }}" defer></script>
 </body>
 </html>
-
