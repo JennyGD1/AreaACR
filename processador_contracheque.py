@@ -1,5 +1,3 @@
-# processador_contracheque.py (VERSÃO FINAL E CORRIGIDA)
-
 import json
 import re
 import logging
@@ -10,13 +8,11 @@ class ProcessadorContracheque:
 
     def __init__(self, config_path='config.json'):
         try:
+          
             with open(config_path, 'r', encoding='utf-8') as f:
                 self.config = json.load(f)
-        except FileNotFoundError:
-            logger.error(f"Arquivo de configuração {config_path} não encontrado")
-            self.config = {"padroes_contracheque": {}}
-        except json.JSONDecodeError:
-            logger.error(f"Erro ao decodificar o arquivo de configuração {config_path}")
+        except (FileNotFoundError, json.JSONDecodeError) as e:
+            logger.error(f"Erro ao carregar ou processar o config.json: {e}")
             self.config = {"padroes_contracheque": {}}
     
     def identificar_tipo(self, texto):
@@ -28,26 +24,34 @@ class ProcessadorContracheque:
         return "desconhecido"
 
     def _extrair_valor_de_linha(self, linha):
+      
         padrao_valor = r'(\d{1,3}(?:[\s\.]?\d{3})*(?:[.,]\d{1,2})|\d+[.,]\d{1,2})'
         matches = re.findall(padrao_valor, linha)
         
         if not matches:
             return 0.0
 
+        
         valor_str = matches[-1]
         valor_str = valor_str.replace(' ', '')
         
+       
         last_dot = valor_str.rfind('.')
         last_comma = valor_str.rfind(',')
+        
         
         if last_comma > last_dot:
             separador_milhar = '.'
             separador_decimal = ','
+     
         else:
             separador_milhar = ','
             separador_decimal = '.'
 
+   
         valor_limpo = valor_str.replace(separador_milhar, '')
+        
+        
         valor_limpo = valor_limpo.replace(separador_decimal, '.')
         
         try:
@@ -64,25 +68,25 @@ class ProcessadorContracheque:
         dados = {}
         linhas = texto.split('\n')
         
-        # Itera por cada linha do PDF
+        
         for i, linha in enumerate(linhas):
             linha_strip = linha.strip()
             if not linha_strip:
                 continue
 
-            # Itera sobre os campos definidos no config.json
+            
             for campo_nome, padroes in campos_config.items():
                 if not isinstance(padroes, list):
                     padroes = [padroes]
                 
                 for padrao in padroes:
-                    # Verifica se o padrão (código ou texto) está na linha
+                    
                     if re.search(re.escape(str(padrao)), linha, re.IGNORECASE):
                         
-                        # PASSO 1: Tenta extrair o valor da mesma linha
+                        
                         valor_encontrado = self._extrair_valor_de_linha(linha_strip)
                         
-                        # PASSO 2: Se não encontrar, procura nas próximas 3 linhas
+                        
                         if valor_encontrado == 0.0:
                             for offset in range(1, 4):
                                 if i + offset < len(linhas):
