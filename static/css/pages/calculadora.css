@@ -8,7 +8,6 @@
     display: flex;
     flex-direction: column;
     align-items: center;
-    /* justify-content: center; */ /* Removido para o logo ficar no topo */
     min-height: 100vh;
     background-color: var(--fundo-azul);
     padding: 20px;
@@ -124,7 +123,7 @@
 
 .page-upload footer {
     color: var(--branco);
-    margin-top: auto; /* Empurra o rodapé para o final da tela */
+    margin-top: auto;
 }
 
 /* ===================================================== */
@@ -205,12 +204,12 @@ tr.total-geral {
     box-shadow: 0 4px 8px rgba(0,0,0,0.2);
 }
 .btn-success {
-  background-color: #27ae60; /* Um verde bonito */
+  background-color: #27ae60; 
   color: white;
 }
 
 .btn-success:hover {
-  background-color: #219150; /* Um tom de verde um pouco mais escuro para o hover */
+  background-color: #219150;
 }
 .year-selector {
     margin: 20px 0;
@@ -250,27 +249,14 @@ tr.total-geral {
     margin-bottom: 20px;
     text-align: center;
 }
-.page-upload .logo img {
-    max-width: 180px;
-}
-
-/* Garante que o footer na página de upload tenha a cor certa */
-.page-upload footer {
-    color: var(--branco);
-    margin-top: auto; /* Empurra o rodapé para o final da tela */
-}
-
-/* ======================================= */
-/* --- NOVA SEÇÃO DE RESTITUIÇÃO --- */
-/* ======================================= */
 
 .restituicao-card {
-    background-color: #e8f5e9; /* Fundo verde claro */
-    color: #2e7d32; /* Texto verde escuro */
+    background-color: #e8f5e9; 
+    color: #2e7d32; 
     border: 1px solid #a5d6a7;
     border-left: 5px solid #4caf50;
     padding: 15px;
-    margin: -10px auto 20px auto; /* Margem para alinhar com a tabela */
+    margin: -10px auto 20px auto; 
     border-radius: 8px;
     display: flex;
     justify-content: space-between;
