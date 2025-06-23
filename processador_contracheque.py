@@ -1,4 +1,4 @@
-# processador_contracheque.py (VERSÃO FINAL E LIMPA)
+# processador_contracheque.py (VERSÃO FINAL E APRIMORADA)
 
 import json
 import re
@@ -29,16 +29,43 @@ class ProcessadorContracheque:
         return "desconhecido"
 
     def _extrair_valor_de_linha(self, linha):
-        # Esta função extrai o último valor monetário de uma linha
-        padrao_valor = r'(\d{1,3}(?:[\.\s]?\d{3})*(?:[.,]\d{2})|\d+[.,]\d{2})'
-        valores = re.findall(padrao_valor, linha)
-        if valores:
-            valor_str = valores[-1].replace('.', '').replace(',', '.')
-            try:
-                return float(valor_str)
-            except ValueError:
-                return 0.0
-        return 0.0
+        # Esta função foi aprimorada para lidar com formatos de número inconsistentes (ex: 1.234,56 e 1,234.56)
+        padrao_valor = r'(\d{1,3}(?:[\s\.]?\d{3})*(?:[.,]\d{1,2})|\d+[.,]\d{1,2})'
+        matches = re.findall(padrao_valor, linha)
+        
+        if not matches:
+            return 0.0
+
+        # Estamos interessados no último valor encontrado na linha
+        valor_str = matches[-1]
+        
+        # Remove espaços
+        valor_str = valor_str.replace(' ', '')
+        
+        # Lógica para identificar o separador decimal e de milhar
+        last_dot = valor_str.rfind('.')
+        last_comma = valor_str.rfind(',')
+        
+        # Heurística: se a vírgula aparece depois do último ponto, ela é o decimal (padrão BR/EU)
+        if last_comma > last_dot:
+            separador_milhar = '.'
+            separador_decimal = ','
+        # Senão, o ponto é o decimal (padrão US ou casos simples sem milhar)
+        else:
+            separador_milhar = ','
+            separador_decimal = '.'
+
+        # Limpa a string removendo o separador de milhar
+        valor_limpo = valor_str.replace(separador_milhar, '')
+        
+        # Padroniza o separador decimal para o ponto que o Python entende
+        valor_limpo = valor_limpo.replace(separador_decimal, '.')
+        
+        try:
+            return float(valor_limpo)
+        except (ValueError, TypeError):
+            logger.warning(f"Não foi possível converter a string de valor '{valor_str}' para float.")
+            return 0.0
 
     def extrair_dados(self, texto, tipo):
         if tipo == "desconhecido":
