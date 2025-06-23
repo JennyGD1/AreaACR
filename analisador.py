@@ -43,6 +43,7 @@ class AnalisadorDescontos:
                 if abs(valor_num - ref) < 0.01:
                     return 1
                 if ref > 0:
+                    # Verifica se a divisão resulta em um número inteiro (com uma pequena tolerância)
                     multiplicador = valor_num / ref
                     if abs(multiplicador - round(multiplicador)) < 0.01:
                         return int(round(multiplicador))
@@ -82,7 +83,7 @@ class AnalisadorDescontos:
                         if rubrica not in analise_completa[ano]['analise_descontos']:
                             analise_completa[ano]['analise_descontos'][rubrica] = {}
                         
-                        # CORREÇÃO: Passamos o `valor` diretamente como número.
+                        # CORREÇÃO: Passamos o valor como número, não como texto
                         quantidade = self.determinar_quantidade_pessoas(rubrica, valor)
                         
                         analise_completa[ano]['analise_descontos'][rubrica][mes] = {
