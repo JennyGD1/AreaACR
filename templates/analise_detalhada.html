@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>🔬 Análise Avançada de Descontos</title>
+    <title>🔬 Tabela Geral de Descontos</title>
     <link rel="icon" href="{{ url_for('static', filename='img/logo_maida.png') }}" />
     
     <link rel="stylesheet" href="{{ url_for('static', filename='css/base.css') }}">
@@ -19,74 +19,38 @@
     </div>
     
     <div class="container">
-        <h1>🔬 Análise Avançada de Descontos</h1>
-        <p>Análise de múltiplos dependentes e linha do tempo das cobranças, com base nos arquivos enviados.</p>
+        <h1>🔬 Tabela Geral de Descontos</h1>
+        <p>Tabela detalhada de descontos por competência, com base nos arquivos enviados.</p>
         
-        {% if dados_analisados %}
-            {% for ano in anos_ordenados %}
-                <div class="ano-container">
-                    <h2>Ano: {{ ano }}</h2>
-                    
-                    {% set analise_do_ano = dados_analisados[ano]['analise_descontos'] %}
-                    
-                    {% set ordem_descontos = [
-                        "titular", "parcela_risco_titular", 
-                        "conjuge", "parcela_risco_conjuge", 
-                        "dependente", "parcela_risco_dependente", 
-                        "agregado_jovem", 
-                        "agregado_maior", 
-                        "parcela_risco_agregado",
-                        "plano_especial", "coparticipacao", "retroativo"
-                    ] %}
-
-                    {% for rubrica in ordem_descontos %}
-                        {% if rubrica in analise_do_ano %}
-                            {% set meses = analise_do_ano[rubrica] %}
-                            <div class="rubrica-card">
-                                <div class="rubrica-title">
-                                    {{ descricao_rubricas.get(rubrica, rubrica|replace('_', ' ')|title) }}
-                                    <span class="info-icon" title="Análise da rubrica {{ rubrica }}">i</span>
-                                </div>
-
-                                <div class="timeline">
-                                    {% set meses_nomes = ["Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho", "Julho", "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro"] %}
-                                    {% for i in range(12) %}
-                                        {% set mes_nome_ano = meses_nomes[i] + '/' + ano %}
-                                        {% set dados_mes = meses.get(mes_nome_ano) %}
-
-                                        <div class="month-indicator {{ 'present' if dados_mes else 'absent' }}">
-                                            {{ meses_nomes[i][:3] }}/{{ ano[2:] }}
-                                            
-                                            {% if dados_mes and dados_mes.pessoas %}
-                                                {% if dados_mes.pessoas == 'X' %}
-                                                    <span class="people-count error" title="Valor não corresponde a múltiplos exatos">X</span>
-                                                {% elif dados_mes.pessoas > 1 %}
-                                                    <span class="people-count">{{ dados_mes.pessoas }}</span>
-                                                {% endif %}
-                                            {% endif %}
-                                            
-                                            <div class="tooltip">
-                                                {% if dados_mes %}
-                                                    {{ mes_nome_ano }}: R$ {{ "%.2f"|format(dados_mes.valor) }}
-                                                    {% if dados_mes.pessoas != 'X' and dados_mes.pessoas > 1 %}
-                                                        ({{ dados_mes.pessoas }} pessoas)
-                                                    {% endif %}
-                                                {% else %}
-                                                    Não cobrado
-                                                {% endif %}
-                                            </div>
-                                        </div>
-                                    {% endfor %}
-                                </div>
-                            </div>
-                        {% endif %}
-                    {% endfor %}
-                </div>
-            {% endfor %}
-        {% else %}
-            <p>Nenhuma análise disponível. Processe os arquivos primeiro.</p>
-        {% endif %}
-
+        <div class="tabela-container">
+            {% if todas_competencias %}
+                <table class="tabela-analise">
+                    <thead>
+                        <tr>
+                            <th>Mês/Ano</th>
+                            {% for chave in colunas_ordenadas %}
+                                <th>{{ descricao_rubricas.get(chave, chave|replace('_', ' ')|title) }}</th>
+                            {% endfor %}
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for comp in todas_competencias %}
+                        <tr>
+                            <!-- Formata a data para MM/YYYY -->
+                            <td>{{ comp.competencia.replace('Janeiro', '01').replace('Fevereiro', '02').replace('Março', '03').replace('Abril', '04').replace('Maio', '05').replace('Junho', '06').replace('Julho', '07').replace('Agosto', '08').replace('Setembro', '09').replace('Outubro', '10').replace('Novembro', '11').replace('Dezembro', '12').replace(' ', '/') }}</td>
+                            {% for chave in colunas_ordenadas %}
+                                <!-- Usa .get() para buscar o valor de forma segura e formata como moeda -->
+                                <td>{{ "R$ %.2f"|format(comp.get(chave, 0.0))|replace('.', ',') }}</td>
+                            {% endfor %}
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            {% else %}
+                <p>Nenhuma análise disponível. Processe os arquivos primeiro.</p>
+            {% endif %}
+        </div>
+        
         <div class="btn-container">
             <a href="{{ url_for('mostrar_resultados') }}" class="btn btn-secondary">
                 📊 Voltar ao Resumo
