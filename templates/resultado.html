@@ -36,23 +36,28 @@
                 <div class="ano-container" data-ano="{{ ano }}">
                     <h2>Ano: {{ ano }}</h2>
                     
+                    <!-- TABELA DE DESCONTOS DETALHADA -->
+                    <h4>Descontos do Período</h4>
                     <table>
-                        <!-- A linha da Restituição foi removida desta tabela -->
-                        {% if dados_ano.geral.get('titular', 0) > 0 %}
-                            <tr><th scope="col">Titular</th><td>R$ {{ "%.2f"|format(dados_ano.geral.get('titular', 0)) }}</td></tr>
-                        {% endif %}
-                        <!-- ... (todas as outras linhas de cobrança continuam aqui) ... -->
-                        {% if dados_ano.geral.get('parcela_risco_agregado', 0) > 0 %}
-                            <tr><th scope="col">Parcela de Risco Agregado</th><td>R$ {{ "%.2f"|format(dados_ano.geral.get('parcela_risco_agregado', 0)) }}</td></tr>
-                        {% endif %}
+                        <!-- Loop para mostrar cada rubrica que teve valor > 0 -->
+                        {% for chave, valor in dados_ano.geral.items() %}
+                            {% if valor > 0 and chave != 'restituicao' %}
+                                <tr>
+                                    <!-- A chave (ex: 'titular') é capitalizada para o título -->
+                                    <th scope="col">{{ chave.replace('_', ' ')|title }}</th>
+                                    <td>R$ {{ "%.2f"|format(valor) }}</td>
+                                </tr>
+                            {% endif %}
+                        {% endfor %}
                         
+                        <!-- Linha do Total de Descontos do Ano -->
                         <tr class="total-geral">
-                            <th scope="col">Total de Cobranças do Ano</th>
+                            <th scope="col">Total de Descontos do Ano</th>
                             <td>R$ {{ "%.2f"|format(dados_ano.get('total_ano', 0)) }}</td>
                         </tr>
                     </table>
 
-                    <!-- NOVA SEÇÃO PARA RESTITUIÇÃO -->
+                    <!-- Seção de Restituição (Proventos) -->
                     {% if dados_ano.geral.get('restituicao', 0) > 0 %}
                         <div class="restituicao-card">
                             <strong>(+) Restituição Recebida no Ano:</strong>
@@ -67,7 +72,7 @@
         {% endif %}
 
         <div class="total-geral-container">
-            <h3>Total Geral de Cobranças</h3>
+            <h3>Total Geral de Descontos</h3>
             <p>R$ {{ "%.2f"|format(total_geral) }}</p>
         </div>
 
@@ -89,7 +94,27 @@
     <script src="{{ url_for('static', filename='js/main.js') }}" defer></script>
     
     <script>
-        // Script do filtro de ano continua o mesmo
+        document.addEventListener('DOMContentLoaded', function() {
+            const anoSelecionado = document.getElementById('anoSelecionado');
+            
+            anoSelecionado.addEventListener('change', function() {
+                const ano = this.value;
+                const anoContainers = document.querySelectorAll('.ano-container');
+                const totalGeralContainer = document.querySelector('.total-geral-container');
+                
+                totalGeralContainer.style.display = (ano === 'todos') ? 'block' : 'none';
+
+                anoContainers.forEach(container => {
+                    if (ano === 'todos' || container.dataset.ano === ano) {
+                        container.style.display = 'block';
+                    } else {
+                        container.style.display = 'none';
+                    }
+                });
+            });
+            
+            anoSelecionado.dispatchEvent(new Event('change'));
+        });
     </script>
 </body>
 </html>
