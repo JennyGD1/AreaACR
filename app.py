@@ -1,3 +1,5 @@
+# app.py - VERSÃO FINAL, COMPLETA E COM INDENTAÇÃO CORRIGIDA
+
 import fitz
 import re
 import os
