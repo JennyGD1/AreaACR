@@ -1,0 +1,134 @@
+/* static/css/pages/analise.css */
+
+.page-analise .container {
+    max-width: 1000px;
+}
+
+.page-analise h1 {
+    color: var(--maida-azul);
+    border-bottom: 2px solid #3498db;
+    padding-bottom: 10px;
+}
+
+.page-analise p {
+    font-size: 1.1rem;
+    color: #555;
+    margin-bottom: 25px;
+}
+
+.ano-container h2 {
+    color: var(--maida-azul);
+    margin-top: 30px;
+    padding-bottom: 5px;
+    border-bottom: 1px solid #ddd;
+}
+
+.rubrica-card {
+    background-color: white;
+    border-radius: 8px;
+    padding: 20px;
+    margin-bottom: 20px;
+    box-shadow: 0 2px 5px rgba(0,0,0,0.08);
+    border-left: 5px solid #3498db;
+}
+
+.rubrica-title {
+    font-size: 1.2rem;
+    font-weight: bold;
+    color: #2c3e50;
+    margin-bottom: 15px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.info-icon {
+    display: inline-block;
+    width: 20px;
+    height: 20px;
+    background-color: #3498db;
+    color: white;
+    border-radius: 50%;
+    text-align: center;
+    line-height: 20px;
+    font-size: 14px;
+    font-weight: bold;
+    cursor: help;
+}
+
+.timeline {
+    display: flex;
+    flex-wrap: wrap; /* Permite que os meses quebrem para a próxima linha */
+    gap: 8px; /* Espaço entre os indicadores de mês */
+    margin-top: 15px;
+    padding-top: 10px;
+    border-top: 1px solid #f0f0f0;
+}
+
+.month-indicator {
+    flex-grow: 1; /* Faz com que os itens preencham o espaço */
+    min-width: 70px;
+    text-align: center;
+    padding: 8px;
+    border-radius: 5px;
+    font-size: 12px;
+    font-weight: bold;
+    position: relative;
+    transition: transform 0.2s ease;
+}
+
+.month-indicator:hover {
+    transform: translateY(-2px);
+}
+
+.month-indicator.present {
+    background-color: #2ecc71;
+    color: white;
+}
+
+.month-indicator.absent {
+    background-color: #ecf0f1;
+    color: #95a5a6;
+    border: 1px dashed #bdc3c7;
+}
+
+.people-count {
+    background-color: #e67e22;
+    color: white;
+    border-radius: 50%;
+    padding: 1px 6px;
+    font-size: 11px;
+    position: absolute;
+    top: -5px;
+    right: -5px;
+    border: 1px solid white;
+}
+
+.people-count.error {
+    background-color: #e74c3c !important;
+    cursor: help;
+}
+
+.tooltip {
+    position: absolute;
+    bottom: calc(100% + 5px); /* Posiciona acima do indicador */
+    left: 50%;
+    transform: translateX(-50%);
+    background-color: #34495e;
+    color: white;
+    padding: 8px;
+    border-radius: 5px;
+    font-size: 13px;
+    white-space: nowrap;
+    visibility: hidden;
+    opacity: 0;
+    transition: opacity 0.3s, visibility 0.3s;
+    z-index: 10;
+    pointer-events: none;
+}
+
+.month-indicator:hover .tooltip {
+    visibility: visible;
+    opacity: 1;
+}
+
