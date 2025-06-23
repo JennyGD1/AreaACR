@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🔬 Análise Avançada de Descontos</title>
+    <link rel="icon" href="{{ url_for('static', filename='img/logo_maida.png') }}" />
+    
+    <!-- Links para os arquivos CSS, incluindo o novo 'analise.css' -->
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/base.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/components/navbar.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/pages/analise.css') }}">
+</head>
+<body class="page-analise">
+    {% include 'components/_preloader.html' %}
+    {% include 'components/_navbar.html' %}
+
+    <div class="scrollbar-container">
+        <div class="scrollbar-thumb" id="scrollThumb"></div>
+    </div>
+    
+    <div class="container">
+        <h1>🔬 Análise Avançada de Descontos</h1>
+        <p>Esta página analisa os descontos para identificar a presença de múltiplos beneficiários (dependentes, agregados) e mostra uma linha do tempo das cobranças.</p>
+
+        {% if dados_analisados %}
+            {% for ano in anos_ordenados %}
+                <div class="ano-container">
+                    <h2>Ano: {{ ano }}</h2>
+                    
+                    {% set analise_do_ano = dados_analisados[ano]['analise_descontos'] %}
+                    {% for rubrica, meses in analise_do_ano.items() %}
+                        <div class="rubrica-card">
+                            <div class="rubrica-title">
+                                <!-- Mapeia a rubrica para a descrição, se disponível -->
+                                {{ config['padroes_contracheque']['rh_bahia']['campos'] | selectattr(rubrica) | list | first | default(rubrica, true) }} ({{ rubrica }})
+                                <span class="info-icon" title="Análise de múltiplos dependentes para a rubrica {{ rubrica }}.">i</span>
+                            </div>
+
+                            <!-- Linha do Tempo Visual -->
+                            <div class="timeline">
+                                {% for mes_num in range(1, 13) %}
+                                    {% set mes_encontrado = none %}
+                                    {% for mes_completo, dados_mes in meses.items() if mes_completo.endswith(ano) and loop.index == mes_num %}
+                                        {% set mes_encontrado = dados_mes %}
+                                    {% endfor %}
+
+                                    {% if mes_encontrado %}
+                                        <div class="month-indicator present">
+                                            {{ mes_encontrado.mes.split('/')[0][:3] }}/{{ ano[2:] }}
+                                            {% if mes_encontrado.pessoas > 1 %}
+                                                <span class="people-count">{{ mes_encontrado.pessoas }}</span>
+                                            {% elif mes_encontrado.pessoas == 'X' %}
+                                                <span class="people-count error" title="Valor não corresponde a múltiplos exatos">X</span>
+                                            {% endif %}
+                                            <div class="tooltip">
+                                                {{ mes_encontrado.mes }}: R$ {{ "%.2f"|format(mes_encontrado.valor) }}
+                                                {% if mes_encontrado.pessoas != 'X' and mes_encontrado.pessoas > 1 %}
+                                                    ({{ mes_encontrado.pessoas }} pessoas)
+                                                {% endif %}
+                                            </div>
+                                        </div>
+                                    {% else %}
+                                        <div class="month-indicator absent">
+                                            {{ ["Jan", "Fev", "Mar", "Abr", "Mai", "Jun", "Jul", "Ago", "Set", "Out", "Nov", "Dez"][mes_num-1] }}/{{ ano[2:] }}
+                                            <div class="tooltip">Não cobrado</div>
+                                        </div>
+                                    {% endif %}
+                                {% endfor %}
+                            </div>
+                        </div>
+                    {% endfor %}
+                </div>
+            {% endfor %}
+        {% else %}
+            <p>Nenhuma análise disponível. Processe os arquivos primeiro.</p>
+        {% endif %}
+
+        <div class="btn-container">
+            <a href="{{ url_for('mostrar_resultados') }}" class="btn btn-secondary">
+                📊 Voltar ao Resumo
+            </a>
+        </div>
+    </div>
+    
+    {% include 'components/_footer.html' %}
+    <script src="{{ url_for('static', filename='js/main.js') }}" defer></script>
+</body>
+</html>
