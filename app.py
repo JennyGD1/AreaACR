@@ -1,3 +1,5 @@
+# app.py - VERSÃO FINAL, COMPLETA E CORRIGIDA
+
 import fitz
 import re
 import os
@@ -66,7 +68,6 @@ def processar_pdf(caminho_pdf):
             mes_ano_encontrado, _ = extrair_mes_ano_do_texto(texto_pagina)
             tipo_contracheque = processador.identificar_tipo(texto_pagina)
             dados_extraidos = processador.extrair_dados(texto_pagina, tipo_contracheque)
-            # A estrutura de dados agora é {'proventos': {...}, 'descontos': {...}}
             resultados_por_pagina.append((mes_ano_encontrado, dados_extraidos))
         return resultados_por_pagina
     except Exception as e:
@@ -109,13 +110,7 @@ def upload():
                         resultados_por_ano[ano] = {'detalhes_mensais': {}}
                     
                     if mes_ano_str not in resultados_por_ano[ano]['detalhes_mensais']:
-                         resultados_por_ano[ano]['detalhes_mensais'][mes_ano_str] = {'proventos': {}, 'descontos': {}}
-
-                    # Acumula proventos e descontos para o mês
-                    for codigo, valor in dados_mes.get('proventos', {}).items():
-                        resultados_por_ano[ano]['detalhes_mensais'][mes_ano_str]['proventos'][codigo] = valor
-                    for campo, valor in dados_mes.get('descontos', {}).items():
-                        resultados_por_ano[ano]['detalhes_mensais'][mes_ano_str]['descontos'][campo] = valor
+                         resultados_por_ano[ano]['detalhes_mensais'][mes_ano_str] = dados_mes
         except Exception as e:
             logger.error(f"Erro no upload do arquivo {filename}: {e}", exc_info=True)
             erros.append(filename)
@@ -132,7 +127,6 @@ def upload():
     if erros: flash(f'Processamento concluído com erros em: {", ".join(erros)}', 'warning')
     return redirect(url_for('mostrar_analise_detalhada'))
 
-
 @app.route('/analise')
 def mostrar_analise_detalhada():
     if 'resultados_por_ano' not in session:
@@ -140,7 +134,6 @@ def mostrar_analise_detalhada():
     
     resultados_por_ano = session.get('resultados_por_ano', {})
     
-    # Prepara os dados para a tabela mestre
     todas_competencias = []
     colunas_ativas = set()
     
@@ -204,3 +197,4 @@ def mostrar_analise_detalhada():
 
 if __name__ == '__main__':
     app.run(debug=True)
+
