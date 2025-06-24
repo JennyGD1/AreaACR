@@ -75,3 +75,50 @@
 .tabela-analise thead th:first-child {
     z-index: 3; 
 }
+/* --- Estilos para o Painel de Controle e Filtros --- */
+
+#painelControle {
+    background-color: #f8f9fa;
+    border: 1px solid #e9ecef;
+    border-radius: 8px;
+    padding: 20px;
+    margin-top: 20px;
+    margin-bottom: 30px;
+}
+
+#painelControle h2 {
+    margin-top: 0;
+    margin-bottom: 20px;
+    text-align: center;
+    color: var(--maida-azul);
+    border-bottom: none;
+}
+
+.filtros-container {
+    display: flex;
+    justify-content: center;
+    gap: 30px;
+    align-items: center;
+    margin-bottom: 20px;
+    flex-wrap: wrap; /* Permite que os filtros quebrem em telas menores */
+}
+
+.filtro-item {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.filtro-item label {
+    font-weight: bold;
+    color: #333;
+    font-size: 0.9rem;
+}
+
+.filtro-item select {
+    padding: 10px;
+    border-radius: 5px;
+    border: 1px solid #ccc;
+    font-size: 1rem;
+    min-width: 250px; /* Garante um bom tamanho para o select */
+}
