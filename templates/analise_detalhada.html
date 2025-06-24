@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>🔬 Tabela Geral de Descontos</title>
+    <title>🔬 Análise Avançada de Descontos</title>
     <link rel="icon" href="{{ url_for('static', filename='img/logo_maida.png') }}" />
     
     <link rel="stylesheet" href="{{ url_for('static', filename='css/base.css') }}">
@@ -19,44 +19,121 @@
     </div>
     
     <div class="container">
-        <h1>🔬 Tabela Geral de Descontos</h1>
-        <p>Tabela detalhada de descontos por competência, com base nos arquivos enviados.</p>
+        <h1>🔬 Análise Avançada de Descontos</h1>
+        <p>Use os filtros abaixo e clique em "Gerar Relatório" para visualizar os dados detalhados.</p>
         
-        <div class="tabela-container">
-            {% if todas_competencias %}
-                <table class="tabela-analise">
-                    <thead>
-                        <tr>
-                            <th>Mês/Ano</th>
-                            {% for chave in colunas_ordenadas %}
-                                <th>{{ descricao_rubricas.get(chave, chave|replace('_', ' ')|title) }}</th>
-                            {% endfor %}
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {% for comp in todas_competencias %}
-                        <tr>
-                            <td>{{ comp.competencia.replace('Janeiro', '01').replace('Fevereiro', '02').replace('Março', '03').replace('Abril', '04').replace('Maio', '05').replace('Junho', '06').replace('Julho', '07').replace('Agosto', '08').replace('Setembro', '09').replace('Outubro', '10').replace('Novembro', '11').replace('Dezembro', '12').replace(' ', '/') }}</td>
-                            {% for chave in colunas_ordenadas %}
-                                <td>{{ "R$ %.2f"|format(comp.get(chave, 0.0))|replace('.', ',') }}</td>
-                            {% endfor %}
-                        </tr>
+        <!-- PAINEL DE CONTROLE COM FILTROS -->
+        <div id="painelControle">
+            <h2>Filtros</h2>
+            <div class="filtros-container">
+                <div class="filtro-item">
+                    <label for="filtroAno">Filtrar por Ano:</label>
+                    <select id="filtroAno">
+                        <option value="todos">Todos os Anos</option>
+                        {% for ano in anos_ordenados %}
+                            <option value="{{ ano }}">{{ ano }}</option>
                         {% endfor %}
-                    </tbody>
-                </table>
-            {% else %}
-                <p>Nenhuma análise disponível. Processe os arquivos primeiro.</p>
-            {% endif %}
+                    </select>
+                </div>
+                <div class="filtro-item">
+                    <label for="filtroDesconto">Filtrar por Desconto:</label>
+                    <select id="filtroDesconto">
+                        <option value="todos">Todos os Descontos</option>
+                         {% for chave in colunas_ordenadas %}
+                            <option value="{{ chave }}">{{ descricao_rubricas.get(chave, chave|replace('_', ' ')|title) }}</option>
+                         {% endfor %}
+                    </select>
+                </div>
+            </div>
+            <div class="btn-container">
+                <button id="btnGerarRelatorio" class="btn btn-success">Gerar Relatório</button>
+            </div>
         </div>
         
-        <div class="btn-container">
-            <a href="{{ url_for('calculadora_index') }}" class="btn btn-primary">
-                🔄 Nova Análise
-            </a>
+        <div id="resultadoContainer">
+            <!-- As tabelas geradas aparecerão aqui -->
         </div>
     </div>
     
     {% include 'components/_footer.html' %}
     <script src="{{ url_for('static', filename='js/main.js') }}" defer></script>
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            // DADOS VINDOS DO BACKEND
+            const todasCompetencias = {{ todas_competencias|tojson }};
+            const colunasOrdenadas = {{ colunas_ordenadas|tojson }};
+            const descricaoRubricas = {{ descricao_rubricas|tojson }};
+
+            // ELEMENTOS DO DOM
+            const btnGerarRelatorio = document.getElementById('btnGerarRelatorio');
+            const filtroAno = document.getElementById('filtroAno');
+            const filtroDesconto = document.getElementById('filtroDesconto');
+            const resultadoContainer = document.getElementById('resultadoContainer');
+
+            function formatarMoeda(valor) {
+                return (valor || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+            }
+
+            function gerarTabelaFiltrada() {
+                const anoSelecionado = filtroAno.value;
+                const descontoSelecionado = filtroDesconto.value;
+
+                resultadoContainer.innerHTML = '';
+
+                // 1. Filtrar os dados de acordo com o ano
+                const competenciasFiltradas = todasCompetencias.filter(comp => {
+                    if (anoSelecionado === 'todos') return true;
+                    return comp.competencia.endsWith(anoSelecionado);
+                });
+
+                if (competenciasFiltradas.length === 0) {
+                    resultadoContainer.innerHTML = '<p>Nenhum dado encontrado para o ano selecionado.</p>';
+                    return;
+                }
+
+                // 2. Determinar as colunas a serem exibidas
+                let colunasParaExibir = [];
+                if (descontoSelecionado === 'todos') {
+                    colunasParaExibir = colunasOrdenadas.filter(chave => 
+                        competenciasFiltradas.some(comp => comp[chave] > 0)
+                    );
+                } else {
+                    colunasParaExibir = [descontoSelecionado];
+                }
+
+                if (colunasParaExibir.length === 0 && descontoSelecionado !== 'todos') {
+                     resultadoContainer.innerHTML = `<p>Nenhum valor encontrado para "${descricaoRubricas[descontoSelecionado]}" no período selecionado.</p>`;
+                    return;
+                }
+
+                // 3. Construir a tabela
+                const tabela = document.createElement('table');
+                tabela.className = 'tabela-analise';
+                
+                let headerHtml = '<thead><tr><th>Mês/Ano</th>';
+                colunasParaExibir.forEach(chave => {
+                    headerHtml += `<th>${descricaoRubricas[chave] || chave}</th>`;
+                });
+                headerHtml += '</tr></thead>';
+                tabela.innerHTML = headerHtml;
+
+                const tbody = document.createElement('tbody');
+                competenciasFiltradas.forEach(comp => {
+                    const row = tbody.insertRow();
+                    row.insertCell(0).textContent = comp.competencia.replace(/([A-Za-z]+)\/(\d{4})/, (match, p1, p2) => `${mesesMap[p1]}/${p2}`);
+                    
+                    colunasParaExibir.forEach(chave => {
+                        row.insertCell(-1).textContent = formatarMoeda(comp[chave]);
+                    });
+                });
+
+                tabela.appendChild(tbody);
+                resultadoContainer.appendChild(tabela);
+            }
+
+            // EVENT LISTENER
+            btnGerarRelatorio.addEventListener('click', gerarTabelaFiltrada);
+        });
+    </script>
 </body>
 </html>
