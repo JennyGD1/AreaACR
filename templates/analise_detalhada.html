@@ -19,12 +19,10 @@
     </div>
     
     <div class="container">
-        <h1>🔬 Análise Avançada de Descontos</h1>
-        <p>Use os filtros abaixo e clique em "Gerar Relatório" para visualizar os dados detalhados.</p>
+        <h1>🔬 Tabela Geral de Descontos</h1>
+        <p>Use os filtros abaixo para refinar a visualização dos descontos por competência.</p>
         
-        <!-- PAINEL DE CONTROLE COM FILTROS -->
         <div id="painelControle">
-            <h2>Filtros</h2>
             <div class="filtros-container">
                 <div class="filtro-item">
                     <label for="filtroAno">Filtrar por Ano:</label>
@@ -45,9 +43,6 @@
                     </select>
                 </div>
             </div>
-            <div class="btn-container">
-                <button id="btnGerarRelatorio" class="btn btn-success">Gerar Relatório</button>
-            </div>
         </div>
         
         <div id="resultadoContainer">
@@ -56,56 +51,65 @@
     </div>
     
     {% include 'components/_footer.html' %}
+
     <script src="{{ url_for('static', filename='js/main.js') }}" defer></script>
     <script>
         document.addEventListener('DOMContentLoaded', () => {
-            // DADOS VINDOS DO BACKEND
-            const todasCompetencias = {{ todas_competencias|tojson }};
-            const colunasOrdenadas = {{ colunas_ordenadas|tojson }};
-            const descricaoRubricas = {{ descricao_rubricas|tojson }};
+            // DADOS VINDOS DO BACKEND (PYTHON)
+            const todasCompetencias = {{ todas_competencias|tojson|safe }};
+            const colunasOrdenadasOriginal = {{ colunas_ordenadas|tojson|safe }};
+            const descricaoRubricas = {{ descricao_rubricas|tojson|safe }};
+            const mesesMap = { "Janeiro": "01", "Fevereiro": "02", "Março": "03", "Abril": "04", "Maio": "05", "Junho": "06", "Julho": "07", "Agosto": "08", "Setembro": "09", "Outubro": "10", "Novembro": "11", "Dezembro": "12" };
 
             // ELEMENTOS DO DOM
-            const btnGerarRelatorio = document.getElementById('btnGerarRelatorio');
+            const resultadoContainer = document.getElementById('resultadoContainer');
             const filtroAno = document.getElementById('filtroAno');
             const filtroDesconto = document.getElementById('filtroDesconto');
-            const resultadoContainer = document.getElementById('resultadoContainer');
 
+            // --- FUNÇÕES AUXILIARES ---
             function formatarMoeda(valor) {
                 return (valor || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
             }
 
-            function gerarTabelaFiltrada() {
+            function formatarData(competencia) {
+                const [mesNome, ano] = competencia.split('/');
+                return `${mesesMap[mesNome] || '??'}/${ano}`;
+            }
+
+            // --- FUNÇÃO PRINCIPAL PARA GERAR A TABELA ---
+            function gerarTabela() {
                 const anoSelecionado = filtroAno.value;
                 const descontoSelecionado = filtroDesconto.value;
 
                 resultadoContainer.innerHTML = '';
 
-                // 1. Filtrar os dados de acordo com o ano
+                // 1. Filtrar os dados de acordo com o ano selecionado
                 const competenciasFiltradas = todasCompetencias.filter(comp => {
                     if (anoSelecionado === 'todos') return true;
                     return comp.competencia.endsWith(anoSelecionado);
                 });
 
                 if (competenciasFiltradas.length === 0) {
-                    resultadoContainer.innerHTML = '<p>Nenhum dado encontrado para o ano selecionado.</p>';
+                    resultadoContainer.innerHTML = '<p class="aviso">Nenhum dado encontrado para o ano selecionado.</p>';
                     return;
                 }
 
                 // 2. Determinar as colunas a serem exibidas
-                let colunasParaExibir = [];
+                let colunasParaExibir;
                 if (descontoSelecionado === 'todos') {
-                    colunasParaExibir = colunasOrdenadas.filter(chave => 
+                    // Mostra apenas as colunas que têm algum valor no período filtrado
+                    colunasParaExibir = colunasOrdenadasOriginal.filter(chave => 
                         competenciasFiltradas.some(comp => comp[chave] > 0)
                     );
                 } else {
                     colunasParaExibir = [descontoSelecionado];
                 }
 
-                if (colunasParaExibir.length === 0 && descontoSelecionado !== 'todos') {
-                     resultadoContainer.innerHTML = `<p>Nenhum valor encontrado para "${descricaoRubricas[descontoSelecionado]}" no período selecionado.</p>`;
+                if (colunasParaExibir.length === 0) {
+                    resultadoContainer.innerHTML = `<p class="aviso">Nenhum valor encontrado para "${descricaoRubricas[descontoSelecionado]}" no período selecionado.</p>`;
                     return;
                 }
-
+                
                 // 3. Construir a tabela
                 const tabela = document.createElement('table');
                 tabela.className = 'tabela-analise';
@@ -120,10 +124,11 @@
                 const tbody = document.createElement('tbody');
                 competenciasFiltradas.forEach(comp => {
                     const row = tbody.insertRow();
-                    row.insertCell(0).textContent = comp.competencia.replace(/([A-Za-z]+)\/(\d{4})/, (match, p1, p2) => `${mesesMap[p1]}/${p2}`);
+                    row.insertCell(0).textContent = formatarData(comp.competencia);
                     
                     colunasParaExibir.forEach(chave => {
-                        row.insertCell(-1).textContent = formatarMoeda(comp[chave]);
+                        const cell = row.insertCell(-1);
+                        cell.textContent = formatarMoeda(comp[chave]);
                     });
                 });
 
@@ -131,8 +136,13 @@
                 resultadoContainer.appendChild(tabela);
             }
 
-            // EVENT LISTENER
-            btnGerarRelatorio.addEventListener('click', gerarTabelaFiltrada);
+            // --- EVENT LISTENERS ---
+            // Adiciona os listeners para os filtros mudarem a tabela dinamicamente
+            filtroAno.addEventListener('change', gerarTabela);
+            filtroDesconto.addEventListener('change', gerarTabela);
+
+            // Gera a tabela inicial com todos os dados assim que a página carrega
+            gerarTabela();
         });
     </script>
 </body>
