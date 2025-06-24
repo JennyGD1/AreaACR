@@ -152,18 +152,52 @@ def mostrar_analise_detalhada():
     
     resultados_por_ano = session.get('resultados_por_ano', {})
     
+    # Prepara os dados para a tabela mestre
     todas_competencias = []
     colunas_ativas = set()
+    
+    # Carrega as regras de contribuição do config.json
+    regras_contribuicao = processador.config.get('regras_analise', {}).get('regras_contribuicao', {})
+    rubricas_sempre_validas = regras_contribuicao.get('sempre_validas', [])
+    rubricas_com_data = regras_contribuicao.get('validas_apos_data', [])
     
     for dados_ano in resultados_por_ano.values():
         for mes, detalhe_mensal in dados_ano.get('detalhes_mensais', {}).items():
             comp_dict = {'competencia': mes}
             valores = detalhe_mensal.get('valores', {})
             comp_dict.update(valores)
+            
+            # --- NOVA LÓGICA DE CÁLCULO DA CONTRIBUIÇÃO ---
+            contribuicao_total = 0
+            mes_nome, ano_str = mes.split('/')
+            competencia_data = datetime(int(ano_str), MESES_ORDEM[mes_nome], 1)
+            
+            # 1. Soma as rubricas sempre válidas
+            for rubrica in rubricas_sempre_validas:
+                # O processador extrai com base nos códigos do config, então buscamos pelo nome interno
+                for nome_interno, codigo_config in processador.config['padroes_contracheque']['rh_bahia']['campos'].items():
+                    if codigo_config == rubrica:
+                        contribuicao_total += valores.get(nome_interno, 0.0)
+
+            # 2. Soma as rubricas condicionais à data
+            for regra in rubricas_com_data:
+                data_inicio = datetime.strptime(regra['data_inicio'], '%Y-%m-%d')
+                if competencia_data >= data_inicio:
+                    for rubrica in regra['lista_rubricas']:
+                        for nome_interno, codigo_config in processador.config['padroes_contracheque']['rh_bahia']['campos'].items():
+                            if codigo_config == rubrica:
+                                contribuicao_total += valores.get(nome_interno, 0.0)
+
+            comp_dict['contribuicao'] = contribuicao_total
+            # --- FIM DA NOVA LÓGICA ---
+            
             todas_competencias.append(comp_dict)
             for chave, valor in valores.items():
                 if valor > 0: colunas_ativas.add(chave)
+            if contribuicao_total > 0:
+                colunas_ativas.add('contribuicao')
 
+    # Ordena as competências cronologicamente
     def chave_de_ordenacao(item):
         try:
             mes_nome, ano = item['competencia'].split('/')
@@ -171,10 +205,12 @@ def mostrar_analise_detalhada():
         except: return 0
     todas_competencias.sort(key=chave_de_ordenacao)
 
-    ordem_desejada = ["titular", "parcela_risco_titular", "conjuge", "parcela_risco_conjuge", "dependente", "parcela_risco_dependente", "agregado_jovem", "agregado_maior", "parcela_risco_agregado", "plano_especial", "coparticipacao", "retroativo"]
+    # Adiciona "Contribuição" na ordem correta das colunas
+    ordem_desejada = ["contribuicao", "titular", "parcela_risco_titular", "conjuge", "parcela_risco_conjuge", "dependente", "parcela_risco_dependente", "agregado_jovem", "agregado_maior", "parcela_risco_agregado", "plano_especial", "coparticipacao", "retroativo"]
     colunas_ordenadas = [chave for chave in ordem_desejada if chave in colunas_ativas]
 
     descricao_rubricas = {
+        'contribuicao': 'Contribuição',
         'titular': 'Titular', 'conjuge': 'Cônjuge', 'dependente': 'Dependente', 'agregado_jovem': 'Agregado Jovem', 
         'agregado_maior': 'Agregado Maior', 'plano_especial': 'Plano Especial', 'coparticipacao': 'Coparticipação', 
         'retroativo': 'Retroativo', 'restituicao': 'Restituição', 'parcela_risco_titular': 'P. Risco Titular', 
@@ -186,7 +222,6 @@ def mostrar_analise_detalhada():
                            colunas_ordenadas=colunas_ordenadas,
                            anos_ordenados=sorted(resultados_por_ano.keys(), key=int, reverse=True),
                            descricao_rubricas=descricao_rubricas)
-
 
 if __name__ == '__main__':
     app.run(debug=True)
