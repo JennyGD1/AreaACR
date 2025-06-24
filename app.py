@@ -1,4 +1,4 @@
-# app.py - VERSÃO FINAL E SIMPLIFICADA
+# app.py - VERSÃO FINAL, COMPLETA E CORRIGIDA
 
 import fitz
 import re
@@ -120,14 +120,13 @@ def upload():
                 if mes_ano_str != "Período não identificado":
                     _, ano = mes_ano_str.split('/')
                     if ano not in resultados_por_ano:
-                        resultados_por_ano[ano] = {'geral': {c: 0.0 for c in campos_base}, 'detalhes_mensais': {}}
+                        resultados_por_ano[ano] = {'detalhes_mensais': {}}
                     
                     if mes_ano_str not in resultados_por_ano[ano]['detalhes_mensais']:
                          resultados_por_ano[ano]['detalhes_mensais'][mes_ano_str] = {'valores': {c: 0.0 for c in campos_base}}
 
                     for campo, valor in valores_pagina.items():
                         if campo in campos_base:
-                            resultados_por_ano[ano]['geral'][campo] += valor
                             resultados_por_ano[ano]['detalhes_mensais'][mes_ano_str]['valores'][campo] += valor
         except Exception as e:
             logger.error(f"Erro no upload do arquivo {filename}: {e}", exc_info=True)
@@ -141,16 +140,11 @@ def upload():
         flash('Nenhum dado válido pôde ser extraído dos arquivos PDF fornecidos.', 'warning')
         return redirect(url_for('calculadora_index'))
 
-    # Salva os dados brutos na sessão antes de redirecionar
     session['resultados_por_ano'] = resultados_por_ano
     if erros: flash(f'Processamento concluído com erros em: {", ".join(erros)}', 'warning')
-    
-    # *** MUDANÇA PRINCIPAL AQUI ***
-    # Redireciona diretamente para a página de análise
     return redirect(url_for('mostrar_analise_detalhada'))
 
 
-# --- ROTA DE ANÁLISE (AGORA A PÁGINA PRINCIPAL DE RESULTADOS) ---
 @app.route('/analise')
 def mostrar_analise_detalhada():
     if 'resultados_por_ano' not in session:
@@ -158,7 +152,6 @@ def mostrar_analise_detalhada():
     
     resultados_por_ano = session.get('resultados_por_ano', {})
     
-    # Prepara os dados para a tabela mestre
     todas_competencias = []
     colunas_ativas = set()
     
@@ -191,6 +184,7 @@ def mostrar_analise_detalhada():
     return render_template('analise_detalhada.html', 
                            todas_competencias=todas_competencias,
                            colunas_ordenadas=colunas_ordenadas,
+                           anos_ordenados=sorted(resultados_por_ano.keys(), key=int, reverse=True),
                            descricao_rubricas=descricao_rubricas)
 
 
