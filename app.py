@@ -1,4 +1,4 @@
-# app.py - VERSÃO FINAL, COMPLETA E CORRIGIDA
+# app.py - VERSÃO FINAL E SIMPLIFICADA
 
 import fitz
 import re
@@ -141,39 +141,16 @@ def upload():
         flash('Nenhum dado válido pôde ser extraído dos arquivos PDF fornecidos.', 'warning')
         return redirect(url_for('calculadora_index'))
 
-    for ano in resultados_por_ano:
-        total_do_ano = sum(v for k, v in resultados_por_ano[ano]['geral'].items() if k != 'restituicao')
-        resultados_por_ano[ano]['total_ano'] = total_do_ano
-
+    # Salva os dados brutos na sessão antes de redirecionar
     session['resultados_por_ano'] = resultados_por_ano
     if erros: flash(f'Processamento concluído com erros em: {", ".join(erros)}', 'warning')
-    return redirect(url_for('mostrar_resultados'))
+    
+    # *** MUDANÇA PRINCIPAL AQUI ***
+    # Redireciona diretamente para a página de análise
+    return redirect(url_for('mostrar_analise_detalhada'))
 
 
-@app.route('/resultados')
-def mostrar_resultados():
-    if 'resultados_por_ano' not in session:
-        return redirect(url_for('calculadora_index'))
-    resultados_por_ano = session.get('resultados_por_ano', {})
-    total_geral = sum(dados_ano.get('total_ano', 0.0) for dados_ano in resultados_por_ano.values())
-    anos_ordenados = sorted(resultados_por_ano.keys(), key=int, reverse=True)
-    ordem_descontos = [
-        "titular", "parcela_risco_titular", "conjuge", "parcela_risco_conjuge", "dependente", 
-        "parcela_risco_dependente", "agregado_jovem", "agregado_maior", "parcela_risco_agregado",
-        "plano_especial", "coparticipacao", "retroativo"
-    ]
-    return render_template('resultado.html',
-                           resultados_por_ano={ano: resultados_por_ano[ano] for ano in anos_ordenados},
-                           total_geral=total_geral,
-                           ordem_descontos=ordem_descontos,
-                           now=datetime.now())
-
-@app.route('/detalhes')
-def detalhes_mensais():
-    if 'resultados_por_ano' not in session:
-        return redirect(url_for('calculadora_index'))
-    return render_template('detalhes_mes.html', resultados_por_ano=session.get('resultados_por_ano', {}), meses_ordem=MESES_ORDEM)
-
+# --- ROTA DE ANÁLISE (AGORA A PÁGINA PRINCIPAL DE RESULTADOS) ---
 @app.route('/analise')
 def mostrar_analise_detalhada():
     if 'resultados_por_ano' not in session:
