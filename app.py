@@ -1,5 +1,3 @@
-# app.py - VERSÃO FINAL, COMPLETA E CORRIGIDA
-
 import fitz
 import re
 import os
@@ -63,20 +61,13 @@ def processar_pdf(caminho_pdf):
     try:
         doc = fitz.open(caminho_pdf)
         resultados_por_pagina = []
-        campos_obrigatorios = [
-            'titular', 'conjuge', 'dependente', 'agregado_jovem',
-            'agregado_maior', 'plano_especial', 'coparticipacao',
-            'retroativo', 'restituicao', 'parcela_risco_titular', 'parcela_risco_dependente',
-            'parcela_risco_conjuge', 'parcela_risco_agregado'
-        ]
         for page_num, page in enumerate(doc):
             texto_pagina = page.get_text("text")
             mes_ano_encontrado, _ = extrair_mes_ano_do_texto(texto_pagina)
             tipo_contracheque = processador.identificar_tipo(texto_pagina)
             dados_extraidos = processador.extrair_dados(texto_pagina, tipo_contracheque)
-            valores_pagina = {campo: 0.0 for campo in campos_obrigatorios}
-            valores_pagina.update(dados_extraidos)
-            resultados_por_pagina.append((mes_ano_encontrado, valores_pagina))
+            # A estrutura de dados agora é {'proventos': {...}, 'descontos': {...}}
+            resultados_por_pagina.append((mes_ano_encontrado, dados_extraidos))
         return resultados_por_pagina
     except Exception as e:
         logger.error(f"Erro ao processar PDF {caminho_pdf}: {str(e)}", exc_info=True)
@@ -104,30 +95,27 @@ def upload():
 
     resultados_por_ano = {}
     erros = []
-    campos_base = [
-        'titular', 'conjuge', 'dependente', 'agregado_jovem', 'agregado_maior',
-        'plano_especial', 'coparticipacao', 'retroativo', 'restituicao',
-        'parcela_risco_titular', 'parcela_risco_dependente', 'parcela_risco_conjuge', 'parcela_risco_agregado'
-    ]
-
+    
     for file in files:
         filename = secure_filename(file.filename)
         filepath = os.path.join(app.config['UPLOAD_FOLDER'], filename)
         try:
             file.save(filepath)
             resultados_pagina = processar_pdf(filepath)
-            for mes_ano_str, valores_pagina in resultados_pagina:
+            for mes_ano_str, dados_mes in resultados_pagina:
                 if mes_ano_str != "Período não identificado":
                     _, ano = mes_ano_str.split('/')
                     if ano not in resultados_por_ano:
                         resultados_por_ano[ano] = {'detalhes_mensais': {}}
                     
                     if mes_ano_str not in resultados_por_ano[ano]['detalhes_mensais']:
-                         resultados_por_ano[ano]['detalhes_mensais'][mes_ano_str] = {'valores': {c: 0.0 for c in campos_base}}
+                         resultados_por_ano[ano]['detalhes_mensais'][mes_ano_str] = {'proventos': {}, 'descontos': {}}
 
-                    for campo, valor in valores_pagina.items():
-                        if campo in campos_base:
-                            resultados_por_ano[ano]['detalhes_mensais'][mes_ano_str]['valores'][campo] += valor
+                    # Acumula proventos e descontos para o mês
+                    for codigo, valor in dados_mes.get('proventos', {}).items():
+                        resultados_por_ano[ano]['detalhes_mensais'][mes_ano_str]['proventos'][codigo] = valor
+                    for campo, valor in dados_mes.get('descontos', {}).items():
+                        resultados_por_ano[ano]['detalhes_mensais'][mes_ano_str]['descontos'][campo] = valor
         except Exception as e:
             logger.error(f"Erro no upload do arquivo {filename}: {e}", exc_info=True)
             erros.append(filename)
@@ -156,48 +144,39 @@ def mostrar_analise_detalhada():
     todas_competencias = []
     colunas_ativas = set()
     
-    # Carrega as regras de contribuição do config.json
     regras_contribuicao = processador.config.get('regras_analise', {}).get('regras_contribuicao', {})
-    rubricas_sempre_validas = regras_contribuicao.get('sempre_validas', [])
+    rubricas_sempre_validas = set(regras_contribuicao.get('sempre_validas', []))
     rubricas_com_data = regras_contribuicao.get('validas_apos_data', [])
     
     for dados_ano in resultados_por_ano.values():
         for mes, detalhe_mensal in dados_ano.get('detalhes_mensais', {}).items():
             comp_dict = {'competencia': mes}
-            valores = detalhe_mensal.get('valores', {})
-            comp_dict.update(valores)
+            proventos = detalhe_mensal.get('proventos', {})
+            descontos = detalhe_mensal.get('descontos', {})
+            comp_dict.update(descontos)
             
-            # --- NOVA LÓGICA DE CÁLCULO DA CONTRIBUIÇÃO ---
-            contribuicao_total = 0
-            mes_nome, ano_str = mes.split('/')
-            competencia_data = datetime(int(ano_str), MESES_ORDEM[mes_nome], 1)
+            contribuicao_total = 0.0
+            try:
+                mes_nome, ano_str = mes.split('/')
+                competencia_data = datetime(int(ano_str), MESES_ORDEM[mes_nome], 1)
+                
+                for codigo, valor in proventos.items():
+                    if codigo in rubricas_sempre_validas:
+                        contribuicao_total += valor
+                    else:
+                        for regra in rubricas_com_data:
+                            if datetime.strptime(regra['data_inicio'], '%Y-%m-%d') <= competencia_data and codigo in regra['lista_rubricas']:
+                                contribuicao_total += valor
+                                break
+            except Exception as e:
+                logger.error(f"Erro ao calcular contribuição para {mes}: {e}")
             
-            # 1. Soma as rubricas sempre válidas
-            for rubrica in rubricas_sempre_validas:
-                # O processador extrai com base nos códigos do config, então buscamos pelo nome interno
-                for nome_interno, codigo_config in processador.config['padroes_contracheque']['rh_bahia']['campos'].items():
-                    if codigo_config == rubrica:
-                        contribuicao_total += valores.get(nome_interno, 0.0)
-
-            # 2. Soma as rubricas condicionais à data
-            for regra in rubricas_com_data:
-                data_inicio = datetime.strptime(regra['data_inicio'], '%Y-%m-%d')
-                if competencia_data >= data_inicio:
-                    for rubrica in regra['lista_rubricas']:
-                        for nome_interno, codigo_config in processador.config['padroes_contracheque']['rh_bahia']['campos'].items():
-                            if codigo_config == rubrica:
-                                contribuicao_total += valores.get(nome_interno, 0.0)
-
             comp_dict['contribuicao'] = contribuicao_total
-            # --- FIM DA NOVA LÓGICA ---
             
             todas_competencias.append(comp_dict)
-            for chave, valor in valores.items():
+            for chave, valor in comp_dict.items():
                 if valor > 0: colunas_ativas.add(chave)
-            if contribuicao_total > 0:
-                colunas_ativas.add('contribuicao')
 
-    # Ordena as competências cronologicamente
     def chave_de_ordenacao(item):
         try:
             mes_nome, ano = item['competencia'].split('/')
@@ -205,16 +184,15 @@ def mostrar_analise_detalhada():
         except: return 0
     todas_competencias.sort(key=chave_de_ordenacao)
 
-    # Adiciona "Contribuição" na ordem correta das colunas
     ordem_desejada = ["contribuicao", "titular", "parcela_risco_titular", "conjuge", "parcela_risco_conjuge", "dependente", "parcela_risco_dependente", "agregado_jovem", "agregado_maior", "parcela_risco_agregado", "plano_especial", "coparticipacao", "retroativo"]
     colunas_ordenadas = [chave for chave in ordem_desejada if chave in colunas_ativas]
 
     descricao_rubricas = {
-        'contribuicao': 'Contribuição',
-        'titular': 'Titular', 'conjuge': 'Cônjuge', 'dependente': 'Dependente', 'agregado_jovem': 'Agregado Jovem', 
-        'agregado_maior': 'Agregado Maior', 'plano_especial': 'Plano Especial', 'coparticipacao': 'Coparticipação', 
-        'retroativo': 'Retroativo', 'restituicao': 'Restituição', 'parcela_risco_titular': 'P. Risco Titular', 
-        'parcela_risco_dependente': 'P. Risco Dependente', 'parcela_risco_conjuge': 'P. Risco Cônjuge', 'parcela_risco_agregado': 'P. Risco Agregado'
+        'contribuicao': 'Contribuição', 'titular': 'Titular', 'conjuge': 'Cônjuge', 'dependente': 'Dependente', 
+        'agregado_jovem': 'Agregado Jovem', 'agregado_maior': 'Agregado Maior', 'plano_especial': 'Plano Especial', 
+        'coparticipacao': 'Coparticipação', 'retroativo': 'Retroativo', 'restituicao': 'Restituição', 
+        'parcela_risco_titular': 'P. Risco Titular', 'parcela_risco_dependente': 'P. Risco Dependente', 
+        'parcela_risco_conjuge': 'P. Risco Cônjuge', 'parcela_risco_agregado': 'P. Risco Agregado'
     }
     
     return render_template('analise_detalhada.html', 
@@ -222,6 +200,7 @@ def mostrar_analise_detalhada():
                            colunas_ordenadas=colunas_ordenadas,
                            anos_ordenados=sorted(resultados_por_ano.keys(), key=int, reverse=True),
                            descricao_rubricas=descricao_rubricas)
+
 
 if __name__ == '__main__':
     app.run(debug=True)
