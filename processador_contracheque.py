@@ -1,5 +1,3 @@
-# processador_contracheque.py (VERSÃO ATUALIZADA)
-
 import json
 import re
 import logging
@@ -62,8 +60,7 @@ class ProcessadorContracheque:
         
         dados = {'proventos': {}, 'descontos': {}, 'total_proventos': 0.0}
         linhas = texto.split('\n')
-        secao_atual = 'proventos' # Começamos sempre na seção de proventos
-
+        
         # Identifica o início das seções de proventos e descontos para maior precisão
         indice_descontos = -1
         for i, linha in enumerate(linhas):
@@ -76,10 +73,12 @@ class ProcessadorContracheque:
         total_proventos_calculado = 0.0
         for linha in linhas_proventos:
             linha_strip = linha.strip()
-            codigo_match = re.match(r'^\/?\s*([A-Z0-9]{4})\b', linha_strip)
+            # *** MUDANÇA AQUI: Regex simplificada para pegar os 4 primeiros caracteres não-espaço ***
+            codigo_match = re.match(r'^(\S{4})', linha_strip)
             if codigo_match:
                 codigo = codigo_match.group(1)
-                # Adiciona o provento ao dicionário de proventos (para cálculo de contribuição)
+                
+                # Adiciona o provento ao dicionário de proventos (para cálculo de contribuição, se necessário)
                 valor = self._extrair_valor_de_linha(linha_strip)
                 if valor > 0:
                     dados['proventos'][codigo] = valor
@@ -95,14 +94,15 @@ class ProcessadorContracheque:
             linhas_descontos = linhas[indice_descontos:]
             for linha in linhas_descontos:
                 linha_strip = linha.strip()
-                codigo_match = re.match(r'^\/?\s*([A-Z0-9]{4})\b', linha_strip)
+                # *** MUDANÇA AQUI: Regex simplificada também para descontos ***
+                codigo_match = re.match(r'^(\S{4})', linha_strip)
                 if codigo_match:
                     codigo = codigo_match.group(1)
                     nome_interno = mapa_codigo_para_nome.get(codigo)
                     if nome_interno:
                         valor = self._extrair_valor_de_linha(linha_strip)
                         if valor > 0:
-                            dados['descontos'][nome_interno] = valor
+                            dados['descontos'][nome_interno] = dados['descontos'].get(nome_interno, 0) + valor
         
         logger.info(f"Dados extraídos: Total Proventos={dados['total_proventos']:.2f}, Descontos={len(dados['descontos'])}")
         return dados
