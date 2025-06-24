@@ -96,7 +96,7 @@ def upload():
 
     resultados_por_ano = {}
     erros = []
-    
+
     for file in files:
         filename = secure_filename(file.filename)
         filepath = os.path.join(app.config['UPLOAD_FOLDER'], filename)
@@ -110,13 +110,7 @@ def upload():
                         resultados_por_ano[ano] = {'detalhes_mensais': {}}
                     
                     if mes_ano_str not in resultados_por_ano[ano]['detalhes_mensais']:
-                         resultados_por_ano[ano]['detalhes_mensais'][mes_ano_str] = {'proventos': {}, 'descontos': {}}
-
-                    # Acumula proventos e descontos para o mês
-                    for codigo, valor in dados_mes.get('proventos', {}).items():
-                        resultados_por_ano[ano]['detalhes_mensais'][mes_ano_str]['proventos'][codigo] = valor
-                    for campo, valor in dados_mes.get('descontos', {}).items():
-                        resultados_por_ano[ano]['detalhes_mensais'][mes_ano_str]['descontos'][campo] = valor
+                         resultados_por_ano[ano]['detalhes_mensais'][mes_ano_str] = dados_mes
         except Exception as e:
             logger.error(f"Erro no upload do arquivo {filename}: {e}", exc_info=True)
             erros.append(filename)
@@ -134,7 +128,6 @@ def upload():
     return redirect(url_for('mostrar_analise_detalhada'))
 
 
-# ROTA DE ANÁLISE (AGORA A PÁGINA PRINCIPAL DE RESULTADOS)
 @app.route('/analise')
 def mostrar_analise_detalhada():
     if 'resultados_por_ano' not in session:
@@ -142,7 +135,6 @@ def mostrar_analise_detalhada():
     
     resultados_por_ano = session.get('resultados_por_ano', {})
     
-    # Prepara os dados para a tabela mestre
     todas_competencias = []
     colunas_ativas = set()
     
@@ -160,7 +152,7 @@ def mostrar_analise_detalhada():
             contribuicao_total = 0.0
             try:
                 mes_nome, ano_str = mes.split('/')
-                competencia_data = datetime(int(ano_str), MESES_ORDEM.get(mes_nome, 1), 1)
+                competencia_data = datetime(int(ano_str), MESES_ORDEM[mes_nome], 1)
                 
                 for codigo, valor in proventos.items():
                     if codigo in rubricas_sempre_validas:
@@ -176,11 +168,8 @@ def mostrar_analise_detalhada():
             comp_dict['contribuicao'] = contribuicao_total
             
             todas_competencias.append(comp_dict)
-            
-            # CORREÇÃO AQUI: Verifica se a chave não é 'competencia' antes de comparar
             for chave, valor in comp_dict.items():
-                if chave != 'competencia' and valor > 0:
-                    colunas_ativas.add(chave)
+                if valor > 0: colunas_ativas.add(chave)
 
     def chave_de_ordenacao(item):
         try:
@@ -189,7 +178,7 @@ def mostrar_analise_detalhada():
         except: return 0
     todas_competencias.sort(key=chave_de_ordenacao)
 
-    ordem_desejada = ["contribuicao", "titular", "parcela_risco_titular", "conjuge", "parcela_risco_conjuge", "dependente", "parcela_risco_dependente", "agregado_jovem", "agregado_maior", "parcela_risco_agregado", "plano_especial", "coparticipacao", "retroativo"]
+    ordem_desejada = ["contribuicao", "titular", "parcela_risco_titular", "conjuge", "parcela_risco_conjuge", "dependente", "parcela_risco_dependente", "agregado_jovem", "agregado_maior", "parcela_risco_agregado", "plano_especial", "coparticipacao", "retroativo", "restituicao"]
     colunas_ordenadas = [chave for chave in ordem_desejada if chave in colunas_ativas]
 
     descricao_rubricas = {
