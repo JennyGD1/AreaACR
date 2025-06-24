@@ -1,3 +1,5 @@
+# processador_contracheque.py (VERSÃO CORRIGIDA E ROBUSTA)
+
 import json
 import re
 import logging
@@ -26,25 +28,28 @@ class ProcessadorContracheque:
         return "desconhecido"
 
     def _extrair_valor_de_linha(self, linha):
-        # Padrão Robusto para encontrar o último número na linha que parece dinheiro
-        padrao_valor = r'(\d{1,3}(?:[\s\.]?\d{3})*(?:[.,]\d{2}))'
+        """
+        Função corrigida com regex mais estrita para o padrão de moeda brasileira (ex: 1.234,56).
+        Isso evita a captura incorreta de outros números, como datas ou códigos.
+        """
+        # Regex estrita que procura números terminados com vírgula e dois dígitos.
+        padrao_valor = r'(\d{1,3}(?:\.?\d{3})*,\d{2})\b'
         matches = re.findall(padrao_valor, linha)
         
         if not matches:
             return 0.0
 
-        valor_str = matches[-1].replace(' ', '')
-        
-        # Lógica inteligente para limpar o número
-        if ',' in valor_str and '.' in valor_str:
-            valor_limpo = valor_str.replace('.', '').replace(',', '.')
-        else:
-            valor_limpo = valor_str.replace(',', '.')
+        # Usa a última correspondência, que geralmente é o valor na coluna final.
+        valor_str = matches[-1]
         
         try:
+            # Converte o formato brasileiro para o formato float do Python.
+            # Ex: '1.234,56' -> '1234.56'
+            valor_limpo = valor_str.replace('.', '').replace(',', '.')
             return float(valor_limpo)
         except (ValueError, TypeError):
-            logger.warning(f"Não foi possível converter a string de valor '{valor_str}' para float.")
+            # Este log agora será muito mais raro, mas é mantido por segurança.
+            logger.warning(f"Não foi possível converter a string '{valor_str}' para float.")
             return 0.0
 
     def extrair_dados(self, texto, tipo):
@@ -61,46 +66,43 @@ class ProcessadorContracheque:
         dados = {'proventos': {}, 'descontos': {}, 'total_proventos': 0.0}
         linhas = texto.split('\n')
         
-        # Identifica o início das seções de proventos e descontos para maior precisão
+        # Identifica o início da seção de descontos para maior precisão
         indice_descontos = -1
         for i, linha in enumerate(linhas):
             if "DESCONTOS" in linha.upper():
                 indice_descontos = i
                 break
         
-        # Processa Proventos
+        # Processa Proventos (linhas antes da seção "DESCONTOS")
         linhas_proventos = linhas[:indice_descontos] if indice_descontos != -1 else linhas
         total_proventos_calculado = 0.0
         for linha in linhas_proventos:
             linha_strip = linha.strip()
-            # *** MUDANÇA AQUI: Regex simplificada para pegar os 4 primeiros caracteres não-espaço ***
+            # Regex para capturar o código no início da linha
             codigo_match = re.match(r'^(\S{4})', linha_strip)
             if codigo_match:
                 codigo = codigo_match.group(1)
-                
-                # Adiciona o provento ao dicionário de proventos (para cálculo de contribuição, se necessário)
-                valor = self._extrair_valor_de_linha(linha_strip)
+                valor = self._extrair_valor_de_linha(linha_strip) # Usa a função corrigida
                 if valor > 0:
+                    # Guarda o provento individualmente (útil para futuras análises)
                     dados['proventos'][codigo] = valor
-                
-                # Se o código estiver na lista de proventos, soma ao total
-                if codigo in self.codigos_proventos:
-                    total_proventos_calculado += valor
+                    # Se o código estiver na lista principal, soma ao total
+                    if codigo in self.codigos_proventos:
+                        total_proventos_calculado += valor
         
         dados['total_proventos'] = total_proventos_calculado
 
-        # Processa Descontos
+        # Processa Descontos (linhas após a seção "DESCONTOS")
         if indice_descontos != -1:
             linhas_descontos = linhas[indice_descontos:]
             for linha in linhas_descontos:
                 linha_strip = linha.strip()
-                # *** MUDANÇA AQUI: Regex simplificada também para descontos ***
                 codigo_match = re.match(r'^(\S{4})', linha_strip)
                 if codigo_match:
                     codigo = codigo_match.group(1)
                     nome_interno = mapa_codigo_para_nome.get(codigo)
                     if nome_interno:
-                        valor = self._extrair_valor_de_linha(linha_strip)
+                        valor = self._extrair_valor_de_linha(linha_strip) # Usa a função corrigida
                         if valor > 0:
                             dados['descontos'][nome_interno] = dados['descontos'].get(nome_interno, 0) + valor
         
