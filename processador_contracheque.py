@@ -1,5 +1,3 @@
-# processador_contracheque.py (VERSÃO COM LÓGICA DE EXTRAÇÃO APRIMORADA)
-
 import json
 import re
 import logging
@@ -28,13 +26,14 @@ class ProcessadorContracheque:
         """
         Função aprimorada para extrair valores monetários.
         1. Prioriza números no formato brasileiro (com vírgula decimal).
-        2. Se não encontrar, busca outros formatos numéricos.
+        2. Se não encontrar, busca outros formatos numéricos como um plano B.
         """
-        # Padrão 1: Procura especificamente por números com vírgula e 2 casas decimais.
+        # Padrão 1 (Prioritário): Procura por números no formato "1.234,56"
         padrao_virgula = r'(\d{1,3}(?:\.\d{3})*,\d{2}\b)'
         matches = re.findall(padrao_virgula, linha)
 
-        # Se não encontrou o padrão com vírgula, tenta um padrão mais geral.
+        # Se não encontrou o padrão com vírgula, tenta um padrão mais geral
+        # que aceite tanto ponto quanto vírgula como separador decimal.
         if not matches:
             padrao_geral = r'(\d{1,3}(?:[\s\.]?\d{3})*(?:[.,]\d{1,2}))'
             matches = re.findall(padrao_geral, linha)
