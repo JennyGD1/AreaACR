@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>🔬 Análise Avançada de Contracheques</title>
+    <title>🔬 Análise Detalhada de Descontos</title>
     <link rel="icon" href="{{ url_for('static', filename='img/logo_maida.png') }}" />
     
     <link rel="stylesheet" href="{{ url_for('static', filename='css/base.css') }}">
@@ -19,35 +19,42 @@
     </div>
     
     <div class="container">
-        <h1>🔬 Análise Avançada de Contracheques</h1>
-        <p>Cole o texto bruto de múltiplos contracheques (extraídos do PDF) na caixa abaixo e clique em "Analisar Texto" para habilitar as opções de relatório.</p>
-
-        <textarea id="inputText" placeholder="Cole aqui o texto bruto dos contracheques..."></textarea>
-        <button id="analisarBtn" class="btn btn-primary">Analisar Texto</button>
-
-        <div id="painelControle" class="hidden">
-            <h2>Relatórios Disponíveis</h2>
+        <h1>🔬 Tabela Geral de Descontos</h1>
+        <p>Use os filtros abaixo para refinar a visualização dos descontos por competência.</p>
+        
+        <div id="painelControle">
             <div class="filtros-container">
                 <div class="filtro-item">
                     <label for="filtroAno">Filtrar por Ano:</label>
                     <select id="filtroAno">
-                        <!-- O JavaScript irá preencher as opções aqui -->
+                        <option value="todos">Todos os Anos</option>
+                        {% for ano in anos_ordenados %}
+                            <option value="{{ ano }}">{{ ano }}</option>
+                        {% endfor %}
                     </select>
                 </div>
                 <div class="filtro-item">
                     <label for="filtroDesconto">Filtrar por Desconto:</label>
                     <select id="filtroDesconto">
-                        <!-- O JavaScript irá preencher as opções aqui -->
+                        <option value="todos">Todos os Descontos</option>
+                         {% for chave in colunas_ordenadas %}
+                            <option value="{{ chave }}">{{ descricao_rubricas.get(chave, chave|replace('_', ' ')|title) }}</option>
+                         {% endfor %}
                     </select>
                 </div>
             </div>
-            <div class="btn-container">
-                <button id="btnGerarTabelaGeral" class="btn btn-success">Gerar Relatório de Descontos</button>
-            </div>
         </div>
         
-        <div id="resultadoContainer">
-            <!-- As tabelas geradas aparecerão aqui -->
+        <div class="tabela-container">
+            <table class="tabela-analise" id="tabela-geral">
+                <!-- O JavaScript irá gerar a tabela aqui -->
+            </table>
+        </div>
+        
+        <div class="btn-container">
+            <a href="{{ url_for('calculadora_index') }}" class="btn btn-primary">
+                🔄 Nova Análise
+            </a>
         </div>
     </div>
     
@@ -56,183 +63,81 @@
     <script src="{{ url_for('static', filename='js/main.js') }}" defer></script>
     <script>
         document.addEventListener('DOMContentLoaded', () => {
+            // DADOS INJETADOS PELO PYTHON
+            const todasCompetencias = {{ todas_competencias|tojson|safe }};
+            const colunasOrdenadasOriginal = {{ colunas_ordenadas|tojson|safe }};
+            const descricaoRubricas = {{ descricao_rubricas|tojson|safe }};
+            const mesesMap = { "Janeiro": "01", "Fevereiro": "02", "Março": "03", "Abril": "04", "Maio": "05", "Junho": "06", "Julho": "07", "Agosto": "08", "Setembro": "09", "Outubro": "10", "Novembro": "11", "Dezembro": "12" };
+
             // ELEMENTOS DO DOM
-            const analisarBtn = document.getElementById('analisarBtn');
-            const painelControle = document.getElementById('painelControle');
-            const resultadoContainer = document.getElementById('resultadoContainer');
             const filtroAno = document.getElementById('filtroAno');
             const filtroDesconto = document.getElementById('filtroDesconto');
-            const btnGerarTabelaGeral = document.getElementById('btnGerarTabelaGeral');
+            const tabelaContainer = document.getElementById('tabela-geral');
 
-            // ESTADO DA APLICAÇÃO
-            let dadosProcessados = {};
-
-            // DADOS DE REFERÊNCIA
-            const mesesMap = { "Janeiro": 1, "Fevereiro": 2, "Março": 3, "Abril": 4, "Maio": 5, "Junho": 6, "Julho": 7, "Agosto": 8, "Setembro": 9, "Outubro": 10, "Novembro": 11, "Dezembro": 12 };
-            const descontosConfig = {
-                'titular': { codigo: '7033', nome: 'Titular' }, 'parcela_risco_titular': { codigo: '7088', nome: 'P. Risco Titular' }, 'conjuge': { codigo: '7035', nome: 'Cônjuge' }, 'parcela_risco_conjuge': { codigo: '7090', nome: 'P. Risco Cônjuge' }, 'dependente': { codigo: '7034', nome: 'Dependente' }, 'parcela_risco_dependente': { codigo: '7089', nome: 'P. Risco Dependente' }, 'agregado_jovem': { codigo: '7038', nome: 'Agr. Jovem' }, 'agregado_maior': { codigo: '7039', nome: 'Agr. Maior' }, 'parcela_risco_agregado': { codigo: '7091', nome: 'P. Risco Agregado' }, 'plano_especial': { codigo: '7037', nome: 'P. Especial' }, 'coparticipacao': { codigo: '7040', nome: 'Coparticipação' }, 'retroativo': { codigo: '7049', nome: 'Retroativo' }, 'restituicao': { codigo: '7044', nome: 'Restituição' }
-            };
-            const descontosOrdem = ["titular", "parcela_risco_titular", "conjuge", "parcela_risco_conjuge", "dependente", "parcela_risco_dependente", "agregado_jovem", "agregado_maior", "parcela_risco_agregado", "plano_especial", "coparticipacao", "retroativo", "restituicao"];
-
-            // --- FUNÇÕES AUXILIARES ---
+            // FUNÇÃO CORRIGIDA PARA FORMATAR NÚMEROS SEM "R$"
             function formatarNumero(valor) {
-                // CORREÇÃO: Formata como número com duas casas decimais, usando vírgula
                 return (valor || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
             }
             
-            function extrairValor(linha) {
-                const valorMatch = linha.match(/(\d{1,3}(?:[\.\s]?\d{3})*,\d{2})/);
-                return valorMatch ? parseFloat(valorMatch[1].replace(/\./g, '').replace(',', '.')) : 0;
+            function formatarData(competencia) {
+                const [mesNome, ano] = competencia.split('/');
+                return `${mesesMap[mesNome] || '??'}/${ano}`;
             }
 
-            // --- FUNÇÃO PRINCIPAL DE ANÁLISE ---
-            function processarTextoBruto(texto) {
-                const dados = {};
-                const mesesRegex = new RegExp(`(${Object.keys(mesesMap).join('|')})/(\\d{4})`, 'gs');
-                const blocos = texto.split(mesesRegex);
-
-                for (let i = 1; i < blocos.length; i += 3) {
-                    const mes = blocos[i];
-                    const ano = blocos[i + 1];
-                    const competencia = `${mes}/${ano}`;
-                    const conteudo = blocos[i + 2] || "";
-                    
-                    if (!dados[ano]) dados[ano] = {};
-                    dados[ano][competencia] = { descontos: {} };
-
-                    const linhas = conteudo.split('\n');
-                    linhas.forEach(linha => {
-                        const rubricaMatch = linha.match(/^\/?\s*([A-Z0-9]{4})\b/);
-                         if (rubricaMatch) {
-                            const codigo = rubricaMatch[1];
-                            const valor = extrairValor(linha);
-                            if (valor > 0) {
-                                for (const [chave, config] of Object.entries(descontosConfig)) {
-                                    if (config.codigo === codigo) {
-                                        dados[ano][competencia].descontos[chave] = (dados[ano][competencia].descontos[chave] || 0) + valor;
-                                    }
-                                }
-                            }
-                        }
-                    });
-                }
-                return dados;
-            }
-
-            // --- FUNÇÕES DE GERAÇÃO DE INTERFACE ---
-            function popularFiltros(dados) {
-                // Popula filtro de Ano
-                filtroAno.innerHTML = '<option value="todos">Todos os Anos</option>';
-                const anos = Object.keys(dados).sort((a, b) => b - a);
-                anos.forEach(ano => {
-                    filtroAno.add(new Option(ano, ano));
-                });
-                
-                // Popula filtro de Desconto
-                filtroDesconto.innerHTML = '<option value="todos">Todos os Descontos</option>';
-                let todasColunas = new Set();
-                Object.values(dados).forEach(anoData => {
-                    Object.values(anoData).forEach(mesData => {
-                        Object.keys(mesData.descontos).forEach(chave => todasColunas.add(chave));
-                    });
-                });
-
-                descontosOrdem.forEach(chave => {
-                    if (todasColunas.has(chave)) {
-                        filtroDesconto.add(new Option(descontosConfig[chave].nome, chave));
-                    }
-                });
-            }
-
-            function gerarTabelaGeral() {
+            function gerarTabela() {
                 const anoSelecionado = filtroAno.value;
                 const descontoSelecionado = filtroDesconto.value;
-                resultadoContainer.innerHTML = '';
-
-                let todasCompetencias = [];
-                Object.entries(dadosProcessados).forEach(([ano, dadosDoAno]) => {
-                    if (anoSelecionado === 'todos' || ano === anoSelecionado) {
-                        Object.entries(dadosDoAno).forEach(([competencia, dadosMes]) => {
-                            todasCompetencias.push({ competencia, ...dadosMes });
-                        });
-                    }
+                
+                const competenciasFiltradas = todasCompetencias.filter(comp => {
+                    if (anoSelecionado === 'todos') return true;
+                    return comp.competencia.endsWith(anoSelecionado);
                 });
-                
-                if (todasCompetencias.length === 0) {
-                    resultadoContainer.innerHTML = '<p class="aviso">Nenhum dado encontrado para o filtro selecionado.</p>';
-                    return;
-                }
-                
+
                 let colunasParaExibir;
                 if (descontoSelecionado === 'todos') {
-                    const colunasAtivas = new Set();
-                    todasCompetencias.forEach(comp => Object.keys(comp.descontos).forEach(key => colunasAtivas.add(key)));
-                    colunasParaExibir = descontosOrdem.filter(chave => colunasAtivas.has(chave));
+                    colunasParaExibir = colunasOrdenadasOriginal.filter(chave => 
+                        competenciasFiltradas.some(comp => comp[chave] > 0)
+                    );
                 } else {
                     colunasParaExibir = [descontoSelecionado];
                 }
 
-                if (colunasParaExibir.length === 0) {
-                    resultadoContainer.innerHTML = `<p class="aviso">Nenhum valor encontrado para o desconto selecionado no período.</p>`;
+                tabelaContainer.innerHTML = ''; // Limpa a tabela anterior
+
+                if (competenciasFiltradas.length === 0 || (descontoSelecionado !== 'todos' && colunasParaExibir.every(c => !competenciasFiltradas.some(comp => comp[c] > 0)))) {
+                    resultadoContainer.innerHTML = '<p class="aviso">Nenhum dado encontrado para o filtro selecionado.</p>';
                     return;
                 }
 
-                const tabela = document.createElement('table');
-                tabela.className = 'tabela-analise';
                 let headerHtml = '<thead><tr><th>Mês/Ano</th>';
-                colunasParaExibir.forEach(chave => headerHtml += `<th>${descontosConfig[chave].nome}</th>`);
+                colunasParaExibir.forEach(chave => headerHtml += `<th>${descricaoRubricas[chave] || chave}</th>`);
                 headerHtml += '</tr></thead>';
-                tabela.innerHTML = headerHtml;
-
+                
                 const tbody = document.createElement('tbody');
-                todasCompetencias.sort((a, b) => {
-                    const [mesA, anoA] = a.competencia.split('/');
-                    const [mesB, anoB] = b.competencia.split('/');
-                    return (parseInt(anoA) * 100 + mesesMap[mesA]) - (parseInt(anoB) * 100 + mesesMap[mesB]);
+                competenciasFiltradas.forEach(comp => {
+                    // Só cria a linha se houver algum valor para as colunas selecionadas
+                    const temValor = colunasParaExibir.some(chave => comp[chave] > 0);
+                    if(temValor) {
+                        const row = tbody.insertRow();
+                        row.insertCell(0).textContent = formatarData(comp.competencia);
+                        colunasParaExibir.forEach(chave => {
+                            row.insertCell(-1).textContent = formatarNumero(comp[chave]);
+                        });
+                    }
                 });
-                
-                todasCompetencias.forEach(comp => {
-                    const row = tbody.insertRow();
-                    const [mesNome, ano] = comp.competencia.split('/');
-                    row.insertCell(0).textContent = `${mesesMap[mesNome]}/${ano}`;
-                    colunasParaExibir.forEach(chave => {
-                        row.insertCell(-1).textContent = formatarNumero(comp.descontos[chave] || 0);
-                    });
-                });
-                
-                tabela.appendChild(tbody);
-                resultadoContainer.appendChild(tabela);
+
+                tabelaContainer.innerHTML = headerHtml;
+                tabelaContainer.appendChild(tbody);
             }
 
-            // --- EVENT LISTENERS ---
-            analisarBtn.addEventListener('click', () => {
-                const texto = document.getElementById('inputText').value;
-                if (!texto) {
-                    alert("Por favor, cole o texto dos contracheques.");
-                    return;
-                }
-                dadosProcessados = processarTextoBruto(texto);
-                
-                if (dadosProcessados && Object.keys(dadosProcessados).length > 0) {
-                    popularFiltros(dadosProcessados);
-                    painelControle.classList.remove('hidden');
-                    gerarTabelaGeral(); // Gera a tabela geral por padrão
-                } else {
-                    painelControle.classList.add('hidden');
-                    resultadoContainer.innerHTML = '<p class="aviso-erro">Nenhum contracheque válido ou período (Mês/Ano) foi encontrado no texto. Verifique o texto copiado.</p>';
-                }
-            });
+            // Adiciona os listeners para os filtros
+            filtroAno.addEventListener('change', gerarTabela);
+            filtroDesconto.addEventListener('change', gerarTabela);
 
-            btnGerarTabelaGeral.addEventListener('click', gerarTabelaGeral);
-            btnGerarProventos.addEventListener('click', () => {
-                // A lógica para proventos pode ser adicionada aqui se necessário
-                alert('A geração da tabela de proventos ainda será implementada.');
-            });
-            
-            // Adiciona listeners para os filtros atualizarem a tabela
-            filtroAno.addEventListener('change', gerarTabelaGeral);
-            filtroDesconto.addEventListener('change', gerarTabelaGeral);
+            // Gera a tabela inicial com todos os dados
+            gerarTabela();
         });
     </script>
 </body>
 </html>
+
