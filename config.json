@@ -16,8 +16,7 @@
         "parcela_risco_dependente": "7089",
         "parcela_risco_conjuge": "7090",
         "parcela_risco_agregado": "7091"
-        /* Adicione as rubricas de proventos aqui se quiser usá-las no futuro */
-      }
+            }
     }
   },
   "regras_analise": {
