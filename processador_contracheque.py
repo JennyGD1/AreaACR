@@ -1,4 +1,3 @@
-
 import json
 import re
 import logging
@@ -25,34 +24,25 @@ class ProcessadorContracheque:
 
     def _extrair_valor_de_linha(self, linha):
         """
-        Função aprimorada para extrair valores monetários.
-        1. Prioriza números no formato brasileiro (com vírgula decimal).
-        2. Se não encontrar, busca outros formatos numéricos como um plano B.
+        Função ajustada para extrair valores monetários com precisão.
+        Busca exclusivamente por números no formato brasileiro (ex: 1.234,56),
+        ignorando outros formatos para evitar confusão com matrículas.
         """
-        # Padrão 1 (Prioritário): Procura por números no formato "1.234,56"
-        padrao_virgula = r'(\d{1,3}(?:\.\d{3})*,\d{2}\b)'
-        matches = re.findall(padrao_virgula, linha)
-
-        # Se não encontrou o padrão com vírgula, tenta um padrão mais geral
-        # que aceite tanto ponto quanto vírgula como separador decimal.
-        if not matches:
-            padrao_geral = r'(\d{1,3}(?:[\s\.]?\d{3})*(?:[.,]\d{1,2}))'
-            matches = re.findall(padrao_geral, linha)
+        # Padrão único e restrito: Procura por números com vírgula e duas casas decimais.
+        padrao_monetario_br = r'(\d{1,3}(?:\.\d{3})*,\d{2}\b)'
+        matches = re.findall(padrao_monetario_br, linha)
 
         if not matches:
             return 0.0
 
-        # Pega o último valor encontrado, que é o mais provável de ser o correto.
-        valor_str = matches[-1].replace(' ', '')
+        # Pega o último valor encontrado na linha.
+        valor_str = matches[-1]
         
-        # Lógica de limpeza para converter para float (padrão Python)
-        if ',' in valor_str:
-            # Formato brasileiro/europeu: remove pontos e troca vírgula por ponto.
-            valor_limpo = valor_str.replace('.', '').replace(',', '.')
-        else:
-            # Formato americano ou sem centavos: usa como está.
-            valor_limpo = valor_str
-
+        # Limpeza para converter para o formato float do Python:
+        # 1. Remove os pontos de milhar.
+        # 2. Troca a vírgula decimal por um ponto.
+        valor_limpo = valor_str.replace('.', '').replace(',', '.')
+        
         try:
             return float(valor_limpo)
         except (ValueError, TypeError):
