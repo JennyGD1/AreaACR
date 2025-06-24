@@ -1,3 +1,5 @@
+# processador_contracheque.py (VERSÃO COM LÓGICA DE EXTRAÇÃO APRIMORADA)
+
 import json
 import re
 import logging
@@ -8,7 +10,6 @@ class ProcessadorContracheque:
 
     def __init__(self, config_path='config.json'):
         try:
-          
             with open(config_path, 'r', encoding='utf-8') as f:
                 self.config = json.load(f)
         except (FileNotFoundError, json.JSONDecodeError) as e:
@@ -24,36 +25,34 @@ class ProcessadorContracheque:
         return "desconhecido"
 
     def _extrair_valor_de_linha(self, linha):
-      
-        padrao_valor = r'(\d{1,3}(?:[\s\.]?\d{3})*(?:[.,]\d{1,2})|\d+[.,]\d{1,2})'
-        matches = re.findall(padrao_valor, linha)
-        
+        """
+        Função aprimorada para extrair valores monetários.
+        1. Prioriza números no formato brasileiro (com vírgula decimal).
+        2. Se não encontrar, busca outros formatos numéricos.
+        """
+        # Padrão 1: Procura especificamente por números com vírgula e 2 casas decimais.
+        padrao_virgula = r'(\d{1,3}(?:\.\d{3})*,\d{2}\b)'
+        matches = re.findall(padrao_virgula, linha)
+
+        # Se não encontrou o padrão com vírgula, tenta um padrão mais geral.
+        if not matches:
+            padrao_geral = r'(\d{1,3}(?:[\s\.]?\d{3})*(?:[.,]\d{1,2}))'
+            matches = re.findall(padrao_geral, linha)
+
         if not matches:
             return 0.0
 
+        # Pega o último valor encontrado, que é o mais provável de ser o correto.
+        valor_str = matches[-1].replace(' ', '')
         
-        valor_str = matches[-1]
-        valor_str = valor_str.replace(' ', '')
-        
-       
-        last_dot = valor_str.rfind('.')
-        last_comma = valor_str.rfind(',')
-        
-        
-        if last_comma > last_dot:
-            separador_milhar = '.'
-            separador_decimal = ','
-     
+        # Lógica de limpeza para converter para float (padrão Python)
+        if ',' in valor_str:
+            # Formato brasileiro/europeu: remove pontos e troca vírgula por ponto.
+            valor_limpo = valor_str.replace('.', '').replace(',', '.')
         else:
-            separador_milhar = ','
-            separador_decimal = '.'
+            # Formato americano ou sem centavos: usa como está.
+            valor_limpo = valor_str
 
-   
-        valor_limpo = valor_str.replace(separador_milhar, '')
-        
-        
-        valor_limpo = valor_limpo.replace(separador_decimal, '.')
-        
         try:
             return float(valor_limpo)
         except (ValueError, TypeError):
@@ -68,24 +67,19 @@ class ProcessadorContracheque:
         dados = {}
         linhas = texto.split('\n')
         
-        
         for i, linha in enumerate(linhas):
             linha_strip = linha.strip()
             if not linha_strip:
                 continue
 
-            
             for campo_nome, padroes in campos_config.items():
                 if not isinstance(padroes, list):
                     padroes = [padroes]
                 
                 for padrao in padroes:
-                    
                     if re.search(re.escape(str(padrao)), linha, re.IGNORECASE):
                         
-                        
                         valor_encontrado = self._extrair_valor_de_linha(linha_strip)
-                        
                         
                         if valor_encontrado == 0.0:
                             for offset in range(1, 4):
@@ -100,7 +94,6 @@ class ProcessadorContracheque:
 
                         if valor_encontrado > 0:
                             dados[campo_nome] = dados.get(campo_nome, 0.0) + valor_encontrado
-                            # Se encontrou um valor para este padrão, não precisa checar outros padrões para este campo
                             break 
             
         logger.info(f"Dados extraídos para o tipo '{tipo}': {dados}")
