@@ -110,7 +110,13 @@ def upload():
                         resultados_por_ano[ano] = {'detalhes_mensais': {}}
                     
                     if mes_ano_str not in resultados_por_ano[ano]['detalhes_mensais']:
-                         resultados_por_ano[ano]['detalhes_mensais'][mes_ano_str] = dados_mes
+                         resultados_por_ano[ano]['detalhes_mensais'][mes_ano_str] = {'proventos': {}, 'descontos': {}}
+
+                    # Acumula proventos e descontos para o mês
+                    for codigo, valor in dados_mes.get('proventos', {}).items():
+                        resultados_por_ano[ano]['detalhes_mensais'][mes_ano_str]['proventos'][codigo] = valor
+                    for campo, valor in dados_mes.get('descontos', {}).items():
+                        resultados_por_ano[ano]['detalhes_mensais'][mes_ano_str]['descontos'][campo] = valor
         except Exception as e:
             logger.error(f"Erro no upload do arquivo {filename}: {e}", exc_info=True)
             erros.append(filename)
@@ -127,6 +133,8 @@ def upload():
     if erros: flash(f'Processamento concluído com erros em: {", ".join(erros)}', 'warning')
     return redirect(url_for('mostrar_analise_detalhada'))
 
+
+# ROTA DE ANÁLISE (AGORA A PÁGINA PRINCIPAL DE RESULTADOS)
 @app.route('/analise')
 def mostrar_analise_detalhada():
     if 'resultados_por_ano' not in session:
@@ -134,6 +142,7 @@ def mostrar_analise_detalhada():
     
     resultados_por_ano = session.get('resultados_por_ano', {})
     
+    # Prepara os dados para a tabela mestre
     todas_competencias = []
     colunas_ativas = set()
     
@@ -151,7 +160,7 @@ def mostrar_analise_detalhada():
             contribuicao_total = 0.0
             try:
                 mes_nome, ano_str = mes.split('/')
-                competencia_data = datetime(int(ano_str), MESES_ORDEM[mes_nome], 1)
+                competencia_data = datetime(int(ano_str), MESES_ORDEM.get(mes_nome, 1), 1)
                 
                 for codigo, valor in proventos.items():
                     if codigo in rubricas_sempre_validas:
@@ -167,8 +176,11 @@ def mostrar_analise_detalhada():
             comp_dict['contribuicao'] = contribuicao_total
             
             todas_competencias.append(comp_dict)
+            
+            # CORREÇÃO AQUI: Verifica se a chave não é 'competencia' antes de comparar
             for chave, valor in comp_dict.items():
-                if valor > 0: colunas_ativas.add(chave)
+                if chave != 'competencia' and valor > 0:
+                    colunas_ativas.add(chave)
 
     def chave_de_ordenacao(item):
         try:
@@ -197,4 +209,3 @@ def mostrar_analise_detalhada():
 
 if __name__ == '__main__':
     app.run(debug=True)
-
