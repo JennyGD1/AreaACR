@@ -17,7 +17,6 @@ class ProcessadorContracheque:
             self.config = {"padroes_contracheque": {}}
     
     def identificar_tipo(self, texto):
-        # Esta função continua igual
         texto_upper = texto.upper()
         for tipo, config in self.config.get('padroes_contracheque', {}).items():
             for identificador in config.get('identificadores', []):
@@ -26,23 +25,25 @@ class ProcessadorContracheque:
         return "desconhecido"
 
     def _extrair_valor_de_linha(self, linha):
-        # Esta função foi aprimorada para buscar o formato com vírgula primeiro
-        padrao_virgula = r'(\d{1,3}(?:\.\d{3})*,\d{2}\b)'
-        matches = re.findall(padrao_virgula, linha)
+        # Padrão Robusto para encontrar o último número na linha que parece dinheiro
+        padrao_valor = r'(\d{1,3}(?:[\s\.]?\d{3})*(?:[.,]\d{2}))'
+        matches = re.findall(padrao_valor, linha)
         
-        if not matches:
-            padrao_geral = r'(\d{1,3}(?:[\.\s]?\d{3})*(?:[.,]\d{1,2}))'
-            matches = re.findall(padrao_geral, linha)
-
         if not matches:
             return 0.0
 
         valor_str = matches[-1].replace(' ', '')
-        valor_limpo = valor_str.replace('.', '').replace(',', '.') if ',' in valor_str else valor_str
+        
+        # Lógica inteligente para limpar o número (lida com "." e "," de forma segura)
+        if ',' in valor_str and '.' in valor_str:
+            valor_limpo = valor_str.replace('.', '').replace(',', '.')
+        else:
+            valor_limpo = valor_str.replace(',', '.')
         
         try:
             return float(valor_limpo)
         except (ValueError, TypeError):
+            logger.warning(f"Não foi possível converter a string de valor '{valor_str}' para float.")
             return 0.0
 
     def extrair_dados(self, texto, tipo):
@@ -51,20 +52,19 @@ class ProcessadorContracheque:
         Retorna um dicionário contendo ambos.
         """
         if tipo == "desconhecido":
-            return {}
+            return {'proventos': {}, 'descontos': {}}
 
         campos_desconto_config = self._get_campos_config(tipo)
         mapa_codigo_para_nome = {v: k for k, v in campos_desconto_config.items()}
         
         dados = {'proventos': {}, 'descontos': {}}
         linhas = texto.split('\n')
-        secao_atual = 'proventos'  # Começa lendo a seção de VANTAGENS
+        secao_atual = 'proventos'
 
         for i, linha in enumerate(linhas):
             linha_strip = linha.strip()
             
-            # Muda para a seção de descontos ao encontrar o cabeçalho
-            if "TOTAL DE VANTAGENS" in linha or "DESCONTOS" in linha_strip.upper():
+            if "DESCONTOS" in linha_strip.upper():
                 secao_atual = 'descontos'
                 continue
 
@@ -73,8 +73,6 @@ class ProcessadorContracheque:
                 codigo = codigo_match.group(1)
                 
                 valor = self._extrair_valor_de_linha(linha_strip)
-                if valor == 0.0 and i + 2 < len(linhas): # Procura até 2 linhas abaixo
-                    valor = self._extrair_valor_de_linha(linhas[i+1]) or self._extrair_valor_de_linha(linhas[i+2])
                 
                 if valor > 0:
                     if secao_atual == 'descontos':
@@ -88,9 +86,5 @@ class ProcessadorContracheque:
         return dados
     
     def _get_campos_config(self, tipo):
-        config = self.config['padroes_contracheque'].get(tipo, {})
-        if 'herda' in config:
-            base_config = self._get_campos_config(config['herda'])
-            base_config.update(config.get('campos', {}))
-            return base_config
-        return config.get('campos', {})
+        return self.config.get('padroes_contracheque', {}).get(tipo, {}).get('campos', {})
+
