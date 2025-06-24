@@ -1,143 +1,74 @@
 <!DOCTYPE html>
-<html lang="pt-BR">
+<html lang="pt-br">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>🔬 Análise Detalhada de Descontos</title>
-    <link rel="icon" href="{{ url_for('static', filename='img/logo_maida.png') }}" />
-    
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/base.css') }}">
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/components/navbar.css') }}">
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/pages/analise.css') }}">
+    <title>Análise Detalhada dos Contracheques</title>
+    <style>
+        body { font-family: sans-serif; margin: 20px; background-color: #f4f4f9; }
+        h1 { color: #333; text-align: center; }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 20px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+            background-color: white;
+        }
+        th, td {
+            border: 1px solid #ddd;
+            padding: 10px;
+            text-align: right;
+            white-space: pre-wrap; /* Para a quebra de linha no Mês/Ano */
+        }
+        th {
+            background-color: #4CAF50;
+            color: white;
+            font-weight: bold;
+            font-size: 12px;
+        }
+        tr:nth-child(even) { background-color: #f2f2f2; }
+        td:first-child, th:first-child { text-align: center; font-weight: bold; }
+        .btn-container { text-align: center; margin-top: 20px; }
+        .btn {
+            background-color: #4CAF50; color: white; padding: 10px 20px;
+            text-decoration: none; border-radius: 5px;
+        }
+    </style>
 </head>
-<body class="page-analise">
-    {% include 'components/_preloader.html' %}
-    {% include 'components/_navbar.html' %}
+<body>
+    <h1>Análise Detalhada</h1>
 
-    <div class="scrollbar-container">
-        <div class="scrollbar-thumb" id="scrollThumb"></div>
+    {% if dados_tabela %}
+    <table>
+        <thead>
+            <tr>
+                <th>MÊS/ANO</th>
+                {% for coluna_key in colunas_ordenadas %}
+                    <th>{{ descricao_rubricas.get(coluna_key, coluna_key.upper()) }}</th>
+                {% endfor %}
+            </tr>
+        </thead>
+        <tbody>
+            {% for item in dados_tabela %}
+            <tr>
+                <td>{{ item.competencia }}</td>
+                {% for coluna_key in colunas_ordenadas %}
+                    <td>
+                        {# Formata o valor como moeda brasileira, usando 0.0 se não existir #}
+                        {{ "R$ {:,.2f}".format(item.get(coluna_key, 0.0)).replace(",", "X").replace(".", ",").replace("X", ".") }}
+                    </td>
+                {% endfor %}
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    {% else %}
+        <p>Não foram encontrados dados para exibir.</p>
+    {% endif %}
+
+    <div class="btn-container">
+        <a href="{{ url_for('calculadora_index') }}" class="btn">Voltar e Enviar Outros Arquivos</a>
     </div>
-    
-    <div class="container">
-        <h1>🔬 Tabela Geral de Descontos</h1>
-        <p>Use os filtros abaixo para refinar a visualização dos descontos por competência.</p>
-        
-        <div id="painelControle">
-            <div class="filtros-container">
-                <div class="filtro-item">
-                    <label for="filtroAno">Filtrar por Ano:</label>
-                    <select id="filtroAno">
-                        <option value="todos">Todos os Anos</option>
-                        {% for ano in anos_ordenados %}
-                            <option value="{{ ano }}">{{ ano }}</option>
-                        {% endfor %}
-                    </select>
-                </div>
-                <div class="filtro-item">
-                    <label for="filtroDesconto">Filtrar por Desconto:</label>
-                    <select id="filtroDesconto">
-                        <option value="todos">Todos os Descontos</option>
-                         {% for chave in colunas_ordenadas %}
-                            <option value="{{ chave }}">{{ descricao_rubricas.get(chave, chave|replace('_', ' ')|title) }}</option>
-                         {% endfor %}
-                    </select>
-                </div>
-            </div>
-        </div>
-        
-        <div class="tabela-container">
-            <table class="tabela-analise" id="tabela-geral">
-                <!-- O JavaScript irá gerar a tabela aqui -->
-            </table>
-        </div>
-        
-        <div class="btn-container">
-            <a href="{{ url_for('calculadora_index') }}" class="btn btn-primary">
-                🔄 Nova Análise
-            </a>
-        </div>
-    </div>
-    
-    {% include 'components/_footer.html' %}
 
-    <script src="{{ url_for('static', filename='js/main.js') }}" defer></script>
-    <script>
-        document.addEventListener('DOMContentLoaded', () => {
-            // DADOS INJETADOS PELO PYTHON
-            const todasCompetencias = {{ todas_competencias|tojson|safe }};
-            const colunasOrdenadasOriginal = {{ colunas_ordenadas|tojson|safe }};
-            const descricaoRubricas = {{ descricao_rubricas|tojson|safe }};
-            const mesesMap = { "Janeiro": "01", "Fevereiro": "02", "Março": "03", "Abril": "04", "Maio": "05", "Junho": "06", "Julho": "07", "Agosto": "08", "Setembro": "09", "Outubro": "10", "Novembro": "11", "Dezembro": "12" };
-
-            // ELEMENTOS DO DOM
-            const filtroAno = document.getElementById('filtroAno');
-            const filtroDesconto = document.getElementById('filtroDesconto');
-            const tabelaContainer = document.getElementById('tabela-geral');
-
-            // FUNÇÃO CORRIGIDA PARA FORMATAR NÚMEROS SEM "R$"
-            function formatarNumero(valor) {
-                return (valor || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-            }
-            
-            function formatarData(competencia) {
-                const [mesNome, ano] = competencia.split('/');
-                return `${mesesMap[mesNome] || '??'}/${ano}`;
-            }
-
-            function gerarTabela() {
-                const anoSelecionado = filtroAno.value;
-                const descontoSelecionado = filtroDesconto.value;
-                
-                const competenciasFiltradas = todasCompetencias.filter(comp => {
-                    if (anoSelecionado === 'todos') return true;
-                    return comp.competencia.endsWith(anoSelecionado);
-                });
-
-                let colunasParaExibir;
-                if (descontoSelecionado === 'todos') {
-                    colunasParaExibir = colunasOrdenadasOriginal.filter(chave => 
-                        competenciasFiltradas.some(comp => comp[chave] > 0)
-                    );
-                } else {
-                    colunasParaExibir = [descontoSelecionado];
-                }
-
-                tabelaContainer.innerHTML = ''; // Limpa a tabela anterior
-
-                if (competenciasFiltradas.length === 0 || (descontoSelecionado !== 'todos' && colunasParaExibir.every(c => !competenciasFiltradas.some(comp => comp[c] > 0)))) {
-                    resultadoContainer.innerHTML = '<p class="aviso">Nenhum dado encontrado para o filtro selecionado.</p>';
-                    return;
-                }
-
-                let headerHtml = '<thead><tr><th>Mês/Ano</th>';
-                colunasParaExibir.forEach(chave => headerHtml += `<th>${descricaoRubricas[chave] || chave}</th>`);
-                headerHtml += '</tr></thead>';
-                
-                const tbody = document.createElement('tbody');
-                competenciasFiltradas.forEach(comp => {
-                    // Só cria a linha se houver algum valor para as colunas selecionadas
-                    const temValor = colunasParaExibir.some(chave => comp[chave] > 0);
-                    if(temValor) {
-                        const row = tbody.insertRow();
-                        row.insertCell(0).textContent = formatarData(comp.competencia);
-                        colunasParaExibir.forEach(chave => {
-                            row.insertCell(-1).textContent = formatarNumero(comp[chave]);
-                        });
-                    }
-                });
-
-                tabelaContainer.innerHTML = headerHtml;
-                tabelaContainer.appendChild(tbody);
-            }
-
-            // Adiciona os listeners para os filtros
-            filtroAno.addEventListener('change', gerarTabela);
-            filtroDesconto.addEventListener('change', gerarTabela);
-
-            // Gera a tabela inicial com todos os dados
-            gerarTabela();
-        });
-    </script>
 </body>
 </html>
-
