@@ -1,88 +1,50 @@
-<!DOCTYPE html>
-<html lang="pt-br">
-<head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Área ACR</title>
-    <link rel="icon" href="{{ url_for('static', filename='img/logo_maida.png') }}" />
-    
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/base.css') }}">
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/components/navbar.css') }}">
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/pages/calculadora.css') }}">
-</head>
-<body class="page-upload"> 
-    {% include 'components/_preloader.html' %}
-    {% include 'components/_navbar.html' %}
+{% extends "base.html" %}
 
-    <div class="scrollbar-container">
-        <div class="scrollbar-thumb" id="scrollThumb"></div>
+{% block content %}
+<div class="borda-animada">
+    <div class="content-box">
+        <h1><strong>Área ACR</strong></h1>
+        
+        <form action="{{ url_for('upload') }}" method="post" enctype="multipart/form-data" id="upload-form">
+            <input type="file" name="files" id="file-upload" multiple hidden aria-label="Selecionar arquivos" />
+            <label for="file-upload" class="upload-btn">📁 Escolher Arquivos</label>
+            <p id="file-name" class="file-name" aria-live="polite">Nenhum arquivo selecionado</p>
+            <button type="button" class="process-btn">Processar</button>
+            <progress id="upload-progress" value="0" max="100" hidden></progress>
+        </form>
     </div>
-    
-    <div class="logo">
-        <img src="{{ url_for('static', filename='img/logo_maida.png') }}" alt="Logo da Maida Health" loading="lazy">
-    </div>
+</div>
 
-    <main>
-        <div class="borda-animada">
-            <div class="content-box">
-                <h1><strong>Área ACR</strong></h1>
-                
-                <form action="{{ url_for('upload') }}" method="post" enctype="multipart/form-data" id="upload-form">
-                    <input type="file" name="files" id="file-upload" multiple hidden aria-label="Selecionar arquivos" />
-                    <label for="file-upload" class="upload-btn">📁 Escolher Arquivos</label>
-                    <p id="file-name" class="file-name" aria-live="polite">Nenhum arquivo selecionado</p>
-                    <button type="button" class="process-btn">Processar</button>
-                    <progress id="upload-progress" value="0" max="100" hidden></progress>
-                </form>
-            </div>
-        </div>
-    </main>
+<script>
+    document.addEventListener('DOMContentLoaded', () => {
+        const fileInput = document.getElementById('file-upload');
+        const fileNameText = document.getElementById('file-name');
+        const processBtn = document.querySelector('.process-btn');
+        const uploadForm = document.getElementById('upload-form');
 
-    <div class="bg-shapes">
-        <svg viewBox="0 0 600 600" xmlns="http://www.w3.org/2000/svg">
-            <g transform="translate(300,300)">
-                <path d="M150,-164C198,-122,235,-61,230,-4.6C225,51,178,102,130,146C82,190,34,228,-20,236C-73,244,-145,221,-176,172C-207,123,-197,48,-180,-20C-163,-89,-138,-151,-94,-190C-50,-229,13,-244,75,-231C137,-218,199,-176,150,-164Z" fill="rgba(255, 255, 255, 0.05)"/>
-            </g>
-        </svg>
-    </div>
-
-    {% include 'components/_footer.html' %}
-
-    <script>
-         document.addEventListener('DOMContentLoaded', () => {
-            const fileInput = document.getElementById('file-upload');
-            const fileNameText = document.getElementById('file-name');
-            const processBtn = document.querySelector('.process-btn');
-            const uploadForm = document.getElementById('upload-form');
-
-            fileInput.addEventListener('change', function() {
-                if (this.files.length === 0) {
-                    fileNameText.textContent = 'Nenhum arquivo selecionado';
-                    return;
-                }
-                const invalidFiles = Array.from(this.files).filter(file => file.type !== 'application/pdf');
-                if (invalidFiles.length > 0) {
-                    fileNameText.textContent = 'Por favor, selecione apenas arquivos PDF.';
-                    this.value = '';
-                    return;
-                }
-                fileNameText.textContent = this.files.length === 1 ? this.files[0].name : `${this.files.length} arquivos PDF selecionados`;
-            });
-
-            processBtn.addEventListener('click', function() {
-                if (!fileInput.files || fileInput.files.length === 0) {
-                    fileNameText.textContent = 'Por favor, selecione pelo menos um arquivo PDF.';
-                    return;
-                }
-                // Mostra feedback visual e envia o formulário
-                this.disabled = true;
-                this.innerHTML = `<span class="spinner"></span> Processando...`;
-                
-                // ESTA LINHA É A MAIS IMPORTANTE:
-                uploadForm.submit(); 
-            });
+        fileInput.addEventListener('change', function() {
+            if (this.files.length === 0) {
+                fileNameText.textContent = 'Nenhum arquivo selecionado';
+                return;
+            }
+            const invalidFiles = Array.from(this.files).filter(file => file.type !== 'application/pdf');
+            if (invalidFiles.length > 0) {
+                fileNameText.textContent = 'Por favor, selecione apenas arquivos PDF.';
+                this.value = '';
+                return;
+            }
+            fileNameText.textContent = this.files.length === 1 ? this.files[0].name : `${this.files.length} arquivos PDF selecionados`;
         });
-    </script>
-    <script src="{{ url_for('static', filename='js/main.js') }}" defer></script>
-</body>
-</html>
+
+        processBtn.addEventListener('click', function() {
+            if (!fileInput.files || fileInput.files.length === 0) {
+                fileNameText.textContent = 'Por favor, selecione pelo menos um arquivo PDF.';
+                return;
+            }
+            this.disabled = true;
+            this.innerHTML = `<span class="spinner"></span> Processando...`;
+            uploadForm.submit(); 
+        });
+    });
+</script>
+{% endblock %}
