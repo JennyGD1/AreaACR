@@ -41,7 +41,7 @@ class ProcessadorContracheque:
             return {}
             
         # Pegar o período mais recente
-        periodo_recente = sorted(periodos, key=lambda x: (int(x[1]), int(x[0]))[-1]
+        periodo_recente = sorted(periodos, key=lambda x: (int(x[1]), int(x[0])))[-1]
         periodo_str = f"{periodo_recente[0]}.{periodo_recente[1]}"
         
         # Filtrar linhas apenas do período recente
