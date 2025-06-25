@@ -27,7 +27,7 @@ def index():
 @app.route('/calculadora')
 def calculadora():
     session.clear()
-    return render_template('calculadora.html')
+    return render_template('indexcalculadora.html')
 
 @app.route('/processar', methods=['POST'])
 def processar():
