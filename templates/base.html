@@ -1,39 +1,27 @@
 <!DOCTYPE html>
-<html lang="pt-br">
+<html lang="pt-BR">
 <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>{% block title %}Área ACR{% endblock %}</title>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}Ferramenta Maida Health{% endblock %}</title>
     <link rel="icon" href="{{ url_for('static', filename='img/logo_maida.png') }}" />
-    
+
     <link rel="stylesheet" href="{{ url_for('static', filename='css/base.css') }}">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/components/navbar.css') }}">
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/pages/calculadora.css') }}">
     {% block extra_css %}{% endblock %}
 </head>
-<body class="{% block body_class %}page-upload{% endblock %}"> 
+<body class="{% block body_class %}page-inicio{% endblock %}">
+
     {% include 'components/_preloader.html' %}
     {% include 'components/_navbar.html' %}
 
     <div class="scrollbar-container">
         <div class="scrollbar-thumb" id="scrollThumb"></div>
     </div>
-    
-    <div class="logo">
-        <img src="{{ url_for('static', filename='img/logo_maida.png') }}" alt="Logo da Maida Health" loading="lazy">
-    </div>
 
     <main>
         {% block content %}{% endblock %}
     </main>
-
-    <div class="bg-shapes">
-        <svg viewBox="0 0 600 600" xmlns="http://www.w3.org/2000/svg">
-            <g transform="translate(300,300)">
-                <path d="M150,-164C198,-122,235,-61,230,-4.6C225,51,178,102,130,146C82,190,34,228,-20,236C-73,244,-145,221,-176,172C-207,123,-197,48,-180,-20C-163,-89,-138,-151,-94,-190C-50,-229,13,-244,75,-231C137,-218,199,-176,150,-164Z" fill="rgba(255, 255, 255, 0.05)"/>
-            </g>
-        </svg>
-    </div>
 
     {% include 'components/_footer.html' %}
 
