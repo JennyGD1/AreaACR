@@ -3,7 +3,11 @@
   inherits: false;
   initial-value: 0deg;
 }
-
+.page-inicio {
+    background-color: #224aa2; /* Azul da Maida */
+    min-height: 100vh;
+    padding: 20px 0;
+}
 .page-upload {
     display: flex;
     flex-direction: column;
