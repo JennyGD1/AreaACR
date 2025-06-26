@@ -14,22 +14,20 @@ body.page-inicio {
 /* 2. Ajuste no Main:
    O main vai crescer para ocupar o espaço vazio e centralizar o container. */
 .page-inicio main {
-    flex-grow: 1; /* Faz o <main> crescer para ocupar o espaço disponível entre o menu e o rodapé */
-
-    /* As 3 linhas mágicas para a centralização, aplicadas ao pai direto! */
+    flex-grow: 1;
     display: flex;
-    justify-content: center; /* Centraliza o .welcome-container na horizontal */
-    align-items: center;   /* Centraliza o .welcome-container na vertical */
+    flex-direction: column;
+    justify-content: center;
+    padding: 20px 0; /* Espaçamento interno */
 }
-
 /* 3. A Caixa de Boas-Vindas (nenhuma mudança aqui, mas mantemos para clareza) */
 .welcome-container {
     background-color: white; /* Fundo branco */
-    padding: 50px;
+    padding: 30px;
     border-radius: 15px;
     box-shadow: 0 5px 20px rgba(0, 0, 0, 0.1);
     max-width: 650px;
-    width: 90%; /* Responsivo */
+    width: 85%; /* Responsivo */
     margin: 20px auto; /* Centraliza com espaçamento */
 }
 
@@ -202,8 +200,8 @@ body.page-inicio {
 }
 
 @media (max-width: 768px) {
-    .features-grid {
-        grid-template-columns: 1fr;
+    body.page-inicio {
+        padding: 20px 0;
     }
     
     .quick-actions {
