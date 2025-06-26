@@ -293,14 +293,19 @@ body.page-inicio {
     
     .features-grid {
         grid-template-columns: 1fr;
-        gap: 0; /* Remove o gap padrão */
+        row-gap: 40px; /* Espaçamento vertical único e consistente */
+        gap: 0; /* Remove qualquer gap padrão */
     }
     
     .feature-card {
-        margin: 15px 0; /* 15px em cima/baixo, 0 nas laterais */
-        box-shadow: 0 0 0 1px rgba(0,0,0,0.05), /* Borda interna */
-                    0 3px 10px rgba(0,0,0,0.08); /* Sombra externa */
-   }
+        margin: 0 !important; /* !important só para garantir a sobrescrita */
+    }
+
+    /* Mantém o visual dos cards */
+    .feature-card {
+        box-shadow: 0 0 0 1px rgba(0,0,0,0.05),
+                    0 3px 10px rgba(0,0,0,0.08);
+    }
    .feature-card:not(:first-child) {
         margin-top: 30px; /* Espaço maior acima (exceto no primeiro) */
         margin-bottom: 30px;
