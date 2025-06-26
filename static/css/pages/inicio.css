@@ -134,38 +134,41 @@ body.page-inicio {
 
 /* Seção do Tutorial */
 #tutorial {
-    margin-top: 20px; /* Espaço reduzido acima do tutorial */
-    padding: 15px;
+    margin-top: 10px; /* Reduzido pela metade */
+    padding: 10px; /* Reduzido de 20px */
     border-top: 1px solid rgba(0,0,0,0.1);
 }
 
 #tutorial h2 {
-    font-size: 1.1rem; /* Menor que os títulos dos cards */
-    color: var(--maida-azul);
-    margin-bottom: 15px;
-    text-align: center;
+    font-size: 0.9rem; /* ~50% menor que os títulos dos cards */
+    margin-bottom: 8px; /* Redução proporcional */
+    padding: 0 5px; /* Padding lateral reduzido */
 }
 
 .steps {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); /* Cards mais estreitos */
-    gap: 12px; /* Espaço reduzido entre passos */
+    gap: 6px; /* Metade do espaçamento anterior */
 }
 
 .step {
-    background: white;
-    padding: 12px; /* Padding reduzido */
-    border-radius: 8px;
-    box-shadow: 0 2px 8px rgba(0,0,0,0.05); /* Sombra mais suave */
+    padding: 8px; /* Reduzido de 16px */
+    border-radius: 5px; /* Bordas menos arredondadas */
+    min-height: auto;
 }
 
 .step-number {
-    width: 24px;
-    height: 24px;
-    font-size: 0.8rem;
-    top: -8px;
-    left: -8px;
+    width: 18px; /* Reduzido de 36px */
+    height: 18px;
+    font-size: 0.6rem; /* Fonte menor */
+    top: -5px; /* Ajuste de posição */
+    left: -5px;
 }
+
+.step p {
+    font-size: 0.7rem; /* Texto 50% menor */
+    line-height: 1.2; /* Compacto */
+    margin-bottom: 4px; /* Espaçamento reduzido */
+}
+
 .action-btn {
     padding: 12px 25px;
     border-radius: 50px;
@@ -291,9 +294,10 @@ body.page-inicio {
 }
     
    #tutorial {
-        padding: 10px;
+        padding: 5px;
     }
-    .steps {
-        grid-template-columns: 1fr;
+    .step {
+        padding: 6px;
     }
+
 }
