@@ -78,14 +78,15 @@ body.page-inicio {
 .features-grid {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
-    gap: 25px;
+    gap: 30px;
     margin: 40px 0;
 }
 
 .feature-card {
     background: white;
     border-radius: 20px;
-    padding: 15px;
+    min-height: 180px;
+    padding: 20px;
     position: relative;
     cursor: pointer;
     transition: var(--transicao-padrao);
@@ -144,53 +145,32 @@ body.page-inicio {
 
 /* Seção do Tutorial */
 #tutorial {
-    margin-top: 30px;  /* Reduzi o espaçamento superior */
-    padding-top: 20px;  /* Menos padding no topo */
+    margin-top: 20px; /* Reduzido para ficar menor que os cards */
+    padding-top: 15px;
     border-top: 1px solid rgba(0,0,0,0.1);
 }
 
 #tutorial h2 {
-    text-align: center;
-    color: var(--maida-azul);
-    margin-bottom: 20px;
-    font-size: 1.5rem;
-}
-
-#tutorial h2 i {
-    margin-right: 10px;
-    color: var(--maida-rosa);
+    font-size: 1.3rem; /* Menor que os títulos dos cards */
+    margin-bottom: 15px;
 }
 
 .steps {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
-    gap: 15px;
+    gap: 12px; /* Espaçamento menor que entre os cards */
 }
 
 .step {
-    background: white;
-    padding: 15px;
-    border-radius: 10px;
-    position: relative;
-    box-shadow: var(--sombra-padrao);
+    padding: 12px; /* Mais compacto que os cards */
+    min-height: auto; /* Remove qualquer altura fixa */
 }
 
 .step-number {
-    position: absolute;
-    top: -10px;  /* Ajuste de posição */
-    left: -10px;
-    width: 30px;  /* Número menor */
-    height: 30px;
-    background: var(--maida-rosa);
-    color: white;
-    border-radius: 50%;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-weight: bold;
-    font-size: 1rem;
+    width: 28px;
+    height: 28px;
+    font-size: 0.9rem;
+    top: -8px;
+    left: -8px;
 }
-
 
 .action-btn {
     padding: 12px 25px;
@@ -276,30 +256,34 @@ body.page-inicio {
     }
     
     .welcome-container {
-        padding: 25px;
+        padding: 20px;
         width: 95%;
     }
     
     .welcome-container h1 {
-        font-size: 2rem;
+        font-size: 1.8rem;
     }
     
     .subtitle {
-        font-size: 1.1rem;
-        margin-bottom: 30px;
+        font-size: 1rem;
+        margin-bottom: 20px;
     }
     
     .features-grid {
-        grid-template-columns: 1fr;
-        gap: 20px;
+        gap: 15px;
+        margin: 20px 0;
     }
     
-    .steps {
-        grid-template-columns: 1fr;
-        gap: 25px;
+    .feature-card {
+        padding: 18px;
+        min-height: 160px;
+    }
+    
+    #tutorial {
+        margin-top: 15px;
     }
     
     .step {
-        padding: 20px;
+        padding: 10px;
     }
 }
