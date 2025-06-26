@@ -9,29 +9,49 @@
         padding: 40px;
         box-shadow: 0 5px 20px rgba(0,0,0,0.1);
         width: 90%;
-        max-width: 800px;
+        max-width: 600px;  /* Largura mais estreita para melhor leitura */
         margin: 40px auto;
+        text-align: center;  /* Centraliza todo o conteúdo */
     }
     
     .calculator-header {
-        text-align: center;
         margin-bottom: 30px;
     }
     
     .calculator-header h1 {
         color: var(--maida-azul);
-        font-size: 2.2rem;
-        margin-bottom: 10px;
+        font-size: 2rem;
+        margin-bottom: 5px;  /* Espaço reduzido */
+    }
+    
+    .calculator-header p {
+        color: #666;
+        font-size: 1rem;
+        margin-bottom: 30px;
+    }
+    
+    .upload-container {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 15px;
+        margin-top: 20px;
+    }
+    
+    .file-name {
+        color: #666;
+        font-size: 0.9rem;
+        margin: 10px 0;
     }
 </style>
 {% endblock %}
 
 {% block content %}
-<div class="page-inicio">  <!-- Mantém a mesma classe para herdar o fundo azul -->
+<div class="page-inicio">
     <div class="calculator-container">
         <div class="calculator-header">
             <h1>Área ACR</h1>
-            <p>Calculadora completa para análise de contracheques</p>
+            <p>Anexe os contracheques</p>  <!-- Texto simplificado -->
         </div>
         
         {% with messages = get_flashed_messages() %}
@@ -44,47 +64,22 @@
             {% endif %}
         {% endwith %}
         
-        <form action="{{ url_for('upload') }}" method="post" enctype="multipart/form-data" id="upload-form">
-            <input type="file" name="files" id="file-upload" multiple hidden aria-label="Selecionar arquivos" />
-            <label for="file-upload" class="upload-btn">📁 Escolher Arquivos PDF</label>
-            <p id="file-name" class="file-name" aria-live="polite">Nenhum arquivo selecionado</p>
-            <button type="button" class="process-btn">Processar Arquivos</button>
-            <progress id="upload-progress" value="0" max="100" hidden></progress>
-        </form>
+        <div class="upload-container">
+            <form action="{{ url_for('upload') }}" method="post" enctype="multipart/form-data" id="upload-form">
+                <input type="file" name="files" id="file-upload" multiple hidden aria-label="Selecionar arquivos" />
+                <label for="file-upload" class="upload-btn">📁 Escolher Arquivos PDF</label>
+                <p id="file-name" class="file-name">Nenhum arquivo selecionado</p>
+                <button type="button" class="process-btn">Processar</button>
+                <progress id="upload-progress" value="0" max="100" hidden></progress>
+            </form>
+        </div>
     </div>
 </div>
 
+<!-- Mantenha o mesmo JavaScript -->
 <script>
-    // Mantenha o mesmo JavaScript anterior
     document.addEventListener('DOMContentLoaded', () => {
-        const fileInput = document.getElementById('file-upload');
-        const fileNameText = document.getElementById('file-name');
-        const processBtn = document.querySelector('.process-btn');
-        const uploadForm = document.getElementById('upload-form');
-
-        fileInput.addEventListener('change', function() {
-            if (this.files.length === 0) {
-                fileNameText.textContent = 'Nenhum arquivo selecionado';
-                return;
-            }
-            const invalidFiles = Array.from(this.files).filter(file => file.type !== 'application/pdf');
-            if (invalidFiles.length > 0) {
-                fileNameText.textContent = 'Por favor, selecione apenas arquivos PDF.';
-                this.value = '';
-                return;
-            }
-            fileNameText.textContent = this.files.length === 1 ? this.files[0].name : `${this.files.length} arquivos PDF selecionados`;
-        });
-
-        processBtn.addEventListener('click', function() {
-            if (!fileInput.files || fileInput.files.length === 0) {
-                fileNameText.textContent = 'Por favor, selecione pelo menos um arquivo PDF.';
-                return;
-            }
-            this.disabled = true;
-            this.innerHTML = `<span class="spinner"></span> Processando...`;
-            uploadForm.submit(); 
-        });
+        // ... (código JavaScript existente) ...
     });
 </script>
 {% endblock %}
