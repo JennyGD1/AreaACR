@@ -3,11 +3,12 @@
 /* 1. Ajuste no Body:
    O body vai organizar a página em seções (cabeçalho, conteúdo, rodapé). */
 body.page-inicio {
-    background-color: #ffffff;
+    background-color: #224aa2; /* Fundo azul */
     display: flex;
-    flex-direction: column; /* Empilha os filhos na vertical */
-    min-height: 100vh; /* Ocupa no mínimo a altura toda da tela */
-    box-sizing: border-box; /* Garante que padding não afete o tamanho total */
+    flex-direction: column;
+    min-height: 100vh;
+    margin: 0;
+    padding: 40px 0; /* Espaçamento igual no topo e base */
 }
 
 /* 2. Ajuste no Main:
@@ -23,13 +24,13 @@ body.page-inicio {
 
 /* 3. A Caixa de Boas-Vindas (nenhuma mudança aqui, mas mantemos para clareza) */
 .welcome-container {
-    background-color: rgba(238, 238, 238, 0.92); /* Fundo cinza claro com leve transparência */
+    background-color: white; /* Fundo branco */
     padding: 50px;
     border-radius: 15px;
     box-shadow: 0 5px 20px rgba(0, 0, 0, 0.1);
     max-width: 650px;
-    border: 1px solid #ddd;
-    text-align: center;
+    width: 90%; /* Responsivo */
+    margin: 20px auto; /* Centraliza com espaçamento */
 }
 
 /* 4. Textos dentro da Caixa (nenhuma mudança aqui) */
