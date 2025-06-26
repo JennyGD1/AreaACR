@@ -102,21 +102,21 @@ body.page-inicio {
 }
 
 .feature-icon {
-    font-size: 2rem;
+    font-size: 1.8rem;
     color: var(--maida-azul);
     margin-bottom: 15px;
 }
 
 .feature-card h3 {
     color: var(--maida-azul);
-    margin-bottom: 10px;
-    font-size: 1.3rem;
+    margin-bottom: 8px;
+    font-size: 1.2rem;
 }
 
 .feature-card p {
     color: var(--texto-cinza);
     font-size: 0.95rem;
-    margin-bottom: 15px;
+    margin-bottom: 10px;
     flex-grow: 1;
 }
 
