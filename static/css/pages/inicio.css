@@ -122,13 +122,13 @@ body.page-inicio {
 
 .feature-badge {
     position: absolute;
-    top: -10px;
-    right: -10px;
+    top: -8px;  /* Ajuste de posição */
+    right: -8px;  /* Ajuste de posição */
     background: var(--maida-rosa);
     color: white;
-    padding: 5px 10px;
+    padding: 4px 8px;  /* Reduzi o padding */
     border-radius: 20px;
-    font-size: 0.7rem;
+    font-size: 0.65rem;  /* Fonte menor */
     font-weight: bold;
     text-transform: uppercase;
 }
