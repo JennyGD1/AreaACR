@@ -134,34 +134,38 @@ body.page-inicio {
 
 /* Seção do Tutorial */
 #tutorial {
-    margin-top: 6px; /* Reduzido para ficar menor que os cards */
-    padding-top: 9px;
+    margin-top: 20px; /* Espaço reduzido acima do tutorial */
+    padding: 15px;
     border-top: 1px solid rgba(0,0,0,0.1);
 }
 
 #tutorial h2 {
-    font-size: 1rem; /* Menor que os títulos dos cards */
-    margin-bottom: 9px;
+    font-size: 1.1rem; /* Menor que os títulos dos cards */
+    color: var(--maida-azul);
+    margin-bottom: 15px;
+    text-align: center;
 }
 
 .steps {
-    gap: 7px; /* Espaçamento menor que entre os cards */
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); /* Cards mais estreitos */
+    gap: 12px; /* Espaço reduzido entre passos */
 }
 
 .step {
-    padding: 6px; /* Mais compacto que os cards */
-    border-radius: 6px;
-    min-height: auto; /* Remove qualquer altura fixa */
+    background: white;
+    padding: 12px; /* Padding reduzido */
+    border-radius: 8px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.05); /* Sombra mais suave */
 }
 
 .step-number {
-    width: 22px;
-    height: 22px;
-    font-size: 0.7rem;
-    top: -6px;
-    left: -6px;
+    width: 24px;
+    height: 24px;
+    font-size: 0.8rem;
+    top: -8px;
+    left: -8px;
 }
-
 .action-btn {
     padding: 12px 25px;
     border-radius: 50px;
@@ -266,9 +270,8 @@ body.page-inicio {
     }
     
     .feature-card {
-        margin: 0 !important; /* !important só para garantir a sobrescrita */
+        padding: 20px; /* Ajuste mobile original */
     }
-
     /* Mantém o visual dos cards */
     .feature-card {
         box-shadow: 0 0 0 1px rgba(0,0,0,0.05),
@@ -288,14 +291,9 @@ body.page-inicio {
 }
     
    #tutorial {
-        margin-top: 9px; /* 15px -> 9px (40% menor) */
+        padding: 10px;
     }
-    
-    .step {
-        padding: 6px; /* 10px -> 6px */
-    }
-    
-    #tutorial h2 {
-        font-size: 0.9rem; /* Redução adicional para mobile */
+    .steps {
+        grid-template-columns: 1fr;
     }
 }
