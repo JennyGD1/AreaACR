@@ -172,7 +172,6 @@ body.page-inicio {
     border-radius: 10px;
     position: relative;
     box-shadow: var(--sombra-padrao);
-    transition: var(--transicao-padrao);
 }
 
 .step-number {
