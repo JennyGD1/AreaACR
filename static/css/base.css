@@ -231,3 +231,4 @@ footer {
         padding: 30px 20px;
     }
 }
+ {% block extra_css %}{% endblock %}
