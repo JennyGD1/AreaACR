@@ -86,7 +86,7 @@ body.page-inicio {
     background: white;
     border-radius: 20px;
     min-height: 180px;
-    padding: 20px;
+    padding: 15px;
     position: relative;
     cursor: pointer;
     transition: var(--transicao-padrao);
@@ -145,7 +145,7 @@ body.page-inicio {
 
 /* Seção do Tutorial */
 #tutorial {
-    margin-top: 20px; /* Reduzido para ficar menor que os cards */
+    margin-top: 10px; /* Reduzido para ficar menor que os cards */
     padding-top: 15px;
     border-top: 1px solid rgba(0,0,0,0.1);
 }
@@ -160,7 +160,7 @@ body.page-inicio {
 }
 
 .step {
-    padding: 12px; /* Mais compacto que os cards */
+    padding: 10px; /* Mais compacto que os cards */
     min-height: auto; /* Remove qualquer altura fixa */
 }
 
