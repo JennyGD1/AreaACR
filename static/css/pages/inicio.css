@@ -175,10 +175,6 @@ body.page-inicio {
     transition: var(--transicao-padrao);
 }
 
-.step:hover {
-    transform: translateY(-3px);
-}
-
 .step-number {
     position: absolute;
     top: -15px;
