@@ -29,13 +29,13 @@ def calculadora():
     session.clear()
     return render_template('indexcalculadora.html')
    
-@app.route('/upload', methods=['POST'])  # Alterado de '/processar' para '/upload'
+@app.route('/upload', methods=['POST'])
 def upload():
-    if 'files' not in request.files:  # Alterado de 'arquivos' para 'files'
+    if 'files' not in request.files:
         flash('Nenhum arquivo enviado')
         return redirect(url_for('calculadora'))
     
-    arquivos = request.files.getlist('files')  # Alterado para 'files'
+    arquivos = request.files.getlist('files')
     textos = []
     
     for arquivo in arquivos:
@@ -61,8 +61,15 @@ def upload():
         flash('Nenhum texto válido extraído dos PDFs')
         return redirect(url_for('calculadora'))
     
-    session['texto_contracheques'] = "\n".join(textos)
-    return redirect(url_for('resultados'))
+    # Processa os textos e mantém na mesma página
+    try:
+        resultados = processador.processar_texto("\n".join(textos))
+        return render_template('indexcalculadora.html', 
+                            resultados=resultados,
+                            arquivos_processados=True)
+    except Exception as e:
+        flash(f'Erro ao processar arquivos: {str(e)}')
+        return redirect(url_for('calculadora'))
     
 @app.route('/resultados')
 def resultados():
