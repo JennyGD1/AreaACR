@@ -102,7 +102,24 @@ footer {
   transition: opacity 0.6s ease-out, visibility 0.6s ease-out;
 }
 
-/* Esta classe é adicionada pelo JavaScript para esconder o preloader */
+/* --- Estilos do Preloader --- */
+#preloader {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background-color: var(--fundo-azul);
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  z-index: 9999;
+  opacity: 1;
+  visibility: visible;
+  transition: opacity 0.6s ease-out, visibility 0.6s ease-out;
+}
+
 #preloader.hidden {
   opacity: 0;
   visibility: hidden;
@@ -114,21 +131,38 @@ footer {
 }
 
 .preloader-spinner {
-  width: 60px;
-  height: 60px;
-  animation: girarInfinito 1.5s linear infinite;
+  width: 80px; /* Aumentado para acomodar dois círculos */
+  height: 80px;
+  position: relative;
 }
 
-@keyframes girarInfinito {
-  from { transform: rotate(0deg); }
-  to { transform: rotate(360deg); }
-}
-
-/* Círculos do spinner (opcional, mas completa o visual) */
 .preloader-spinner circle {
   fill: none;
   stroke: var(--maida-amarelo);
   stroke-width: 6;
   stroke-linecap: round;
   transform-origin: center;
+  animation: girarInfinito 1.5s linear infinite;
+}
+
+#preloader-circulo-externo {
+  position: absolute;
+  stroke-dasharray: 188, 63; /* 3/4 visível */
+  r: 35;
+  cx: 40;
+  cy: 40;
+}
+
+#preloader-circulo-interno {
+  position: absolute;
+  stroke-dasharray: 94, 94; /* 1/2 visível */
+  r: 25;
+  cx: 40;
+  cy: 40;
+  animation-direction: reverse;
+}
+
+@keyframes girarInfinito {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
 }
