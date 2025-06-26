@@ -132,43 +132,6 @@ body.page-inicio {
     flex-wrap: wrap;
 }
 
-/* Seção do Tutorial */
-#tutorial {
-    margin-top: 10px;
-    padding: 10px;
-    text-align: center; /* Centraliza todo o conteúdo */
-}
-
-.step {
-    padding: 10px;
-    text-align: center; /* Centraliza texto */
-}
-
-.step-number {
-   width: 24px;              /* Aumentei de 20px para 24px */
-    height: 24px;
-    font-size: 0.9rem;        /* Aumentei de 0.75rem para 0.9rem */
-    top: -12px;               /* Ajuste fino para posicionar na borda */
-    left: 20px;               /* Posição fixa da esquerda */
-    transform: none;          /* Removemos o translateX anterior */
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    background: var(--maida-rosa);
-    color: white;
-    border-radius: 50%;
-    border: 2px solid white;  /* Borda branca para contraste */
-    box-shadow: 0 1px 3px rgba(0,0,0,0.2); /* Sombra sutil */
-}
-
-.step p {
-    font-size: 0.85rem; /* Aumento sutil para melhor legibilidade */
-    line-height: 1.4;
-    margin: 8px 0;
-    text-align: center;
-    padding: 0 5px;
-}
-
 .action-btn {
     padding: 12px 25px;
     border-radius: 50px;
@@ -293,20 +256,3 @@ body.page-inicio {
     }
 }
     
-   #tutorial {
-        padding: 5px;
-    }
-    .step {
-        padding: 6px;
-    }
-    .step-number {
-        width: 22px;
-        height: 22px;
-        left: 15px;
-        top: -10px;
-    }
-    .step p {
-        font-size: 0.8rem;
-    }
-
-}
