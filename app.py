@@ -29,13 +29,13 @@ def calculadora():
     session.clear()
     return render_template('indexcalculadora.html')
    
-@app.route('/processar', methods=['POST'])
-def processar():
-    if 'arquivos' not in request.files:
+@app.route('/upload', methods=['POST'])  # Alterado de '/processar' para '/upload'
+def upload():
+    if 'files' not in request.files:  # Alterado de 'arquivos' para 'files'
         flash('Nenhum arquivo enviado')
         return redirect(url_for('calculadora'))
     
-    arquivos = request.files.getlist('arquivos')
+    arquivos = request.files.getlist('files')  # Alterado para 'files'
     textos = []
     
     for arquivo in arquivos:
@@ -63,7 +63,7 @@ def processar():
     
     session['texto_contracheques'] = "\n".join(textos)
     return redirect(url_for('resultados'))
-
+    
 @app.route('/resultados')
 def resultados():
     if 'texto_contracheques' not in session:
