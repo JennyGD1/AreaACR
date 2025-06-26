@@ -144,16 +144,16 @@ body.page-inicio {
 
 /* Seção do Tutorial */
 #tutorial {
-    margin-top: 50px;
-    padding-top: 30px;
+    margin-top: 30px;  /* Reduzi o espaçamento superior */
+    padding-top: 20px;  /* Menos padding no topo */
     border-top: 1px solid rgba(0,0,0,0.1);
 }
 
 #tutorial h2 {
     text-align: center;
     color: var(--maida-azul);
-    margin-bottom: 30px;
-    font-size: 1.8rem;
+    margin-bottom: 20px;
+    font-size: 1.5rem;
 }
 
 #tutorial h2 i {
@@ -164,12 +164,12 @@ body.page-inicio {
 .steps {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
-    gap: 30px;
+    gap: 15px;
 }
 
 .step {
     background: white;
-    padding: 25px;
+    padding: 15px;
     border-radius: 10px;
     position: relative;
     box-shadow: var(--sombra-padrao);
@@ -177,10 +177,10 @@ body.page-inicio {
 
 .step-number {
     position: absolute;
-    top: -15px;
-    left: -15px;
-    width: 40px;
-    height: 40px;
+    top: -10px;  /* Ajuste de posição */
+    left: -10px;
+    width: 30px;  /* Número menor */
+    height: 30px;
     background: var(--maida-rosa);
     color: white;
     border-radius: 50%;
@@ -188,7 +188,7 @@ body.page-inicio {
     align-items: center;
     justify-content: center;
     font-weight: bold;
-    font-size: 1.2rem;
+    font-size: 1rem;
 }
 
 
