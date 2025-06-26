@@ -145,18 +145,20 @@ body.page-inicio {
 }
 
 .step-number {
-    width: 20px;
-    height: 20px;
-    font-size: 0.75rem; /* Tamanho proporcional */
-    top: -8px;
-    left: 50%; /* Centraliza horizontalmente */
-    transform: translateX(-50%); /* Ajuste fino de posição */
+   width: 24px;              /* Aumentei de 20px para 24px */
+    height: 24px;
+    font-size: 0.9rem;        /* Aumentei de 0.75rem para 0.9rem */
+    top: -12px;               /* Ajuste fino para posicionar na borda */
+    left: 20px;               /* Posição fixa da esquerda */
+    transform: none;          /* Removemos o translateX anterior */
     display: flex;
     align-items: center;
     justify-content: center;
     background: var(--maida-rosa);
     color: white;
     border-radius: 50%;
+    border: 2px solid white;  /* Borda branca para contraste */
+    box-shadow: 0 1px 3px rgba(0,0,0,0.2); /* Sombra sutil */
 }
 
 .step p {
@@ -297,9 +299,11 @@ body.page-inicio {
     .step {
         padding: 6px;
     }
-   .step-number {
-        width: 18px;
-        height: 18px;
+    .step-number {
+        width: 22px;
+        height: 22px;
+        left: 15px;
+        top: -10px;
     }
     .step p {
         font-size: 0.8rem;
