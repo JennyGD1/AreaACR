@@ -75,85 +75,53 @@ body.page-inicio {
     font-weight: 500;
 }
 
+/* === RESTAURAR APENAS OS CARDS DE FEATURES === */
 .features-grid {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
-    gap: 20px 30px;
-    margin: 30px 0;
-    padding: 0 10px; /* Ajuste fino no padding */
-    position: relative; /* Adicionado */
-    z-index: 1; /* Garante que o grid fique acima de outros elementos */
-    row-gap: 50px; /* Espaço VERTICAL aumentado entre linhas (itens de baixo) */
-} 
+    gap: 25px;
+    margin: 40px 0;
+}
 
 .feature-card {
     background: white;
     border-radius: 15px;
-    padding: 15px;
+    padding: 25px; /* Padding original */
     position: relative;
-    z-index: 1;
     cursor: pointer;
-    transition: var(--transicao-padrao);
-    box-shadow: 0 3px 10px rgba(0,0,0,0.08);
+    transition: all 0.3s ease;
+    box-shadow: 0 5px 15px rgba(0,0,0,0.05);
     border: 1px solid rgba(0,0,0,0.05);
-    height: 100%;
-    display: flex;
-    flex-direction: column;
-    overflow: hidden;
-    margin: 0; /* Removido o margin negativo */
-    isolation: isolate; /* Novo: cria novo contexto de empilhamento */
-}
-.feature-badge {
-    position: absolute;
-    top: 12px;  /* Ajuste fino na posição */
-    right: 12px;
-    background: var(--maida-rosa);
-    color: white;
-    padding: 4px 8px;
-    border-radius: 20px;
-    font-size: 0.65rem;
-    font-weight: bold;
-    text-transform: uppercase;
-    z-index: 1; /* Garante que fique acima de outros elementos */
-}
-.feature-card.coming-soon {
-    opacity: 0.7;
-    cursor: not-allowed;
-    z-index: 0; /* Garante que fique atrás dos cards ativos */
 }
 
 .feature-icon {
-    font-size: 1.8rem;
+    font-size: 2rem; /* Tamanho original */
     color: var(--maida-azul);
-    margin-bottom: 15px;
+    margin-bottom: 15px; /* Espaçamento original */
 }
 
 .feature-card h3 {
     color: var(--maida-azul);
-    margin-bottom: 12px;
-    font-size: 1.3rem;
+    margin-bottom: 10px; /* Espaçamento original */
+    font-size: 1.2rem; /* Tamanho original se necessário */
 }
 
 .feature-card p {
-    color: var(--texto-cinza);
-    font-size: 1rem;
-    margin-bottom: 12px;
-    flex-grow: 1;
-    line-height: 1.5;  /* Linhas mais justas */
+    color: #666;
+    font-size: 0.95rem; /* Tamanho original */
+    line-height: 1.4; /* Original (ajustar se diferente) */
 }
 
 .feature-badge {
     position: absolute;
-    top: 10px;  /* Posiciona dentro do card */
-    right: 10px;  /* Posiciona dentro do card */
+    top: -10px; /* Posição original */
+    right: -10px;
     background: var(--maida-rosa);
     color: white;
-    padding: 4px 8px;
+    padding: 5px 10px; /* Original */
     border-radius: 20px;
-    font-size: 0.65rem;
+    font-size: 0.7rem; /* Original */
     font-weight: bold;
-    text-transform: uppercase;
-    z-index: 1; /* Garante que fique acima de outros elementos */
 }
 
 .quick-actions {
