@@ -297,10 +297,13 @@ body.page-inicio {
     }
     
     .feature-card {
-        margin: 0;
+        margin: 15px 0; /* 15px em cima/baixo, 0 nas laterais */
         box-shadow: 0 0 0 1px rgba(0,0,0,0.05), /* Borda interna */
                     0 3px 10px rgba(0,0,0,0.08); /* Sombra externa */
-}
+   }
+   .feature-card:not(:first-child) {
+        margin-top: 30px; /* Espaço maior acima (exceto no primeiro) */
+    }
     
     .feature-badge {
         top: 8px;
