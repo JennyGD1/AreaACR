@@ -34,8 +34,11 @@ body.page-inicio {
 /* 4. Textos dentro da Caixa (nenhuma mudança aqui) */
 .welcome-container h1 {
     font-size: 2.8rem;
+    text-align: center;
     color: var(--maida-azul);
     margin-bottom: 15px;
+    margin: 0 auto 15px;
+   
 }
 
 .welcome-container p {
