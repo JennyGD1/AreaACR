@@ -2,13 +2,22 @@
 
 /* 1. Ajuste no Body:
    O body vai organizar a página em seções (cabeçalho, conteúdo, rodapé). */
+:root {
+    --maida-azul: #224aa2;
+    --maida-rosa: #ff6b8b;
+    --maida-amarelo: #ffd166;
+    --texto-escuro: #333;
+    --texto-cinza: #666;
+    --sombra-padrao: 0 5px 15px rgba(0,0,0,0.1);
+    --transicao-padrao: all 0.3s ease;
+}
 body.page-inicio {
-    background-color: #224aa2; /* Fundo azul */
+    background-color: var(--maida-azul);
     display: flex;
     flex-direction: column;
     min-height: 100vh;
     margin: 0;
-    padding: 40px 0; /* Espaçamento igual no topo e base */
+    padding: 40px 0;
 }
 
 /* 2. Ajuste no Main:
@@ -23,21 +32,21 @@ body.page-inicio {
 /* 3. A Caixa de Boas-Vindas (nenhuma mudança aqui, mas mantemos para clareza) */
 .welcome-container {
     background-color: white; /* Fundo branco */
-    padding: 30px;
+    padding: 40px;
     border-radius: 15px;
-    box-shadow: 0 5px 20px rgba(0, 0, 0, 0.1);
-    max-width: 650px;
-    width: 85%; /* Responsivo */
+    box-shadow: var(--sombra-padrao);
+    max-width: 800px;
+    width: 90%; /* Responsivo */
     margin: 20px auto; /* Centraliza com espaçamento */
 }
 
 /* 4. Textos dentro da Caixa (nenhuma mudança aqui) */
 .welcome-container h1 {
-    font-size: 2.8rem;
+    font-size: 2.5rem;
     text-align: center;
     color: var(--maida-azul);
-    margin-bottom: 15px;
     margin: 0 auto 15px;
+    font-weight: 600;
    
 }
 
@@ -63,6 +72,7 @@ body.page-inicio {
     color: var(--maida-rosa);
     font-size: 1.2rem;
     margin-bottom: 40px;
+    font-weight: 500;
 }
 
 .features-grid {
@@ -78,9 +88,12 @@ body.page-inicio {
     padding: 25px;
     position: relative;
     cursor: pointer;
-    transition: all 0.3s ease;
+    transition: var(--transicao-padrao);
     box-shadow: 0 5px 15px rgba(0,0,0,0.05);
     border: 1px solid rgba(0,0,0,0.05);
+    height: 100%;
+    display: flex;
+    flex-direction: column;
 }
 
 .feature-card.coming-soon {
@@ -97,11 +110,14 @@ body.page-inicio {
 .feature-card h3 {
     color: var(--maida-azul);
     margin-bottom: 10px;
+    font-size: 1.3rem;
 }
 
 .feature-card p {
-    color: #666;
+    color: var(--texto-cinza);
     font-size: 0.95rem;
+    margin-bottom: 15px;
+    flex-grow: 1;
 }
 
 .feature-badge {
@@ -114,6 +130,7 @@ body.page-inicio {
     border-radius: 20px;
     font-size: 0.7rem;
     font-weight: bold;
+    text-transform: uppercase;
 }
 
 .quick-actions {
@@ -123,6 +140,61 @@ body.page-inicio {
     margin-top: 40px;
     flex-wrap: wrap;
 }
+
+/* Seção do Tutorial */
+#tutorial {
+    margin-top: 50px;
+    padding-top: 30px;
+    border-top: 1px solid rgba(0,0,0,0.1);
+}
+
+#tutorial h2 {
+    text-align: center;
+    color: var(--maida-azul);
+    margin-bottom: 30px;
+    font-size: 1.8rem;
+}
+
+#tutorial h2 i {
+    margin-right: 10px;
+    color: var(--maida-rosa);
+}
+
+.steps {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+    gap: 30px;
+}
+
+.step {
+    background: white;
+    padding: 25px;
+    border-radius: 10px;
+    position: relative;
+    box-shadow: var(--sombra-padrao);
+    transition: var(--transicao-padrao);
+}
+
+.step:hover {
+    transform: translateY(-3px);
+}
+
+.step-number {
+    position: absolute;
+    top: -15px;
+    left: -15px;
+    width: 40px;
+    height: 40px;
+    background: var(--maida-rosa);
+    color: white;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: bold;
+    font-size: 1.2rem;
+}
+
 
 .action-btn {
     padding: 12px 25px;
@@ -207,13 +279,31 @@ body.page-inicio {
         padding: 20px 0;
     }
     
-    .quick-actions {
-        flex-direction: column;
-        align-items: center;
+    .welcome-container {
+        padding: 25px;
+        width: 95%;
     }
     
-    .action-btn {
-        width: 100%;
-        justify-content: center;
+    .welcome-container h1 {
+        font-size: 2rem;
+    }
+    
+    .subtitle {
+        font-size: 1.1rem;
+        margin-bottom: 30px;
+    }
+    
+    .features-grid {
+        grid-template-columns: 1fr;
+        gap: 20px;
+    }
+    
+    .steps {
+        grid-template-columns: 1fr;
+        gap: 25px;
+    }
+    
+    .step {
+        padding: 20px;
     }
 }
