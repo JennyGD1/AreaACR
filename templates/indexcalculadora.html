@@ -4,6 +4,16 @@
 <div class="borda-animada">
     <div class="content-box">
         <h1><strong>Área ACR</strong></h1>
+
+        {% with messages = get_flashed_messages() %}
+            {% if messages %}
+                <div class="alert-messages">
+                    {% for message in messages %}
+                        <div class="alert">{{ message }}</div>
+                    {% endfor %}
+                </div>
+            {% endif %}
+        {% endwith %}
         
         <form action="{{ url_for('upload') }}" method="post" enctype="multipart/form-data" id="upload-form">
             <input type="file" name="files" id="file-upload" multiple hidden aria-label="Selecionar arquivos" />
