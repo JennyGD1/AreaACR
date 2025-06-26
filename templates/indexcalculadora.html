@@ -1,7 +1,7 @@
 {% extends "base.html" %}
 
 {% block extra_css %}
-<link rel="stylesheet" href="{{ url_for('static', filename='css/pages/inicio.css') }}">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/pages/calculadora.css') }}">
 <style>
     .page-header {
         text-align: center;
@@ -54,6 +54,34 @@
         font-size: 0.9rem;
         margin: 10px 0;
     }
+    .resultados-container {
+    margin-top: 40px;
+    padding: 30px;
+    background: #f8f9fa;
+    border-radius: 15px;
+}
+
+.resumo-container {
+    display: flex;
+    justify-content: center;
+    gap: 30px;
+    margin: 25px 0;
+}
+
+.resumo-item {
+    background: white;
+    padding: 20px;
+    border-radius: 10px;
+    min-width: 200px;
+    box-shadow: 0 3px 10px rgba(0,0,0,0.1);
+}
+
+.botoes-container {
+    display: flex;
+    justify-content: center;
+    gap: 20px;
+    margin-top: 30px;
+}
 </style>
 {% endblock %}
 
@@ -114,10 +142,10 @@
             <i class="fas fa-chart-bar"></i> Ver Análise Detalhada
         </button>
     </div>
-</div>
+    
 {% endif %}
         </div>
-    </div>
+   
 </div>
 
 <!-- Mantenha o mesmo JavaScript -->
@@ -165,7 +193,16 @@
             `;
             
             // Submete o formulário
-            uploadForm.submit(); 
+      uploadForm.submit();
+
+// Adicione tratamento de erro
+      uploadForm.addEventListener('error', function() {
+      processBtn.disabled = false;
+      processBtn.innerHTML = 'Processar';
+      fileNameText.textContent = 'Erro no processamento. Tente novamente.';
+});
+});
+            
         });
     });
 </script>
