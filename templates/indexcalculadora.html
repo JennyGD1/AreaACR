@@ -1,10 +1,39 @@
 {% extends "base.html" %}
 
-{% block content %}
-<div class="borda-animada">
-    <div class="content-box">
-        <h1><strong>Área ACR</strong></h1>
+{% block extra_css %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/pages/inicio.css') }}">
+<style>
+    .calculator-container {
+        background: white;
+        border-radius: 15px;
+        padding: 40px;
+        box-shadow: 0 5px 20px rgba(0,0,0,0.1);
+        width: 90%;
+        max-width: 800px;
+        margin: 40px auto;
+    }
+    
+    .calculator-header {
+        text-align: center;
+        margin-bottom: 30px;
+    }
+    
+    .calculator-header h1 {
+        color: var(--maida-azul);
+        font-size: 2.2rem;
+        margin-bottom: 10px;
+    }
+</style>
+{% endblock %}
 
+{% block content %}
+<div class="page-inicio">  <!-- Mantém a mesma classe para herdar o fundo azul -->
+    <div class="calculator-container">
+        <div class="calculator-header">
+            <h1>Área ACR</h1>
+            <p>Calculadora completa para análise de contracheques</p>
+        </div>
+        
         {% with messages = get_flashed_messages() %}
             {% if messages %}
                 <div class="alert-messages">
@@ -17,15 +46,16 @@
         
         <form action="{{ url_for('upload') }}" method="post" enctype="multipart/form-data" id="upload-form">
             <input type="file" name="files" id="file-upload" multiple hidden aria-label="Selecionar arquivos" />
-            <label for="file-upload" class="upload-btn">📁 Escolher Arquivos</label>
+            <label for="file-upload" class="upload-btn">📁 Escolher Arquivos PDF</label>
             <p id="file-name" class="file-name" aria-live="polite">Nenhum arquivo selecionado</p>
-            <button type="button" class="process-btn">Processar</button>
+            <button type="button" class="process-btn">Processar Arquivos</button>
             <progress id="upload-progress" value="0" max="100" hidden></progress>
         </form>
     </div>
 </div>
 
 <script>
+    // Mantenha o mesmo JavaScript anterior
     document.addEventListener('DOMContentLoaded', () => {
         const fileInput = document.getElementById('file-upload');
         const fileNameText = document.getElementById('file-name');
