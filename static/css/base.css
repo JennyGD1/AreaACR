@@ -214,3 +214,20 @@ footer {
     background-color: #cccccc;
     cursor: not-allowed;
 }
+.logo-calculadora {
+    transition: transform 0.3s ease;
+}
+
+.logo-calculadora:hover {
+    transform: scale(1.05);
+}
+@media (max-width: 768px) {
+    .page-header img {
+        max-width: 140px;
+        margin-bottom: 15px;
+    }
+    
+    .calculator-container {
+        padding: 30px 20px;
+    }
+}
