@@ -79,7 +79,50 @@
 <!-- Mantenha o mesmo JavaScript -->
 <script>
     document.addEventListener('DOMContentLoaded', () => {
-        // ... (código JavaScript existente) ...
+        const fileInput = document.getElementById('file-upload');
+        const fileNameText = document.getElementById('file-name');
+        const processBtn = document.querySelector('.process-btn');
+        const uploadForm = document.getElementById('upload-form');
+
+        // Atualiza o texto ao selecionar arquivos
+        fileInput.addEventListener('change', function() {
+            if (this.files.length === 0) {
+                fileNameText.textContent = 'Nenhum arquivo selecionado';
+                return;
+            }
+            
+            // Verifica se todos são PDFs
+            const invalidFiles = Array.from(this.files).filter(file => file.type !== 'application/pdf');
+            if (invalidFiles.length > 0) {
+                fileNameText.textContent = 'Por favor, selecione apenas arquivos PDF.';
+                this.value = '';
+                return;
+            }
+            
+            // Atualiza mensagem com nome/quantidade de arquivos
+            fileNameText.textContent = this.files.length === 1 
+                ? `1 arquivo selecionado: ${this.files[0].name}` 
+                : `${this.files.length} arquivos selecionados`;
+        });
+
+        // Validação ao clicar em Processar
+        processBtn.addEventListener('click', function() {
+            if (!fileInput.files || fileInput.files.length === 0) {
+                fileNameText.textContent = 'Por favor, selecione pelo menos um arquivo PDF.';
+                return;
+            }
+            
+            // Feedback visual durante o processamento
+            this.disabled = true;
+            this.innerHTML = `
+                <div class="spinner-container">
+                    <span class="spinner"></span> Processando...
+                </div>
+            `;
+            
+            // Submete o formulário
+            uploadForm.submit(); 
+        });
     });
 </script>
 {% endblock %}
