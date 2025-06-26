@@ -3,6 +3,15 @@
 {% block extra_css %}
 <link rel="stylesheet" href="{{ url_for('static', filename='css/pages/calculadora.css') }}">
 <style>
+    :root {
+    --maida-azul: #224aa2;
+    --maida-rosa: #ff6b8b;
+    --maida-amarelo: #ffd166;
+    --texto-escuro: #333;
+    --texto-cinza: #666;
+    --sombra-padrao: 0 5px 15px rgba(0,0,0,0.1);
+    --transicao-padrao: all 0.3s ease;
+}
     .page-header {
         text-align: center;
         margin-bottom: 30px;
