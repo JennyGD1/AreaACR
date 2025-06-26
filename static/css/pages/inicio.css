@@ -83,7 +83,7 @@ body.page-inicio {
     padding: 0 10px; /* Ajuste fino no padding */
     position: relative; /* Adicionado */
     z-index: 1; /* Garante que o grid fique acima de outros elementos */
-    row-gap: 40px; /* Espaço VERTICAL aumentado entre linhas (itens de baixo) */
+    row-gap: 60px; /* Espaço VERTICAL aumentado entre linhas (itens de baixo) */
 } 
 
 .feature-card {
