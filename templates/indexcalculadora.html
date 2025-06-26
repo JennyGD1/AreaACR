@@ -99,6 +99,33 @@
                 <button type="button" class="process-btn">Processar</button>
                 <progress id="upload-progress" value="0" max="100" hidden></progress>
             </form>
+            <!-- Adicione logo após o formulário -->
+{% if arquivos_processados and resultados %}
+<div class="resultados-container">
+    <h2>Resultados do Processamento</h2>
+    
+    <div class="resumo-container">
+        <div class="resumo-item">
+            <h3>Total de Proventos</h3>
+            <p>R$ {{ "%.2f"|format(resultados.total_proventos) }}</p>
+        </div>
+        
+        <div class="resumo-item">
+            <h3>Arquivos Processados</h3>
+            <p>{{ resultados.quantidade_arquivos }}</p>
+        </div>
+    </div>
+    
+    <div class="botoes-container">
+        <button onclick="location.href='{{ url_for('calculadora') }}'" class="btn-voltar">
+            <i class="fas fa-redo"></i> Processar Novos Arquivos
+        </button>
+        <button class="btn-detalhes" onclick="location.href='{{ url_for('analise_detalhada') }}'">
+            <i class="fas fa-chart-bar"></i> Ver Análise Detalhada
+        </button>
+    </div>
+</div>
+{% endif %}
         </div>
     </div>
 </div>
