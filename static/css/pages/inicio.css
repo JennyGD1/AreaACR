@@ -83,7 +83,8 @@ body.page-inicio {
     padding: 0 10px; /* Ajuste fino no padding */
     position: relative; /* Adicionado */
     z-index: 1; /* Garante que o grid fique acima de outros elementos */
-}
+    row-gap: 40px; /* Espaço VERTICAL aumentado entre linhas (itens de baixo) */
+} 
 
 .feature-card {
     background: white;
@@ -291,9 +292,8 @@ body.page-inicio {
     }
     
     .features-grid {
-        gap: 20px;
-        padding: 0 15px;
-        margin: 30px -15px; /* Compensação para padding */
+        grid-template-columns: 1fr;
+        gap: 0; /* Remove o gap padrão */
     }
     
     .feature-card {
@@ -303,8 +303,11 @@ body.page-inicio {
    }
    .feature-card:not(:first-child) {
         margin-top: 30px; /* Espaço maior acima (exceto no primeiro) */
+        margin-bottom: 30px;
     }
-    
+    .feature-card:last-child {
+        margin-bottom: 0; /* Remove o espaço extra do último item */
+    }
     .feature-badge {
         top: 8px;
         right: 8px;
