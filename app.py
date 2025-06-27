@@ -63,10 +63,16 @@ def allowed_file(filename):
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in app.config['ALLOWED_EXTENSIONS']
 
 def extrair_mes_ano_do_texto(texto):
-    padrao_mes_ano = r'(Janeiro|Fevereiro|Março|Abril|Maio|Junho|Julho|Agosto|Setembro|Outubro|Novembro|Dezembro)\s+(\d{4})'
+    padrao_mes_ano = r'(Janeiro|Fevereiro|Março|Abril|Maio|Junho|Julho|Agosto|Setembro|Outubro|Novembro|Dezembro)[/\s]*(\d{4})'
     match = re.search(padrao_mes_ano, texto, re.IGNORECASE)
+    
     if match:
-        return f"{match.group(1)}/{match.group(2)}", None
+        mes = match.group(1)
+        ano = match.group(2)
+        logger.debug(f"Mês/ano encontrado: {mes}/{ano}")
+        return f"{mes}/{ano}", None
+    
+    logger.warning(f"Período não identificado no texto: {texto[:200]}...")
     return None, "Período não identificado no PDF"
 
 def extrair_valor_linha(linha):
