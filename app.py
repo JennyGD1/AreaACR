@@ -6,7 +6,7 @@ from processador_contracheque import ProcessadorContracheque
 
 # Configuração do Flask
 app = Flask(__name__)
-app.secret_key = 'sua_chave_secreta_aqui'  # Chave real em produção
+app.secret_key = 'sua_chave_secreta_aqui'  # Em produção, use uma chave segura e variável de ambiente
 
 # Configurações
 app.config.update(
@@ -16,6 +16,7 @@ app.config.update(
     SESSION_FILE_DIR=os.path.join('tmp', 'flask_session')
 )
 
+# Garante que os diretórios existam
 os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
 os.makedirs(app.config['SESSION_FILE_DIR'], exist_ok=True)
 
@@ -30,11 +31,12 @@ def index():
 
 @app.route('/calculadora')
 def calculadora():
-    """Única rota para a calculadora ACR"""
+    """Rota para a calculadora ACR"""
     return render_template('indexcalculadora.html')
 
 @app.route('/upload', methods=['POST'])
 def upload():
+    """Processa o upload do arquivo PDF"""
     if 'file' not in request.files:
         flash('Nenhum arquivo enviado', 'error')
         return redirect(url_for('calculadora'))
@@ -56,33 +58,43 @@ def upload():
         # Debug: Verifique os resultados no console
         print("Resultados do processamento:", resultados)
         
-        if not resultados:
-            flash('Nenhum dado encontrado no PDF', 'error')
+        if not resultados or not resultados.get('dados_mensais'):
+            flash('Nenhum dado válido encontrado no PDF', 'error')
             return redirect(url_for('calculadora'))
         
         session['resultados'] = resultados
-        return redirect(url_for('analise_detalhada'), code=303)  # Código 303 para redirecionamento POST-GET
+        return redirect(url_for('analise_detalhada'))
     
     except Exception as e:
         flash(f'Erro no processamento: {str(e)}', 'error')
-        print("Erro detalhado:", str(e))
+        app.logger.error(f"Erro no processamento: {str(e)}", exc_info=True)
         return redirect(url_for('calculadora'))
 
 @app.route('/analise')
 def analise_detalhada():
+    """Exibe a análise detalhada dos resultados"""
     if 'resultados' not in session:
         flash('Sessão expirada ou resultados não encontrados', 'error')
         return redirect(url_for('calculadora'))
-        
-    total_proventos = resultados.get('total_geral', {}).get('total_proventos', 0)
+    
     resultados = session['resultados']
-    return render_template('analise_detalhada.html', resultados=resultados)
+    
+    # Calcula o total geral de proventos se não existir
+    if 'total_geral' not in resultados:
+        total_proventos = sum(
+            mes.get('total_proventos', 0)
+            for mes in resultados.get('dados_mensais', {}).values()
+        )
+        resultados['total_geral'] = {'total_proventos': total_proventos}
     
     # Debug: verifique se os resultados chegam no template
-    print("Resultados enviados para o template:", resultados)
+    app.logger.debug(f"Resultados enviados para o template: {resultados}")
     
-    return render_template('analise_detalhada.html', 
-                         resultados=resultados)
+    return render_template(
+        'analise_detalhada.html',
+        resultados=resultados,
+        total_proventos=resultados['total_geral']['total_proventos']
+    )
 
 if __name__ == '__main__':
     app.run(debug=True)
