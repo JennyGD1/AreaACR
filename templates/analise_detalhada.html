@@ -4,6 +4,7 @@
 <div class="container">
     <h1>Análise Detalhada</h1>
     
+    {% if resultados %}
     <div class="filtros-container mb-4">
         <div class="btn-group" role="group">
             <button type="button" class="btn btn-primary active" data-tipo="descontos">Descontos</button>
@@ -11,24 +12,24 @@
         </div>
     </div>
 
-    <!-- Tabela de Descontos (padrão) -->
+    <!-- Tabela de Descontos -->
     <div id="tabela-descontos" class="tabela-container">
         <h3>Descontos por Mês</h3>
         <table class="table table-striped">
             <thead>
                 <tr>
                     <th>MÊS/ANO</th>
-                    {% for codigo in resultados.colunas_descontos|sort %}
-                    <th>{{ CODIGOS[codigo]['descricao'] }}</th>
+                    {% for coluna in resultados.colunas[1:] %}
+                    <th>{{ coluna }}</th>
                     {% endfor %}
                 </tr>
             </thead>
             <tbody>
-                {% for mes in resultados.meses_ordenados %}
+                {% for linha in resultados.dados %}
                 <tr>
-                    <td>{{ mes }}</td>
-                    {% for codigo in resultados.colunas_descontos|sort %}
-                    <td>R$ {{ "%0.2f"|format(resultados.descontos[mes].get(codigo, 0.0))|replace(".", ",") }}</td>
+                    <td>{{ linha.mes_ano }}</td>
+                    {% for valor in linha.valores %}
+                    <td>R$ {{ "%.2f"|format(valor)|replace(".", ",") }}</td>
                     {% endfor %}
                 </tr>
                 {% endfor %}
@@ -36,48 +37,51 @@
         </table>
     </div>
 
-    <!-- Tabela de Proventos (oculta inicialmente) -->
+    <!-- Tabela de Proventos (simplificada) -->
     <div id="tabela-proventos" class="tabela-container" style="display: none;">
         <h3>Proventos por Mês</h3>
         <table class="table table-striped">
             <thead>
                 <tr>
                     <th>MÊS/ANO</th>
-                    {% for codigo in resultados.colunas_proventos|sort %}
-                    <th>{{ CODIGOS[codigo]['descricao'] }}</th>
-                    {% endfor %}
+                    <th>Total de Proventos</th>
                 </tr>
             </thead>
             <tbody>
-                {% for mes in resultados.meses_ordenados %}
+                {% for mes_ano, dados in resultados.dados_mensais.items() %}
                 <tr>
-                    <td>{{ mes }}</td>
-                    {% for codigo in resultados.colunas_proventos|sort %}
-                    <td>R$ {{ "%0.2f"|format(resultados.proventos[mes].get(codigo, 0.0))|replace(".", ",") }}</td>
-                    {% endfor %}
+                    <td>{{ mes_ano }}</td>
+                    <td>R$ {{ "%.2f"|format(dados.total_proventos)|replace(".", ",") }}</td>
                 </tr>
                 {% endfor %}
             </tbody>
         </table>
     </div>
+    {% else %}
+    <div class="alert alert-warning">
+        Nenhum resultado disponível para exibição. Por favor, envie um arquivo primeiro.
+    </div>
+    {% endif %}
 </div>
 
 {% block extra_js %}
 <script>
 document.addEventListener('DOMContentLoaded', function() {
     // Alternar entre proventos e descontos
-    document.querySelectorAll('[data-tipo]').forEach(btn => {
+    const buttons = document.querySelectorAll('[data-tipo]');
+    buttons.forEach(btn => {
         btn.addEventListener('click', function() {
-            document.querySelectorAll('[data-tipo]').forEach(b => b.classList.remove('active'));
-            this.classList.add('active');
+            buttons.forEach(b => b.classList.remove('active', 'btn-primary'));
+            buttons.forEach(b => b.classList.add('btn-secondary'));
             
-            if (this.dataset.tipo === 'proventos') {
-                document.getElementById('tabela-descontos').style.display = 'none';
-                document.getElementById('tabela-proventos').style.display = 'block';
-            } else {
-                document.getElementById('tabela-descontos').style.display = 'block';
-                document.getElementById('tabela-proventos').style.display = 'none';
-            }
+            this.classList.add('active', 'btn-primary');
+            this.classList.remove('btn-secondary');
+            
+            document.querySelectorAll('.tabela-container').forEach(t => {
+                t.style.display = 'none';
+            });
+            
+            document.getElementById(`tabela-${this.dataset.tipo}`).style.display = 'block';
         });
     });
 });
