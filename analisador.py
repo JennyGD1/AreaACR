@@ -1,25 +1,22 @@
-# analisador.py (VERSÃO FINAL E CORRIGIDA)
-
 import json
 import logging
+from processador_contracheque import ProcessadorContracheque
 
 logger = logging.getLogger(__name__)
 
 class AnalisadorDescontos:
-
-    def __init__(self, config_path='config.json'):
-        try:
-            with open(config_path, 'r', encoding='utf-8') as f:
-                # Carrega apenas a seção de regras de análise do config
-                self.config = json.load(f).get('regras_analise', {})
-            
-            self.rubricas_unicas = self.config.get('rubricas_unicas', [])
-            self.valores_referencia = self.config.get('valores_referencia', {})
-            
-        except (FileNotFoundError, json.JSONDecodeError) as e:
-            logger.error(f"Erro ao carregar ou processar o config.json para análise: {e}")
-            self.rubricas_unicas = []
-            self.valores_referencia = {}
+    def __init__(self):
+        self.processador = ProcessadorContracheque()
+        self.rubricas_detalhadas = self.processador.rubricas_detalhadas
+        
+        # Configurações padrão
+        self.rubricas_unicas = ['7033', '7035']  # Titular e Cônjuge são únicos
+        self.valores_referencia = {
+            '7034': [150.00],  # Dependente
+            '7038': [100.00],   # Agregado Jovem
+            '7039': [200.00],   # Agregado Maior
+            '7040': [50.00]     # Coparticipação
+        }
 
     def determinar_quantidade_pessoas(self, rubrica, valor):
         """
@@ -28,22 +25,20 @@ class AnalisadorDescontos:
         try:
             valor_num = float(valor)
         except (ValueError, TypeError):
-            return "N/A" # Retorna N/A se o valor não for numérico
+            return "N/A"
 
         if rubrica in self.rubricas_unicas:
             return 1
         
-        # A chave no JSON é uma string, então garantimos que a busca também seja.
-        valores_ref = self.valores_referencia.get(str(rubrica))
+        valores_ref = self.valores_referencia.get(rubrica)
         if not valores_ref:
             return 1
 
-        if rubrica == "7034":
+        if rubrica == "7034":  # Lógica especial para dependentes
             for ref in valores_ref:
                 if abs(valor_num - ref) < 0.01:
                     return 1
                 if ref > 0:
-                    # Verifica se a divisão resulta em um número inteiro (com uma pequena tolerância)
                     multiplicador = valor_num / ref
                     if abs(multiplicador - round(multiplicador)) < 0.01:
                         return int(round(multiplicador))
@@ -63,32 +58,33 @@ class AnalisadorDescontos:
         
         return 1
 
-    def analisar_resultados(self, resultados_por_ano):
+    def analisar_resultados(self, resultados):
         """
         Recebe os dados já extraídos e adiciona a camada de análise.
         """
-        analise_completa = {}
-        
-        for ano, dados_ano in resultados_por_ano.items():
-            analise_completa[ano] = dados_ano.copy()
-            analise_completa[ano]['analise_descontos'] = {}
+        if not resultados or 'dados_mensais' not in resultados:
+            return resultados
 
-            todos_os_meses = dados_ano.get('detalhes_mensais', {})
-            
-            for mes, detalhe_mensal in todos_os_meses.items():
-                valores = detalhe_mensal.get('valores', {})
+        analise_completa = resultados.copy()
+        analise_completa['analise_descontos'] = {}
+
+        for mes_ano, dados_mes in resultados['dados_mensais'].items():
+            if 'rubricas_detalhadas' not in dados_mes:
+                continue
                 
-                for rubrica, valor in valores.items():
-                    if valor > 0:
-                        if rubrica not in analise_completa[ano]['analise_descontos']:
-                            analise_completa[ano]['analise_descontos'][rubrica] = {}
-                        
-                        # CORREÇÃO: Passamos o valor como número, não como texto
-                        quantidade = self.determinar_quantidade_pessoas(rubrica, valor)
-                        
-                        analise_completa[ano]['analise_descontos'][rubrica][mes] = {
-                            'valor': valor,
-                            'pessoas': quantidade
+            for rubrica, valor in dados_mes['rubricas_detalhadas'].items():
+                if valor > 0:
+                    if rubrica not in analise_completa['analise_descontos']:
+                        analise_completa['analise_descontos'][rubrica] = {
+                            'descricao': self.rubricas_detalhadas[rubrica]['descricao'],
+                            'valores': {}
                         }
+                    
+                    quantidade = self.determinar_quantidade_pessoas(rubrica, valor)
+                    
+                    analise_completa['analise_descontos'][rubrica]['valores'][mes_ano] = {
+                        'valor': valor,
+                        'pessoas': quantidade
+                    }
 
         return analise_completa
