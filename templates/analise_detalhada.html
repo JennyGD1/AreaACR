@@ -1,5 +1,9 @@
 {% extends "base.html" %}
 
+{% block extra_css %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/pages/analise.css') }}?v=1.0">
+{% endblock %}
+
 {% block content %}
 <div class="container">
     <h1>Análise Detalhada</h1>
@@ -37,7 +41,7 @@
         </table>
     </div>
 
-    <!-- Tabela de Proventos (simplificada) -->
+    <!-- Tabela de Proventos -->
     <div id="tabela-proventos" class="tabela-container" style="display: none;">
         <h3>Proventos por Mês</h3>
         <table class="table table-striped">
@@ -63,6 +67,7 @@
     </div>
     {% endif %}
 </div>
+{% endblock %}
 
 {% block extra_js %}
 <script>
@@ -86,5 +91,4 @@ document.addEventListener('DOMContentLoaded', function() {
     });
 });
 </script>
-{% endblock %}
 {% endblock %}
