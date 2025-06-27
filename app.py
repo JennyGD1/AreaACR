@@ -80,14 +80,15 @@ def analise_detalhada():
         return redirect(url_for('calculadora'))
     
     try:
-        # Acessa os totais com fallback seguro
         total_geral = resultados.get('total_geral', {})
         total_proventos = total_geral.get('total_proventos', 0)
+        total_descontos = total_geral.get('total_descontos', 0)
         
         return render_template(
             'analise_detalhada.html',
             resultados=resultados,
-            total_proventos=total_proventos
+            total_proventos=total_proventos,
+            total_descontos=total_descontos
         )
     except Exception as e:
         app.logger.error(f"Erro na análise detalhada: {str(e)}", exc_info=True)
