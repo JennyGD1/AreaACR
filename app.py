@@ -72,29 +72,27 @@ def upload():
 
 @app.route('/analise')
 def analise_detalhada():
-    """Exibe a análise detalhada dos resultados"""
-    if 'resultados' not in session:
-        flash('Sessão expirada ou resultados não encontrados', 'error')
+    """Exibe a análise detalhada dos contracheques processados"""
+    resultados = session.get('resultados')
+    
+    if not resultados:
+        flash('Nenhum dado de análise disponível. Por favor, envie um arquivo primeiro.', 'error')
         return redirect(url_for('calculadora'))
     
-    resultados = session['resultados']
-    
-    # Calcula o total geral de proventos se não existir
-    if 'total_geral' not in resultados:
-        total_proventos = sum(
-            mes.get('total_proventos', 0)
-            for mes in resultados.get('dados_mensais', {}).values()
+    try:
+        # Acessa os totais com fallback seguro
+        total_geral = resultados.get('total_geral', {})
+        total_proventos = total_geral.get('total_proventos', 0)
+        
+        return render_template(
+            'analise_detalhada.html',
+            resultados=resultados,
+            total_proventos=total_proventos
         )
-        resultados['total_geral'] = {'total_proventos': total_proventos}
-    
-    # Debug: verifique se os resultados chegam no template
-    app.logger.debug(f"Resultados enviados para o template: {resultados}")
-    
-    return render_template(
-        'analise_detalhada.html',
-        resultados=resultados,
-        total_proventos=resultados['total_geral']['total_proventos']
-    )
+    except Exception as e:
+        app.logger.error(f"Erro na análise detalhada: {str(e)}", exc_info=True)
+        flash('Ocorreu um erro ao gerar a análise detalhada', 'error')
+        return redirect(url_for('calculadora'))
 
 if __name__ == '__main__':
     app.run(debug=True)
