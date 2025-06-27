@@ -6,62 +6,73 @@ from processador_contracheque import ProcessadorContracheque
 
 # Configuração do Flask
 app = Flask(__name__)
-app.secret_key = 'sua_chave_secreta_aqui'  # Substitua por uma chave real e segura
+app.secret_key = 'sua_chave_secreta_aqui'  # Chave real em produção
 
-# Configurações importantes
+# Configurações
 app.config.update(
     SESSION_TYPE='filesystem',
-    UPLOAD_FOLDER=os.path.join('tmp', 'uploads'),  # Pasta temporária para uploads
+    UPLOAD_FOLDER=os.path.join('tmp', 'uploads'),
     MAX_CONTENT_LENGTH=16 * 1024 * 1024,  # 16MB
-    SESSION_FILE_DIR=os.path.join('tmp', 'flask_session')  # Pasta para sessões
+    SESSION_FILE_DIR=os.path.join('tmp', 'flask_session')
 )
 
-# Garante que as pastas existam
 os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
 os.makedirs(app.config['SESSION_FILE_DIR'], exist_ok=True)
 
-# Inicializa a sessão
 Session(app)
-
 processador = ProcessadorContracheque()
 
+# Rotas principais
 @app.route('/')
-def home():
-    return redirect(url_for('index.html'))
+def index():
+    """Página inicial com menu"""
+    return render_template('index.html')
 
 @app.route('/calculadora')
-def indexcalculadora():
+def calculadora():
+    """Única rota para a calculadora ACR"""
     return render_template('indexcalculadora.html')
 
 @app.route('/upload', methods=['POST'])
 def upload():
+    """Processamento do PDF"""
     if 'file' not in request.files:
-        print("DEBUG - Arquivos recebidos:", request.files)  # Adicione para debug
-        flash('Nenhum arquivo na requisição')
-        return redirect(url_for('indexcalculadora'))
+        flash('Nenhum arquivo enviado', 'error')
+        return redirect(url_for('calculadora'))
     
     file = request.files['file']
-    if file.filename == '':
-        flash('Arquivo vazio')
-        return redirect(url_for('indexcalculadora'))
+    if not file or file.filename == '':
+        flash('Nenhum arquivo selecionado', 'error')
+        return redirect(url_for('calculadora'))
     
+    if not file.filename.lower().endswith('.pdf'):
+        flash('Apenas arquivos PDF são aceitos', 'error')
+        return redirect(url_for('calculadora'))
+
     try:
-        # Processamento do PDF
-        resultados = processador.processar_pdf(file)
+        # Processamento seguro
+        filename = secure_filename(file.filename)
+        filepath = os.path.join(app.config['UPLOAD_FOLDER'], filename)
+        file.save(filepath)
+        
+        resultados = processador.processar_pdf(filepath)
         session['resultados'] = resultados
+        os.remove(filepath)  # Limpeza
+        
         return redirect(url_for('analise_detalhada'))
-    
     except Exception as e:
-        flash(f'Erro no processamento: {str(e)}')
-        return redirect(url_for('indexcalculadora'))
+        flash(f'Erro no processamento: {str(e)}', 'error')
+        return redirect(url_for('calculadora'))
 
 @app.route('/analise')
 def analise_detalhada():
+    """Exibição dos resultados"""
     if 'resultados' not in session:
-        flash('Nenhum resultado encontrado', 'error')
-        return redirect(url_for('indexcalculadora'))
+        flash('Nenhum resultado disponível', 'error')
+        return redirect(url_for('calculadora'))
     
-    return render_template('analise_detalhada.html', resultados=session['resultados'])
+    return render_template('analise_detalhada.html', 
+                         resultados=session['resultados'])
 
 if __name__ == '__main__':
     app.run(debug=True)
