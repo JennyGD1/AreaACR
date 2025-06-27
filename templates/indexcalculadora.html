@@ -132,6 +132,39 @@
 @keyframes spin {
     to { transform: rotate(360deg); }
 }
+
+.feedback-message {
+    margin-top: 10px;
+    padding: 8px 12px;
+    border-radius: 4px;
+    font-size: 0.9rem;
+}
+
+.feedback-message.error {
+    background-color: #ffebee;
+    color: #c62828;
+}
+
+.feedback-message.success {
+    background-color: #e8f5e9;
+    color: #2e7d32;
+}
+
+/* Melhora o visual do botão de upload */
+.upload-btn {
+    display: inline-block;
+    padding: 10px 20px;
+    background-color: var(--maida-azul);
+    color: white;
+    border-radius: 4px;
+    cursor: pointer;
+    transition: var(--transicao-padrao);
+}
+
+.upload-btn:hover {
+    background-color: #1a3a8f;
+    transform: translateY(-2px);
+}
 </style>
 {% endblock %}
 
@@ -183,14 +216,28 @@
         </div>
     </div>
     
-    <div class="botoes-container">
-        <button onclick="location.href='{{ url_for('calculadora') }}'" class="btn-voltar">
-            <i class="fas fa-redo"></i> Processar Novos Arquivos
+   <div class="upload-container">
+    <form id="upload-form" method="POST" enctype="multipart/form-data" action="{{ url_for('upload') }}">
+        <!-- Input file escondido mas funcional -->
+        <input type="file" name="file" id="file-upload" accept=".pdf" required style="display: none;">
+        
+        <!-- Botão visual personalizado -->
+        <label for="file-upload" class="upload-btn">
+            📁 Escolher Arquivo PDF
+        </label>
+        
+        <!-- Feedback do nome do arquivo -->
+        <p id="file-name" class="file-name">Nenhum arquivo selecionado</p>
+        
+        <!-- Botão de submit -->
+        <button type="submit" class="process-btn" id="submit-btn">
+            Processar
         </button>
-        <button class="btn-detalhes" onclick="location.href='{{ url_for('analise_detalhada') }}'">
-            <i class="fas fa-chart-bar"></i> Ver Análise Detalhada
-        </button>
-    </div>
+        
+        <!-- Mensagens de feedback -->
+        <div id="upload-feedback" class="feedback-message"></div>
+    </form>
+</div>
     
 {% endif %}
         </div>
@@ -200,57 +247,46 @@
 <!-- Mantenha o mesmo JavaScript -->
 <script>
     document.addEventListener('DOMContentLoaded', () => {
-        const fileInput = document.getElementById('file-upload');
-        const fileNameText = document.getElementById('file-name');
-        const processBtn = document.querySelector('.process-btn');
-        const uploadForm = document.getElementById('upload-form');
+    const fileInput = document.getElementById('file-upload');
+    const fileNameDisplay = document.getElementById('file-name');
+    const submitBtn = document.getElementById('submit-btn');
+    const feedbackDiv = document.getElementById('upload-feedback');
+    const form = document.getElementById('upload-form');
 
-        // Atualiza o texto ao selecionar arquivos
-        fileInput.addEventListener('change', function() {
-            if (this.files.length === 0) {
-                fileNameText.textContent = 'Nenhum arquivo selecionado';
-                return;
-            }
-            
-            // Verifica se todos são PDFs
-            const invalidFiles = Array.from(this.files).filter(file => file.type !== 'application/pdf');
-            if (invalidFiles.length > 0) {
-                fileNameText.textContent = 'Por favor, selecione apenas arquivos PDF.';
-                this.value = '';
-                return;
-            }
-            
-            // Atualiza mensagem com nome/quantidade de arquivos
-            fileNameText.textContent = this.files.length === 1 
-                ? `1 arquivo selecionado: ${this.files[0].name}` 
-                : `${this.files.length} arquivos selecionados`;
-        });
+    // Atualiza o nome do arquivo selecionado
+    fileInput.addEventListener('change', function() {
+        if (this.files && this.files[0]) {
+            fileNameDisplay.textContent = this.files[0].name;
+            fileNameDisplay.style.color = '#224aa2'; // Azul da Maida
+        } else {
+            fileNameDisplay.textContent = 'Nenhum arquivo selecionado';
+            fileNameDisplay.style.color = '#666'; // Cinza
+        }
+    });
 
-        // Validação ao clicar em Processar
-        processBtn.addEventListener('click', function() {
-            if (!fileInput.files || fileInput.files.length === 0) {
-                fileNameText.textContent = 'Por favor, selecione pelo menos um arquivo PDF.';
-                return;
-            }
-            
-            // Feedback visual durante o processamento
-            this.disabled = true;
-            this.innerHTML = `
-                <div class="spinner-container">
-                    <span class="spinner"></span> Processando...
-                </div>
-            `;
-            
-            // Submete o formulário
-            uploadForm.submit();
-        });
+    // Validação do formulário
+    form.addEventListener('submit', function(e) {
+        e.preventDefault();
+        
+        if (!fileInput.files || fileInput.files.length === 0) {
+            showFeedback('Selecione um arquivo PDF antes de processar', 'error');
+            return;
+        }
 
-        // Tratamento de erro
-        uploadForm.addEventListener('error', function() {
-            processBtn.disabled = false;
-            processBtn.innerHTML = 'Processar';
-            fileNameText.textContent = 'Erro no processamento. Tente novamente.';
-        });
-    }); 
+        // Mostra loading
+        submitBtn.disabled = true;
+        submitBtn.innerHTML = `
+            <span class="spinner"></span> Processando...
+        `;
+
+        // Envia o formulário
+        this.submit();
+    });
+
+    function showFeedback(message, type) {
+        feedbackDiv.textContent = message;
+        feedbackDiv.className = `feedback-message ${type}`;
+    }
+});
 </script>
 {% endblock %}
