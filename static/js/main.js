@@ -1,81 +1,81 @@
-    // Código para esconder o Preloader
+// static/js/main.js
 
-   window.addEventListener('load', () => {
+// 1. Preloader (mantenha como está)
+window.addEventListener('load', () => {
+  const preloader = document.getElementById('preloader');
+  if (preloader) preloader.classList.add('hidden');
+});
 
-     console.log("Evento LOAD disparado!"); // Log para depuração
+// 2. Scroll (mantenha como está)
+const scrollThumb = document.getElementById('scrollThumb');
+window.addEventListener('scroll', () => {
+  const scrollTop = window.scrollY;
+  const docHeight = document.documentElement.scrollHeight - window.innerHeight;
+  scrollThumb.style.height = `${(scrollTop / docHeight) * 100}%`;
+});
 
-     const preloader = document.getElementById('preloader');
+// 3. Ripple effect (mantenha como está)
+document.body.addEventListener("click", (e) => {
+  const ripple = document.createElement("div");
+  ripple.className = "ripple";
+  Object.assign(ripple.style, {
+    left: `${e.clientX}px`,
+    top: `${e.clientY}px`
+  });
+  document.body.appendChild(ripple);
+  setTimeout(() => ripple.remove(), 600);
+});
 
-     if (preloader) {
+// 4. Upload Form (substitua pelo novo código)
+document.addEventListener('DOMContentLoaded', () => {
+  const form = document.getElementById('upload-form');
+  if (!form) return; // Segurança se o formulário não existir
 
-       console.log("Preloader encontrado, adicionando classe hidden..."); // Log para depuração
+  const fileInput = form.querySelector('input[type="file"]');
+  const fileNameText = document.getElementById('file-name');
+  const processBtn = form.querySelector('button[type="submit"]');
+  const feedback = document.getElementById('upload-feedback');
 
-       preloader.classList.add('hidden');
-
-     } else {
-
-       console.error("Elemento #preloader NÃO encontrado!"); // Log de erro
-
-     }
-
-   });
-  // Scroll
-  const scrollThumb = document.getElementById('scrollThumb');
-  window.addEventListener('scroll', () => {
-    const scrollTop = window.scrollY;
-    const docHeight = document.documentElement.scrollHeight - window.innerHeight;
-    scrollThumb.style.height = `${(scrollTop / docHeight) * 100}%`;
+  // Atualiza nome do arquivo selecionado
+  fileInput?.addEventListener('change', function() {
+    fileNameText.textContent = this.files[0]?.name || 'Nenhum arquivo selecionado';
   });
 
-  // Ripple effect
-  document.body.addEventListener("click", (e) => {
-    const ripple = document.createElement("div");
-    ripple.className = "ripple";
-    Object.assign(ripple.style, {
-      left: `${e.clientX}px`,
-      top: `${e.clientY}px`
-    });
-    document.body.appendChild(ripple);
-    setTimeout(() => ripple.remove(), 600);
-  });
-
-document.getElementById('upload-form').addEventListener('submit', async function(e) {
+  // Processamento do formulário
+  form.addEventListener('submit', async (e) => {
     e.preventDefault();
     
-    const form = e.target;
-    const fileInput = form.querySelector('input[type="file"]');
-    const feedback = document.getElementById('upload-feedback');
-    
     if (!fileInput.files[0]) {
-        feedback.textContent = 'Selecione um arquivo PDF';
-        feedback.style.color = 'red';
-        return;
+      showFeedback('Selecione um arquivo PDF', 'error');
+      return;
     }
 
-    feedback.textContent = 'Processando...';
-    feedback.style.color = 'blue';
+    showFeedback('Processando...', 'loading');
+    if (processBtn) processBtn.disabled = true;
 
     try {
-        const formData = new FormData(form);
-        
-        const response = await fetch('/upload', {
-            method: 'POST',
-            body: formData,
-            redirect: 'manual'  // Importante para controlar o redirecionamento
-        });
+      const formData = new FormData(form);
+      const response = await fetch('/upload', {
+        method: 'POST',
+        body: formData
+      });
 
-        if (response.type === 'opaqueredirect') {
-            // Força o redirecionamento manualmente
-            window.location.href = '/analise';
-        } else {
-            const result = await response.json();
-            if (result.error) {
-                feedback.textContent = result.error;
-                feedback.style.color = 'red';
-            }
-        }
+      if (response.redirected) {
+        window.location.href = response.url; // Redireciona para /analise
+      } else {
+        const result = await response.json();
+        showFeedback(result.message || 'Processamento concluído', result.success ? 'success' : 'error');
+      }
     } catch (error) {
-        feedback.textContent = 'Erro: ' + error.message;
-        feedback.style.color = 'red';
+      showFeedback(`Erro: ${error.message}`, 'error');
+    } finally {
+      if (processBtn) processBtn.disabled = false;
     }
+  });
+
+  function showFeedback(message, type) {
+    if (!feedback) return;
+    feedback.textContent = message;
+    feedback.className = `feedback ${type}`; // Adicione classes CSS para cada tipo
+  }
 });
