@@ -35,44 +35,48 @@ def calculadora():
 
 @app.route('/upload', methods=['POST'])
 def upload():
-    """Processamento do PDF"""
     if 'file' not in request.files:
         flash('Nenhum arquivo enviado', 'error')
         return redirect(url_for('calculadora'))
     
     file = request.files['file']
-    if not file or file.filename == '':
+    if file.filename == '':
         flash('Nenhum arquivo selecionado', 'error')
         return redirect(url_for('calculadora'))
     
-    if not file.filename.lower().endswith('.pdf'):
-        flash('Apenas arquivos PDF são aceitos', 'error')
-        return redirect(url_for('calculadora'))
-
-    try:
-        # Processamento seguro
-        filename = secure_filename(file.filename)
-        filepath = os.path.join(app.config['UPLOAD_FOLDER'], filename)
-        file.save(filepath)
-        
-        resultados = processador.processar_pdf(filepath)
-        session['resultados'] = resultados
-        os.remove(filepath)  # Limpeza
-        
-        return redirect(url_for('analise_detalhada'))
-    except Exception as e:
-        flash(f'Erro no processamento: {str(e)}', 'error')
-        return redirect(url_for('calculadora'))
+    if file and file.filename.lower().endswith('.pdf'):
+        try:
+            # Processamento em memória (sem salvar arquivo)
+            pdf_bytes = file.read()
+            resultados = processador.processar_pdf(pdf_bytes)
+            
+            # Debug: verifique os resultados no console
+            print("Resultados do processamento:", resultados)
+            
+            session['resultados'] = resultados
+            return redirect(url_for('analise_detalhada'))
+            
+        except Exception as e:
+            flash(f'Erro no processamento: {str(e)}', 'error')
+            print("Erro detalhado:", str(e))
+            return redirect(url_for('calculadora'))
+    
+    flash('Formato inválido. Envie apenas PDF.', 'error')
+    return redirect(url_for('calculadora'))
 
 @app.route('/analise')
 def analise_detalhada():
-    """Exibição dos resultados"""
-    if 'resultados' not in session:
-        flash('Nenhum resultado disponível', 'error')
+    resultados = session.get('resultados')
+    
+    if not resultados:
+        flash('Nenhum resultado encontrado', 'error')
         return redirect(url_for('calculadora'))
     
+    # Debug: verifique se os resultados chegam no template
+    print("Resultados enviados para o template:", resultados)
+    
     return render_template('analise_detalhada.html', 
-                         resultados=session['resultados'])
+                         resultados=resultados)
 
 if __name__ == '__main__':
     app.run(debug=True)
