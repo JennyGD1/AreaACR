@@ -1,5 +1,6 @@
 import re
 from collections import defaultdict
+import fitz  # PyMuPDF
 
 class ProcessadorContracheque:
     def __init__(self):
@@ -14,6 +15,7 @@ class ProcessadorContracheque:
         for ano in range(2019, 2026):
             for mes in self.meses.keys():
                 self.meses_anos.append(f"{mes}/{ano}")
+
         
         # Rubricas de proventos (lista completa)
         self.codigos_proventos = [
@@ -133,7 +135,7 @@ class ProcessadorContracheque:
             "7049": "Retroativo"
         }
 
-    def converter_data_para_numerico(self, data_texto):
+   def converter_data_para_numerico(self, data_texto):
         mes, ano = data_texto.split('/')
         return f"{self.meses[mes]}/{ano}"
 
@@ -148,53 +150,84 @@ class ProcessadorContracheque:
                 return 0.0
         return 0.0
 
-    def processar_texto(self, texto):
-        # Primeiro passamos para encontrar todos os meses/anos presentes
-        sections = {}
-        meses_encontrados = []
+    def processar_pdf(self, file_bytes):
+        """Processa o conteúdo PDF e retorna os resultados formatados"""
+        try:
+            texto = self._extrair_texto_pdf(file_bytes)
+            sections = self._extrair_secoes(texto)
+            meses_encontrados = self._identificar_meses(sections)
+            
+            if not meses_encontrados:
+                raise ValueError("Nenhum mês/ano válido encontrado no documento")
+            
+            # Ordena os meses encontrados
+            meses_encontrados.sort(key=lambda x: (
+                int(x.split('/')[1]) * 100 + int(self.meses[x.split('/')[0]])
+            )
+            
+            primeiro_mes = meses_encontrados[0]
+            ultimo_mes = meses_encontrados[-1]
+            
+            index_primeiro = self.meses_anos.index(primeiro_mes)
+            index_ultimo = self.meses_anos.index(ultimo_mes)
+            meses_para_processar = self.meses_anos[index_primeiro:index_ultimo + 1]
+            
+            resultados = {
+                "primeiro_mes": primeiro_mes,
+                "ultimo_mes": ultimo_mes,
+                "meses_para_processar": meses_para_processar,
+                "dados_mensais": {}
+            }
+            
+            for mes_ano in meses_para_processar:
+                data = sections.get(mes_ano, "")
+                if data:
+                    resultados["dados_mensais"][mes_ano] = self.processar_mes(data, mes_ano)
+            
+            return resultados
+            
+        except Exception as e:
+            raise Exception(f"Erro ao processar PDF: {str(e)}")
+
+    def _extrair_secoes(self, texto):
+        """Extrai seções do texto por mês/ano"""
+        sections = defaultdict(str)
+        current_section = None
         
-        for mes_ano in self.meses_anos:
-            padrao = re.compile(f"{mes_ano}(.*?)((?={'|'.join(self.meses_anos)})|$)", re.DOTALL)
-            match = padrao.search(texto)
+        # Padrão para identificar cabeçalhos de seção (Mês/Ano)
+        padrao_secao = re.compile(r'^(Janeiro|Fevereiro|Março|Abril|Maio|Junho|Julho|Agosto|Setembro|Outubro|Novembro|Dezembro)\/(\d{4})')
+        
+        for linha in texto.split('\n'):
+            match = padrao_secao.search(linha)
             if match:
-                meses_encontrados.append(mes_ano)
-                sections[mes_ano] = match.group(1).strip()
+                current_section = f"{match.group(1)}/{match.group(2)}"
+            elif current_section:
+                sections[current_section] += linha + '\n'
         
-        if not meses_encontrados:
-            return {"error": "Nenhum contracheque encontrado"}
+        return sections
+
+    def _identificar_meses(self, sections):
+        """Identifica os meses presentes no texto"""
+        meses_encontrados = []
+        padrao_mes = re.compile(r'^(Janeiro|Fevereiro|Março|Abril|Maio|Junho|Julho|Agosto|Setembro|Outubro|Novembro|Dezembro)\/(\d{4})')
         
-        # Ordena os meses encontrados
-        meses_encontrados.sort(key=lambda x: (
-            int(x.split('/')[1]) * 100 + int(self.meses[x.split('/')[0]])
-        ))
+        for linha in sections.keys():
+            match = padrao_mes.search(linha)
+            if match:
+                mes_ano = f"{match.group(1)}/{match.group(2)}"
+                if mes_ano in self.meses_anos:
+                    meses_encontrados.append(mes_ano)
         
-        primeiro_mes = meses_encontrados[0]
-        ultimo_mes = meses_encontrados[-1]
-        
-        # Pega apenas o intervalo entre o primeiro e último mês encontrado
-        index_primeiro = self.meses_anos.index(primeiro_mes)
-        index_ultimo = self.meses_anos.index(ultimo_mes)
-        meses_para_processar = self.meses_anos[index_primeiro:index_ultimo + 1]
-        
-        # Processa cada mês
-        resultados = {
-            "sections": sections,
-            "primeiro_mes": primeiro_mes,
-            "ultimo_mes": ultimo_mes,
-            "meses_para_processar": meses_para_processar,
-            "dados_mensais": {}
-        }
-        
-        for mes_ano in meses_para_processar:
-            data = sections.get(mes_ano, "")
-            if not data:
-                continue
-                
-            # Processa os dados do mês
-            resultados["dados_mensais"][mes_ano] = self.processar_mes(data, mes_ano)
-        
-        return resultados
-    
+        return list(set(meses_encontrados))  # Remove duplicates
+
+    def _extrair_texto_pdf(self, file_bytes):
+        """Extrai texto do PDF usando PyMuPDF"""
+        doc = fitz.open(stream=file_bytes, filetype="pdf")
+        texto = ""
+        for page in doc:
+            texto += page.get_text()
+        return texto
+
     def processar_mes(self, data_texto, mes_ano):
         lines = data_texto.split('\n')
         
@@ -217,7 +250,7 @@ class ProcessadorContracheque:
         # Passo 2: Filtrar rubricas do período mais recente
         rubricas_filtradas = [
             line for line in lines 
-            if re.search(fr'{periodo_mais_recente}', line)
+            if periodo_mais_recente and re.search(fr'{periodo_mais_recente}', line)
         ]
         
         # Passo 3: Calcular totais
@@ -229,11 +262,12 @@ class ProcessadorContracheque:
         
         for line in rubricas_filtradas:
             # Verifica se é uma rubrica de provento
-            rubrica = line[:4]
-            if rubrica in self.codigos_proventos:
-                valor = self.extrair_valor(line)
-                totais["total_proventos"] += valor
-                totais["rubricas"][rubrica] += valor
+            if len(line) >= 4:
+                rubrica = line[:4]
+                if rubrica in self.codigos_proventos:
+                    valor = self.extrair_valor(line)
+                    totais["total_proventos"] += valor
+                    totais["rubricas"][rubrica] += valor
             
             # Verifica rubricas detalhadas (7033, 7035, etc.)
             for cod, desc in self.rubricas_detalhadas.items():
@@ -248,6 +282,9 @@ class ProcessadorContracheque:
             "colunas": ["MÊS/ANO"],
             "dados": []
         }
+        
+        if not resultados or "meses_para_processar" not in resultados:
+            return tabela
         
         # Verifica quais colunas têm dados
         colunas_com_dados = {cod: False for cod in self.rubricas_detalhadas}
