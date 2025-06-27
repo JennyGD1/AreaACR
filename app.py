@@ -9,6 +9,9 @@ from processador_contracheque import ProcessadorContracheque
 # Configuração do Flask
 app = Flask(__name__)
 app.config['SESSION_TYPE'] = 'filesystem'
+app.config['UPLOAD_FOLDER'] = os.path.join(os.getcwd(), 'uploads')
+app.config['MAX_CONTENT_LENGTH'] = 16 * 1024 * 1024  # 16MB
+app.config['SECRET_KEY'] = 'sua-chave-secreta-aqui'  # Substitua por uma chave real
 Session(app)
 
 # Garante que a pasta de uploads existe
