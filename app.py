@@ -126,7 +126,8 @@ def resultados():
                          rubricas=rubricas,
                          total_proventos=total_proventos,
                          meses=MESES,
-                         rubricas_detalhadas=processador.rubricas_detalhadas)
+                         rubricas_detalhadas=processador.rubricas_detalhadas,
+                         descricao_rubricas=processador.rubricas_detalhadas)
 
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', 10000))
