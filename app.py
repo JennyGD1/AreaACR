@@ -9,15 +9,15 @@ from collections import defaultdict
 import logging
 import json
 from processador_contracheque import ProcessadorContracheque
+from analisador import Analisador  # Adicione esta linha
 
-def main():
-    # Carrega configurações uma vez
-    rubricas = load_rubricas()
-    
-    # Inicializa os módulos com as rubricas
-    processador = ProcessadorContracheque(rubricas)
-    analisador = Analisador(rubricas)
-    
+# Carrega as rubricas uma vez no início da aplicação
+rubricas = load_rubricas()
+
+# Inicializa os módulos com as rubricas
+processador = ProcessadorContracheque(rubricas)
+analisador = Analisador(rubricas)  # Remove se não estiver usando
+
 try:
     from dotenv import load_dotenv
     load_dotenv()
@@ -101,7 +101,7 @@ def upload():
         file_bytes = file.read()
         logger.info(f"Arquivo recebido: {file.filename}, tamanho: {len(file_bytes)} bytes")
         
-        processador = ProcessadorContracheque()
+        # Usa o processador já inicializado com as rubricas
         resultados = processador.processar_pdf(file_bytes)
         resultados = converter_para_dict_serializavel(resultados)
         
