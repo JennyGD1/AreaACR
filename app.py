@@ -8,13 +8,18 @@ from processador_contracheque import ProcessadorContracheque
 
 # Configuração do Flask
 app = Flask(__name__)
+app.secret_key = 'sua_chave_secreta_aqui'
 app.config['SESSION_TYPE'] = 'filesystem'
 app.config['UPLOAD_FOLDER'] = os.path.join(os.getcwd(), 'uploads')
 app.config['MAX_CONTENT_LENGTH'] = 16 * 1024 * 1024  # 16MB
-app.config['SECRET_KEY'] = 'sua-chave-secreta-aqui'  # Substitua por uma chave real
 Session(app)
 
 # Garante que a pasta de uploads existe
+os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
+
+processador = ProcessadorContracheque()
+
+app.config['UPLOAD_FOLDER'] = os.path.join('tmp')
 os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
 
 processador = ProcessadorContracheque()
@@ -29,15 +34,10 @@ MESES = {
 def index():
     return render_template('index.html')
 
-@app.route('/calculadora')
-def calculadora():
-    session.clear()
-    return render_template('indexcalculadora.html')
-
 @app.route('/upload', methods=['POST'])
 def upload():
     if 'file' not in request.files:
-        flash('Nenhum arquivo selecionado')
+        flash('Nenhum arquivo enviado')
         return redirect(url_for('calculadora'))
     
     file = request.files['file']
@@ -45,32 +45,43 @@ def upload():
         flash('Nenhum arquivo selecionado')
         return redirect(url_for('calculadora'))
     
-    if file and allowed_file(file.filename):
+    if file and file.filename.lower().endswith('.pdf'):
         try:
-            # Processa o arquivo
-            resultados = processador.processar_pdf(file)
+            # Salva temporariamente o arquivo
+            filepath = os.path.join(app.config['UPLOAD_FOLDER'], file.filename)
+            file.save(filepath)
             
-            # Armazena os resultados na sessão
+            # Processa o arquivo
+            resultados = processador.processar_pdf(filepath)
+            
+            # Remove o arquivo temporário
+            os.remove(filepath)
+            
+            # Armazena resultados na sessão
             session['resultados'] = resultados
             
             # Redireciona para a página de resultados
-            return redirect(url_for('mostrar_resultados'))
+            return redirect(url_for('resultados'))
             
         except Exception as e:
             flash(f'Erro ao processar arquivo: {str(e)}')
             return redirect(url_for('calculadora'))
     
-    flash('Tipo de arquivo não permitido')
+    flash('Por favor, envie um arquivo PDF válido')
     return redirect(url_for('calculadora'))
-    
+
 @app.route('/resultados')
-def mostrar_resultados():
-    resultados = session.get('resultados')
-    if not resultados:
-        flash('Nenhum resultado para mostrar')
+def resultados():
+    if 'resultados' not in session:
+        flash('Nenhum resultado encontrado')
         return redirect(url_for('calculadora'))
     
-    return render_template('resultados.html', resultados=resultados)
+    return render_template('resultados.html', resultados=session['resultados'])
+
+@app.route('/calculadora')
+def calculadora():
+    return render_template('calculadora.html')
+
 
 @app.route('/analise_detalhada')
 def analise_detalhada():
