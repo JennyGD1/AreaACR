@@ -39,46 +39,43 @@
     setTimeout(() => ripple.remove(), 600);
   });
 
-document.addEventListener('DOMContentLoaded', function() {
-    const form = document.getElementById('upload-form');
+document.getElementById('upload-form').addEventListener('submit', async function(e) {
+    e.preventDefault();
     
-    if (form) {
-        form.addEventListener('submit', async function(e) {
-            e.preventDefault();
-            
-            const fileInput = document.querySelector('#upload-form input[type="file"]');
-            const feedback = document.getElementById('upload-feedback');
-            
-            if (!fileInput.files[0]) {
-                feedback.textContent = 'Selecione um arquivo PDF';
-                feedback.style.color = 'red';
-                return;
-            }
+    const form = e.target;
+    const fileInput = form.querySelector('input[type="file"]');
+    const feedback = document.getElementById('upload-feedback');
+    
+    if (!fileInput.files[0]) {
+        feedback.textContent = 'Selecione um arquivo PDF';
+        feedback.style.color = 'red';
+        return;
+    }
 
-            feedback.textContent = 'Processando...';
-            feedback.style.color = 'blue';
+    feedback.textContent = 'Processando...';
+    feedback.style.color = 'blue';
 
-            try {
-                const formData = new FormData(form);
-                
-                const response = await fetch('/upload', {
-                    method: 'POST',
-                    body: formData
-                });
-
-                if (response.redirected) {
-                    window.location.href = response.url;
-                } else {
-                    const data = await response.json();
-                    if (data.error) {
-                        feedback.textContent = data.error;
-                        feedback.style.color = 'red';
-                    }
-                }
-            } catch (error) {
-                feedback.textContent = 'Erro: ' + error.message;
-                feedback.style.color = 'red';
-            }
+    try {
+        const formData = new FormData(form);
+        
+        const response = await fetch('/upload', {
+            method: 'POST',
+            body: formData,
+            redirect: 'manual'  // Importante para controlar o redirecionamento
         });
+
+        if (response.type === 'opaqueredirect') {
+            // Força o redirecionamento manualmente
+            window.location.href = '/analise';
+        } else {
+            const result = await response.json();
+            if (result.error) {
+                feedback.textContent = result.error;
+                feedback.style.color = 'red';
+            }
+        }
+    } catch (error) {
+        feedback.textContent = 'Erro: ' + error.message;
+        feedback.style.color = 'red';
     }
 });
