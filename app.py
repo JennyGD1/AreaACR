@@ -73,7 +73,8 @@ def analise_detalhada():
     if 'resultados' not in session:
         flash('Sessão expirada ou resultados não encontrados', 'error')
         return redirect(url_for('calculadora'))
-    
+        
+    total_proventos = resultados.get('total_geral', {}).get('total_proventos', 0)
     resultados = session['resultados']
     return render_template('analise_detalhada.html', resultados=resultados)
     
