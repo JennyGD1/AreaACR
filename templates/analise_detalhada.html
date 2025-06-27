@@ -10,17 +10,39 @@
 {% block content %}
 <div class="container">
     <h1>Análise Detalhada</h1>
+    
+    <!-- Adicionando informações do período -->
+    {% if periodo %}
+    <div class="periodo-info">
+        <h3>Período Analisado: {{ periodo }}</h3>
+    </div>
+    {% endif %}
 
     <div id="painelControle">
+        <h2>Resumo Financeiro</h2>
+        <div class="resumo-financeiro">
+            <div class="resumo-item">
+                <span class="resumo-label">Total Proventos:</span>
+                <span class="resumo-valor">{{ "R$ {:,.2f}".format(total_proventos).replace(",", "X").replace(".", ",").replace("X", ".") }}</span>
+            </div>
+            <div class="resumo-item">
+                <span class="resumo-label">Total Descontos:</span>
+                <span class="resumo-valor">{{ "R$ {:,.2f}".format(total_descontos).replace(",", "X").replace(".", ",").replace("X", ".") }}</span>
+            </div>
+            <div class="resumo-item">
+                <span class="resumo-label">Valor Líquido:</span>
+                <span class="resumo-valor">{{ "R$ {:,.2f}".format(total_proventos - total_descontos).replace(",", "X").replace(".", ",").replace("X", ".") }}</span>
+            </div>
+        </div>
+
         <h2>Filtros</h2>
         <div class="filtros-container">
             <div class="filtro-item">
-                <label for="filtroAno">Ano:</label>
-                <select id="filtroAno">
+                <label for="filtroTipo">Tipo:</label>
+                <select id="filtroTipo">
                     <option value="todos">Todos</option>
-                    {% for ano in anos_disponiveis %}
-                    <option value="{{ ano }}">{{ ano }}</option>
-                    {% endfor %}
+                    <option value="proventos">Proventos</option>
+                    <option value="descontos">Descontos</option>
                 </select>
             </div>
             <div class="filtro-item">
@@ -28,7 +50,7 @@
                 <select id="filtroRubrica">
                     <option value="todos">Todas</option>
                     {% for codigo, descricao in rubricas_detalhadas.items() %}
-                    <option value="{{ codigo }}">{{ descricao }}</option>
+                    <option value="{{ codigo }}">{{ codigo }} - {{ descricao }}</option>
                     {% endfor %}
                 </select>
             </div>
@@ -39,17 +61,26 @@
         <table class="tabela-analise">
             <thead>
                 <tr>
-                    <th>RUBRICA</th>
+                    <th>CÓDIGO</th>
                     <th>DESCRIÇÃO</th>
                     <th>VALOR</th>
+                    <th>TIPO</th>
                 </tr>
             </thead>
             <tbody>
                 {% for codigo, valor in resultados.items() %}
-                <tr>
+                <tr data-tipo="{% if codigo in codigos_proventos %}provento{% else %}desconto{% endif %}" 
+                    data-rubrica="{{ codigo }}">
                     <td>{{ codigo }}</td>
                     <td>{{ rubricas_detalhadas.get(codigo, 'Descrição não disponível') }}</td>
                     <td>{{ "R$ {:,.2f}".format(valor).replace(",", "X").replace(".", ",").replace("X", ".") }}</td>
+                    <td>
+                        {% if codigo in codigos_proventos %}
+                        <span class="badge badge-success">Provento</span>
+                        {% else %}
+                        <span class="badge badge-warning">Desconto</span>
+                        {% endif %}
+                    </td>
                 </tr>
                 {% endfor %}
             </tbody>
@@ -68,41 +99,78 @@
 
 <script>
 function exportarParaExcel() {
-    // Implementação simplificada da exportação
-    let csv = 'Rubrica,Descrição,Valor\n';
+    let csv = 'Código,Descrição,Valor,Tipo\n';
     document.querySelectorAll('.tabela-analise tbody tr').forEach(row => {
         const cols = row.querySelectorAll('td');
-        csv += `"${cols[0].textContent}","${cols[1].textContent}","${cols[2].textContent}"\n`;
+        csv += `"${cols[0].textContent}","${cols[1].textContent}","${cols[2].textContent.replace('R$ ', '')}","${cols[3].textContent}"\n`;
     });
     
     const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
     const link = document.createElement('a');
     link.href = URL.createObjectURL(blob);
-    link.download = 'analise_contracheques.csv';
+    link.download = 'analise_contracheques_' + new Date().toISOString().slice(0,10) + '.csv';
     link.click();
 }
 
-// Filtros
-document.getElementById('filtroAno').addEventListener('change', filtrarTabela);
+// Filtros melhorados
+document.getElementById('filtroTipo').addEventListener('change', filtrarTabela);
 document.getElementById('filtroRubrica').addEventListener('change', filtrarTabela);
 
 function filtrarTabela() {
-    const filtroAno = document.getElementById('filtroAno').value.toLowerCase();
-    const filtroRubrica = document.getElementById('filtroRubrica').value.toLowerCase();
+    const filtroTipo = document.getElementById('filtroTipo').value;
+    const filtroRubrica = document.getElementById('filtroRubrica').value;
     
     document.querySelectorAll('.tabela-analise tbody tr').forEach(row => {
-        const cols = row.querySelectorAll('td');
-        const anoCol = cols[0].textContent.split('/')[1] || '';
-        const rubricaCol = cols[0].textContent.toLowerCase();
-        const descricaoCol = cols[1].textContent.toLowerCase();
+        const tipoRow = row.getAttribute('data-tipo');
+        const rubricaRow = row.getAttribute('data-rubrica');
         
-        const matchAno = (filtroAno === 'todos' || anoCol.includes(filtroAno));
-        const matchRubrica = (filtroRubrica === 'todos' || 
-                             rubricaCol.includes(filtroRubrica) || 
-                             descricaoCol.includes(filtroRubrica));
+        const matchTipo = (filtroTipo === 'todos' || 
+                          (filtroTipo === 'proventos' && tipoRow === 'provento') ||
+                          (filtroTipo === 'descontos' && tipoRow === 'desconto'));
         
-        row.style.display = (matchAno && matchRubrica) ? '' : 'none';
+        const matchRubrica = (filtroRubrica === 'todos' || rubricaRow === filtroRubrica);
+        
+        row.style.display = (matchTipo && matchRubrica) ? '' : 'none';
     });
 }
+
+// Filtrar ao carregar a página
+document.addEventListener('DOMContentLoaded', filtrarTabela);
 </script>
+
+<style>
+.resumo-financeiro {
+    display: flex;
+    gap: 20px;
+    margin-bottom: 20px;
+    flex-wrap: wrap;
+}
+.resumo-item {
+    background: #f8f9fa;
+    padding: 10px 15px;
+    border-radius: 5px;
+    min-width: 200px;
+}
+.resumo-label {
+    font-weight: bold;
+    display: block;
+    margin-bottom: 5px;
+}
+.resumo-valor {
+    font-size: 1.2em;
+}
+.badge {
+    padding: 3px 6px;
+    border-radius: 3px;
+    font-size: 0.8em;
+}
+.badge-success {
+    background: #28a745;
+    color: white;
+}
+.badge-warning {
+    background: #ffc107;
+    color: #212529;
+}
+</style>
 {% endblock %}
