@@ -1,9 +1,15 @@
 import re
 from collections import defaultdict
 import fitz  # PyMuPDF
+import json
+from pathlib import Path
 
 class ProcessadorContracheque:
     def __init__(self):
+        # Carrega as rubricas do arquivo JSON
+        with open(Path(__file__).parent / 'rubricas.json', 'r', encoding='utf-8') as f:
+            rubricas = json.load(f)['rubricas']
+
         self.meses = {
             "Janeiro": "01", "Fevereiro": "02", "Março": "03", "Abril": "04",
             "Maio": "05", "Junho": "06", "Julho": "07", "Agosto": "08",
@@ -16,21 +22,16 @@ class ProcessadorContracheque:
             for mes in self.meses.keys():
                 self.meses_anos.append(f"{mes}/{ano}")
 
-       
-        # Lista apenas com códigos de proventos
-        self.codigos_proventos = [cod for cod, det in self.rubricas_completas.items() 
-                                if det['tipo'] == 'provento']
+        # Rubricas carregadas do JSON
+        self.rubricas_completas = {**rubricas['proventos'], **rubricas['descontos']}
+        self.codigos_proventos = list(rubricas['proventos'].keys())
+        self.rubricas_detalhadas = rubricas['descontos']
         
-        # Dicionário apenas com rubricas detalhadas (descontos)
-        self.rubricas_detalhadas = {cod: det for cod, det in self.rubricas_completas.items() 
-                                  if det['tipo'] == 'desconto'}
-        
-        
-    def converter_data_para_numerico(self, data_texto):  # ← Corrigido (4 espaços)
+    def converter_data_para_numerico(self, data_texto):
         mes, ano = data_texto.split('/')
         return f"{self.meses[mes]}/{ano}"
 
-    def extrair_valor(self, linha):  # ← Removida linha em branco extra
+    def extrair_valor(self, linha):
         padrao = r'(\d{1,3}(?:\.\d{3})*,\d{2})'
         match = re.search(padrao, linha)
         if match:
@@ -44,6 +45,9 @@ class ProcessadorContracheque:
     def processar_pdf(self, file_bytes):
         """Processa o conteúdo PDF e retorna os resultados formatados"""
         try:
+            if not hasattr(self, 'rubricas_completas'):
+                raise ValueError("Rubricas não foram carregadas corretamente")
+            
             texto = self._extrair_texto_pdf(file_bytes)
             sections = self._extrair_secoes(texto)
             meses_encontrados = self._identificar_meses(sections)
@@ -148,23 +152,22 @@ class ProcessadorContracheque:
         totais = {
             "total_proventos": 0,
             "rubricas": defaultdict(float),
-            "rubricas_detalhadas": defaultdict(float)
+            "rubricas_detalhadas": defaultdict(float),
+            "descricoes": {**{cod: info.get('descricao', '') for cod, info in PROVENTOS.items()},
+                          **{cod: info['descricao'] for cod, info in DESCONTOS.items()}}
         }
         
         for line in rubricas_filtradas:
-            # Verifica se é uma rubrica de provento
-            if len(line) >= 4:
-                rubrica = line[:4]
-                if rubrica in self.codigos_proventos:
+            # Verifica todas as rubricas conhecidas
+            for rubrica in self.rubricas_completas:
+                if rubrica in line:
                     valor = self.extrair_valor(line)
-                    totais["total_proventos"] += valor
-                    totais["rubricas"][rubrica] += valor
-            
-            # Verifica rubricas detalhadas (7033, 7035, etc.)
-            for cod, desc in self.rubricas_detalhadas.items():
-                if cod in line:
-                    valor = self.extrair_valor(line)
-                    totais["rubricas_detalhadas"][cod] += valor
+                    
+                    if rubrica in self.codigos_proventos:
+                        totais["total_proventos"] += valor
+                        totais["rubricas"][rubrica] += valor
+                    else:
+                        totais["rubricas_detalhadas"][rubrica] += valor
         
         return totais
 
@@ -186,10 +189,10 @@ class ProcessadorContracheque:
                 if dados_mes.get("rubricas_detalhadas", {}).get(cod, 0) > 0:
                     colunas_com_dados[cod] = True
         
-        # Adiciona colunas que têm dados
+        # Adiciona colunas que têm dados (usando as descrições do JSON)
         for cod, tem_dados in colunas_com_dados.items():
             if tem_dados:
-                tabela["colunas"].append(self.rubricas_detalhadas[cod])
+                tabela["colunas"].append(self.rubricas_detalhadas[cod]['descricao'])
         
         # Preenche os dados
         for mes_ano in resultados["meses_para_processar"]:
