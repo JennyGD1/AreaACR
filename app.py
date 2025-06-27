@@ -39,18 +39,19 @@ Session(app)
 
 # Constantes
 CODIGOS = {
-    '7033': 'titular',
-    '7035': 'conjuge',
-    '7034': 'dependente',
-    '7038': 'agregado_jovem',
-    '7039': 'agregado_maior',
-    '7037': 'plano_especial',
-    '7040': 'coparticipacao',
-    '7049': 'retroativo',
-    '7088': 'parcela_risco_titular',
-    '7089': 'parcela_risco_dependente',
-    '7090': 'parcela_risco_conjuge',
-    '7091': 'parcela_risco_agregado'
+    '7033': {'descricao': 'Titular', 'tipo': 'desconto'},
+    '7035': {'descricao': 'Cônjuge', 'tipo': 'desconto'},
+    '7034': {'descricao': 'Dependente', 'tipo': 'desconto'},
+    '7038': {'descricao': 'Agregado Jovem', 'tipo': 'desconto'},
+    '7039': {'descricao': 'Agregado Maior', 'tipo': 'desconto'},
+    '7037': {'descricao': 'Plano Especial', 'tipo': 'desconto'},
+    '7040': {'descricao': 'Coparticipação', 'tipo': 'desconto'},
+    '7088': {'descricao': 'Parc. Risco Titular', 'tipo': 'desconto'},
+    '7090': {'descricao': 'Parc. Risco Cônjuge', 'tipo': 'desconto'},
+    '7089': {'descricao': 'Parc. Risco Dependente', 'tipo': 'desconto'},
+    '7091': {'descricao': 'Parc. Risco Agregado', 'tipo': 'desconto'},
+    '7044': {'descricao': 'Restituição', 'tipo': 'desconto'},
+    '7049': {'descricao': 'Retroativo', 'tipo': 'desconto'}
 }
 
 MESES_ORDEM = {
@@ -76,24 +77,18 @@ def extrair_mes_ano_do_texto(texto):
     return None, "Período não identificado no PDF"
 
 def extrair_valor_linha(linha):
-    # Padrão para identificar valores (incluindo negativos e formatos brasileiros)
+    # Padrão melhorado para capturar valores negativos e diferentes formatos
     padrao_valor = r'([-+]?\s*\d{1,3}(?:[.,\s]?\d{3})*(?:[.,]\d{2}))'
     valores = re.findall(padrao_valor, linha)
     
     if valores:
-        # Pega o último valor encontrado na linha (mais à direita)
         valor_str = valores[-1].strip()
-        
-        # Remove espaços e pontos de milhar, substitui vírgula decimal por ponto
         valor_str = valor_str.replace(' ', '').replace('.', '').replace(',', '.')
         
         try:
-            valor = float(valor_str)
-            logger.debug(f"Valor extraído: {valor} da linha: {linha}")
-            return valor
+            return abs(float(valor_str))  # Garante valor absoluto
         except ValueError:
             logger.warning(f"Valor inválido na linha: {linha}")
-            return 0.0
     return 0.0
 
 def converter_para_dict_serializavel(resultados):
@@ -147,33 +142,29 @@ def processar_pdf(file_bytes):
                 linha = linha.strip()
                 codigo_match = re.match(r'^(\d{4})\b', linha)
                 
-                if codigo_match:
+                if codigo_match and codigo_match.group(1) in CODIGOS:
                     codigo = codigo_match.group(1)
-                    if codigo in CODIGOS:
-                        valor = extrair_valor_linha(linha)
-                        info = CODIGOS[codigo]
-                        
-                        if info['tipo'] == 'provento':
-                            resultados['proventos'][mes_ano][codigo] = valor
-                            resultados['colunas_proventos'].add(codigo)
-                        else:
-                            resultados['descontos'][mes_ano][codigo] = valor
-                            resultados['colunas_descontos'].add(codigo)
+                    valor = extrair_valor_linha(linha)
+                    tipo = CODIGOS[codigo]['tipo']
+                    
+                    if tipo == 'provento':
+                        resultados['proventos'][mes_ano][codigo] = valor
+                        resultados['colunas_proventos'].add(codigo)
+                    else:
+                        resultados['descontos'][mes_ano][codigo] = valor
+                        resultados['colunas_descontos'].add(codigo)
 
         # Ordenar meses cronologicamente
         resultados['meses_ordenados'].sort(key=lambda x: (
             int(x.split('/')[-1]),  # ano
             MESES_ORDEM.get(x.split('/')[0], 13)  # mês
-        )
+        ))
         
-        # Garantir todas as colunas mesmo sem valores
-        for mes in resultados['meses_ordenados']:
-            for codigo in resultados['colunas_proventos']:
-                resultados['proventos'][mes].setdefault(codigo, 0.0)
-            for codigo in resultados['colunas_descontos']:
-                resultados['descontos'][mes].setdefault(codigo, 0.0)
+        # Converter sets para listas ordenadas
+        resultados['colunas_proventos'] = sorted(resultados['colunas_proventos'])
+        resultados['colunas_descontos'] = sorted(resultados['colunas_descontos'])
         
-        return converter_para_dict_serializavel(resultados)
+        return resultados
         
     except Exception as e:
         logger.error(f"Erro ao processar PDF: {str(e)}", exc_info=True)
@@ -181,7 +172,6 @@ def processar_pdf(file_bytes):
             'erro': "Erro ao processar o arquivo PDF",
             'erros': [f"Erro no processamento: {str(e)}"]
         }
-
 @app.route('/')
 def index():
     return render_template('index.html')
@@ -236,13 +226,10 @@ def analise_detalhada():
         flash('Nenhum dado de análise disponível. Por favor, envie um arquivo primeiro.', 'error')
         return redirect(url_for('calculadora'))
     
-    total_geral = resultados.get('total_geral', {})
     return render_template(
         'analise_detalhada.html',
         resultados=resultados,
-        total_proventos=total_geral.get('total_proventos', 0),
-        total_descontos=total_geral.get('total_descontos', 0),
-        CODIGOS=CODIGOS  # Adicionando esta linha para passar a constante CODIGOS para o template
+        CODIGOS=CODIGOS
     )
 if __name__ == '__main__':
     app.run(debug=os.getenv('FLASK_DEBUG', 'False') == 'True')
