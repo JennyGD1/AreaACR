@@ -61,15 +61,40 @@ def upload():
         flash('Nenhum texto válido extraído dos PDFs')
         return redirect(url_for('calculadora'))
     
-    # Processa os textos e mantém na mesma página
+    # Processa os textos e armazena na sessão
     try:
         resultados = processador.processar_texto("\n".join(textos))
-        return render_template('indexcalculadora.html', 
-                            resultados=resultados,
-                            arquivos_processados=True)
+        session['dados_processados'] = resultados  # Armazena os resultados na sessão
+        return redirect(url_for('analise_detalhada'))  # Redireciona para análise detalhada
     except Exception as e:
         flash(f'Erro ao processar arquivos: {str(e)}')
         return redirect(url_for('calculadora'))
+
+@app.route('/analise_detalhada')
+def analise_detalhada():
+    if 'dados_processados' not in session:
+        flash('Nenhum dado disponível para análise')
+        return redirect(url_for('calculadora'))
+    
+    resultados = session['dados_processados']
+    
+    # Extrair meses/anos presentes
+    meses_anos = []
+    padrao_mes_ano = r'(Janeiro|Fevereiro|Março|Abril|Maio|Junho|Julho|Agosto|Setembro|Outubro|Novembro|Dezembro)\/(\d{4})'
+    matches = re.findall(padrao_mes_ano, "\n".join(session.get('textos_extraidos', [])))
+    
+    for mes, ano in matches:
+        meses_anos.append(f"{mes}/{ano}")
+    
+    # Calcular total de proventos
+    total_proventos = sum(valor for cod, valor in resultados.items() if cod in processador.codigos_proventos)
+    
+    return render_template('analise_detalhada.html',
+                         resultados=resultados,
+                         meses_anos=meses_anos,
+                         total_proventos=total_proventos,
+                         meses=MESES,
+                         rubricas_detalhadas=processador.rubricas_detalhadas)
     
 @app.route('/resultados')
 def resultados():
