@@ -1,6 +1,7 @@
 from flask import Flask, render_template, request, redirect, url_for, flash, session
 from flask_session import Session
 from werkzeug.utils import secure_filename
+from config_manager import load_rubricas
 import os
 import re
 import fitz  # PyMuPDF
