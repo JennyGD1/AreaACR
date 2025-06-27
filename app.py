@@ -27,8 +27,12 @@ MESES = {
 }
 
 @app.route('/')
-def index():
-    return render_template('index.html')
+def home():
+    return redirect(url_for('indexcalculadora'))
+
+@app.route('/calculadora')
+def indexcalculadora():
+    return render_template('indexcalculadora.html')
 
 @app.route('/upload', methods=['POST'])
 def upload():
@@ -41,18 +45,11 @@ def upload():
     
     if file and file.filename.lower().endswith('.pdf'):
         try:
-            # Processa diretamente da memória
             resultados = processador.processar_pdf(file)
-            
-            # Armazena resultados na sessão
             session['resultados'] = resultados
-            
-            # Redireciona para análise detalhada
             return redirect(url_for('analise_detalhada'))
-            
         except Exception as e:
             print(f"Erro no processamento: {str(e)}")
-            return redirect(url_for('indexcalculadora'))
     
     return redirect(url_for('indexcalculadora'))
 
@@ -61,31 +58,5 @@ def analise_detalhada():
     resultados = session.get('resultados', {})
     return render_template('analise_detalhada.html', resultados=resultados)
 
-@app.route('/calculadora')
-def indexcalculadora():
-    return render_template('indexcalculadora.html')
-
-
-@app.route('/analise_detalhada')
-def analise_detalhada():
-    if 'resultados' not in session:
-        flash('Nenhum dado disponível para análise')
-        return redirect(url_for('calculadora'))
-    
-    # Extrai o período do texto processado (se necessário)
-    periodo = "Período não identificado"
-    
-    return render_template(
-        'analise_detalhada.html',
-        resultados=session['resultados'],
-        total_proventos=session['total_proventos'],
-        total_descontos=session['total_descontos'],
-        periodo=periodo,
-        rubricas_detalhadas=processador.rubricas_detalhadas,
-        codigos_proventos=processador.codigos_proventos,
-        meses=MESES
-    )
-
 if __name__ == '__main__':
-    port = int(os.environ.get('PORT', 10000))
-    app.run(host='0.0.0.0', port=port)
+    app.run(debug=True)
