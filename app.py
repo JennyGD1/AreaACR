@@ -61,12 +61,18 @@ def upload():
         flash('Nenhum texto válido extraído dos PDFs')
         return redirect(url_for('calculadora'))
     
-    # Processa os textos e armazena na sessão
     try:
+        # Processa os textos mas não armazena tudo na sessão
         resultados = processador.processar_texto("\n".join(textos))
-        session['dados_processados'] = resultados
-        session['textos_extraidos'] = textos  # Armazena os textos brutos
-        return redirect(url_for('analise_detalhada'))
+        
+        # Armazena apenas o necessário na sessão
+        session['resultados'] = resultados
+        session['total_proventos'] = sum(valor for cod, valor in resultados.items() if cod in processador.codigos_proventos)
+        session['total_descontos'] = sum(valor for cod, valor in resultados.items() if cod not in processador.codigos_proventos)
+        
+        # Redireciona diretamente sem usar url_for para evitar problemas
+        return redirect('/analise_detalhada')
+        
     except Exception as e:
         flash(f'Erro ao processar arquivos: {str(e)}')
         return redirect(url_for('calculadora'))
