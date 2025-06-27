@@ -2,6 +2,10 @@ from flask import Flask, render_template, request, redirect, url_for, flash, ses
 from flask_session import Session
 from werkzeug.utils import secure_filename
 import os
+import re
+import fitz  # PyMuPDF
+from collections import defaultdict
+import logging
 from processador_contracheque import ProcessadorContracheque
 
 # Configuração do Flask
@@ -20,23 +24,113 @@ app.config.update(
 os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
 os.makedirs(app.config['SESSION_FILE_DIR'], exist_ok=True)
 
+# Configuração de logging
+logging.basicConfig(level=logging.DEBUG)
+logger = logging.getLogger(__name__)
+
 Session(app)
 processador = ProcessadorContracheque()
 
-# Rotas principais
+# Constantes
+CODIGOS = {
+    '7033': 'titular',
+    '7035': 'conjuge',
+    '7034': 'dependente',
+    '7038': 'agregado_jovem',
+    '7039': 'agregado_maior',
+    '7037': 'plano_especial',
+    '7040': 'coparticipacao',
+    '7049': 'retroativo',
+    '7088': 'parcela_risco_titular',
+    '7089': 'parcela_risco_dependente',
+    '7090': 'parcela_risco_conjuge',
+    '7091': 'parcela_risco_agregado'
+}
+
+MESES_ORDEM = {
+    'Janeiro': 1, 'Fevereiro': 2, 'Março': 3, 'Abril': 4,
+    'Maio': 5, 'Junho': 6, 'Julho': 7, 'Agosto': 8,
+    'Setembro': 9, 'Outubro': 10, 'Novembro': 11, 'Dezembro': 12
+}
+
+def extrair_mes_ano_do_texto(texto):
+    padrao_mes_ano = r'(Janeiro|Fevereiro|Março|Abril|Maio|Junho|Julho|Agosto|Setembro|Outubro|Novembro|Dezembro)\s+(\d{4})'
+    match = re.search(padrao_mes_ano, texto, re.IGNORECASE)
+    if match:
+        return f"{match.group(1)}/{match.group(2)}", match.group(2)
+    return "Período não identificado", None
+
+def extrair_valor_linha(linha):
+    padrao_valor = r'(\d{1,3}(?:[\.\s]?\d{3})*(?:[.,]\d{2})|\d+[.,]\d{2})'
+    valores = re.findall(padrao_valor, linha)
+    if valores:
+        valor_str = valores[-1].replace('.', '').replace(',', '.')
+        try:
+            return float(valor_str)
+        except ValueError:
+            return 0.0
+    return 0.0
+
+def processar_pdf(file_bytes):
+    try:
+        doc = fitz.open(stream=file_bytes, filetype="pdf")
+        resultados = {
+            'primeiro_mes': None,
+            'ultimo_mes': None,
+            'meses_para_processar': [],
+            'dados_mensais': defaultdict(lambda: {
+                'total_proventos': 0,
+                'rubricas': defaultdict(float),
+                'rubricas_detalhadas': defaultdict(float)
+            }),
+            'total_geral': {
+                'total_proventos': 0,
+                'total_descontos': 0
+            }
+        }
+
+        for page in doc:
+            texto = page.get_text("text")
+            mes_ano, _ = extrair_mes_ano_do_texto(texto)
+            
+            if mes_ano not in resultados['meses_para_processar']:
+                resultados['meses_para_processar'].append(mes_ano)
+
+            for linha in texto.split('\n'):
+                linha = linha.strip()
+                codigo_match = re.match(r'^(\d{4})\b', linha)
+                if codigo_match and codigo_match.group(1) in CODIGOS:
+                    campo = CODIGOS[codigo_match.group(1)]
+                    valor = extrair_valor_linha(linha)
+                    resultados['dados_mensais'][mes_ano]['rubricas'][campo] += valor
+                    resultados['dados_mensais'][mes_ano]['total_proventos'] += valor
+                    resultados['total_geral']['total_proventos'] += valor
+
+        # Ordenar meses e definir primeiro/último
+        if resultados['meses_para_processar']:
+            resultados['meses_para_processar'].sort(key=lambda x: (
+                int(x.split('/')[-1]),  # ano
+                MESES_ORDEM.get(x.split('/')[0], 13)  # mês
+            ))
+            resultados['primeiro_mes'] = resultados['meses_para_processar'][0]
+            resultados['ultimo_mes'] = resultados['meses_para_processar'][-1]
+
+        return resultados
+    except Exception as e:
+        logger.error(f"Erro ao processar PDF: {str(e)}", exc_info=True)
+        return None
+
+# Rotas principais (mantidas iguais)
 @app.route('/')
 def index():
-    """Página inicial com menu"""
     return render_template('index.html')
 
 @app.route('/calculadora')
 def calculadora():
-    """Rota para a calculadora ACR"""
     return render_template('indexcalculadora.html')
 
 @app.route('/upload', methods=['POST'])
 def upload():
-    """Processa o upload do arquivo PDF"""
     if 'file' not in request.files:
         flash('Nenhum arquivo enviado', 'error')
         return redirect(url_for('calculadora'))
@@ -51,12 +145,8 @@ def upload():
         return redirect(url_for('calculadora'))
     
     try:
-        # Processa o arquivo diretamente da memória
         file_bytes = file.read()
-        resultados = processador.processar_pdf(file_bytes)
-        
-        # Debug: Verifique os resultados no console
-        print("Resultados do processamento:", resultados)
+        resultados = processar_pdf(file_bytes)  # Usando a função local
         
         if not resultados or not resultados.get('dados_mensais'):
             flash('Nenhum dado válido encontrado no PDF', 'error')
@@ -67,12 +157,11 @@ def upload():
     
     except Exception as e:
         flash(f'Erro no processamento: {str(e)}', 'error')
-        app.logger.error(f"Erro no processamento: {str(e)}", exc_info=True)
+        logger.error(f"Erro no processamento: {str(e)}", exc_info=True)
         return redirect(url_for('calculadora'))
 
 @app.route('/analise')
 def analise_detalhada():
-    """Exibe a análise detalhada dos contracheques processados"""
     resultados = session.get('resultados')
     
     if not resultados:
@@ -91,7 +180,7 @@ def analise_detalhada():
             total_descontos=total_descontos
         )
     except Exception as e:
-        app.logger.error(f"Erro na análise detalhada: {str(e)}", exc_info=True)
+        logger.error(f"Erro na análise detalhada: {str(e)}", exc_info=True)
         flash('Ocorreu um erro ao gerar a análise detalhada', 'error')
         return redirect(url_for('calculadora'))
 
