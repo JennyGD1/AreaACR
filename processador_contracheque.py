@@ -1,44 +1,72 @@
+import json
 import re
+from pathlib import Path
+from typing import Dict, List
 from collections import defaultdict
 import fitz  # PyMuPDF
-import json
-from pathlib import Path
 
 class ProcessadorContracheque:
-    def __init__(self):
-        # Carrega as rubricas do arquivo JSON
-        with open(Path(__file__).parent / 'rubricas.json', 'r', encoding='utf-8') as f:
-            rubricas = json.load(f)['rubricas']
-
+    def __init__(self, rubricas=None):
+        """Inicializa o processador com as rubricas fornecidas ou carrega do arquivo padrão"""
+        # Carrega rubricas
+        self.rubricas = self._carregar_rubricas(rubricas)
+        
+        # Dados auxiliares
         self.meses = {
             "Janeiro": "01", "Fevereiro": "02", "Março": "03", "Abril": "04",
             "Maio": "05", "Junho": "06", "Julho": "07", "Agosto": "08",
             "Setembro": "09", "Outubro": "10", "Novembro": "11", "Dezembro": "12"
         }
         
-        # Lista de meses/anos (2019-2025)
-        self.meses_anos = []
-        for ano in range(2019, 2026):
-            for mes in self.meses.keys():
-                self.meses_anos.append(f"{mes}/{ano}")
+        self.meses_anos = self._gerar_meses_anos()
+        self._processar_rubricas()
 
-        # Rubricas carregadas do JSON
-        self.rubricas_completas = {**rubricas['proventos'], **rubricas['descontos']}
-        self.codigos_proventos = list(rubricas['proventos'].keys())
-        self.rubricas_detalhadas = rubricas['descontos']
+    def _carregar_rubricas(self, rubricas) -> Dict:
+        """Carrega as rubricas do parâmetro ou do arquivo padrão"""
+        if rubricas is not None:
+            return rubricas
         
-    def converter_data_para_numerico(self, data_texto):
-        mes, ano = data_texto.split('/')
-        return f"{self.meses[mes]}/{ano}"
+        try:
+            with open(Path(__file__).parent / 'rubricas.json', 'r', encoding='utf-8') as f:
+                return json.load(f).get('rubricas', {"proventos": {}, "descontos": {}})
+        except (FileNotFoundError, json.JSONDecodeError) as e:
+            print(f"Erro ao carregar rubricas: {str(e)}")
+            return {"proventos": {}, "descontos": {}}
 
-    def extrair_valor(self, linha):
+    def _gerar_meses_anos(self) -> List[str]:
+        """Gera a lista de meses/anos (2019-2025)"""
+        return [
+            f"{mes}/{ano}" 
+            for ano in range(2019, 2026) 
+            for mes in self.meses.keys()
+        ]
+
+    def _processar_rubricas(self):
+        """Prepara as estruturas de dados das rubricas"""
+        self.rubricas_completas = {
+            **self.rubricas.get('proventos', {}), 
+            **self.rubricas.get('descontos', {})
+        }
+        self.codigos_proventos = list(self.rubricas.get('proventos', {}).keys())
+        self.rubricas_detalhadas = self.rubricas.get('descontos', {})
+
+    def converter_data_para_numerico(self, data_texto: str) -> str:
+        """Converte data no formato 'Mês/Ano' para 'MM/AAAA'"""
+        try:
+            mes, ano = data_texto.split('/')
+            return f"{self.meses.get(mes, '00')}/{ano}"
+        except (ValueError, AttributeError):
+            return "00/0000"
+
+    def extrair_valor(self, linha: str) -> float:
+        """Extrai valor monetário de uma string"""
         padrao = r'(\d{1,3}(?:\.\d{3})*,\d{2})'
         match = re.search(padrao, linha)
         if match:
-            valor = match.group(1).replace('.', '').replace(',', '.')
             try:
+                valor = match.group(1).replace('.', '').replace(',', '.')
                 return float(valor)
-            except ValueError:
+            except (ValueError, AttributeError):
                 return 0.0
         return 0.0
 
@@ -89,13 +117,14 @@ class ProcessadorContracheque:
         sections = defaultdict(str)
         current_section = None
         
-        # Padrão para identificar cabeçalhos de seção (Mês/Ano)
-        padrao_secao = re.compile(r'^(Janeiro|Fevereiro|Março|Abril|Maio|Junho|Julho|Agosto|Setembro|Outubro|Novembro|Dezembro)\/(\d{4})')
-        
         for linha in texto.split('\n'):
-            match = padrao_secao.search(linha)
-            if match:
-                current_section = f"{match.group(1)}/{match.group(2)}"
+            linha = linha.strip()
+            if not linha:
+                continue
+                
+            # Verifica se é um cabeçalho de mês/ano
+            if re.match(r'^(Janeiro|Fevereiro|Março|Abril|Maio|Junho|Julho|Agosto|Setembro|Outubro|Novembro|Dezembro)\/\d{4}', linha):
+                current_section = linha
             elif current_section:
                 sections[current_section] += linha + '\n'
         
@@ -103,17 +132,12 @@ class ProcessadorContracheque:
 
     def _identificar_meses(self, sections):
         """Identifica os meses presentes no texto"""
-        meses_encontrados = []
-        padrao_mes = re.compile(r'^(Janeiro|Fevereiro|Março|Abril|Maio|Junho|Julho|Agosto|Setembro|Outubro|Novembro|Dezembro)\/(\d{4})')
-        
-        for linha in sections.keys():
-            match = padrao_mes.search(linha)
-            if match:
-                mes_ano = f"{match.group(1)}/{match.group(2)}"
-                if mes_ano in self.meses_anos:
-                    meses_encontrados.append(mes_ano)
-        
-        return list(set(meses_encontrados))  # Remove duplicates
+        meses_validos = []
+        for cabecalho in sections.keys():
+            partes = cabecalho.split('/')
+            if len(partes) == 2 and partes[0] in self.meses and partes[1].isdigit():
+                meses_validos.append(cabecalho)
+        return list(set(meses_validos))  # Remove duplicatas
 
     def _extrair_texto_pdf(self, file_bytes):
         """Extrai texto do PDF usando PyMuPDF"""
@@ -124,54 +148,48 @@ class ProcessadorContracheque:
         return texto
 
     def processar_mes(self, data_texto, mes_ano):
-        lines = data_texto.split('\n')
+        """Processa os dados de um mês específico"""
+        lines = [line.strip() for line in data_texto.split('\n') if line.strip()]
         
-        # Passo 1: Identificar o ano mais recente
-        ano_mais_recente = ''
-        periodo_mais_recente = ''
-        
-        for line in lines:
-            periodo_match = re.search(r'(\d{2})\.(\d{4})', line)
-            if periodo_match:
-                mes = periodo_match.group(1)
-                ano = periodo_match.group(2)
-                
-                if not ano_mais_recente or ano > ano_mais_recente:
-                    ano_mais_recente = ano
-                
-                if ano == ano_mais_recente and (not periodo_mais_recente or mes > periodo_mais_recente.split('.')[0]):
-                    periodo_mais_recente = f"{mes}.{ano}"
-        
-        # Passo 2: Filtrar rubricas do período mais recente
-        rubricas_filtradas = [
-            line for line in lines 
-            if periodo_mais_recente and re.search(fr'{periodo_mais_recente}', line)
-        ]
-        
-        # Passo 3: Calcular totais
-        totais = {
-            "total_proventos": 0,
+        # Dicionário para armazenar os resultados
+        resultados_mes = {
+            "total_proventos": 0.0,
             "rubricas": defaultdict(float),
             "rubricas_detalhadas": defaultdict(float),
-            "descricoes": {**{cod: info.get('descricao', '') for cod, info in PROVENTOS.items()},
-                          **{cod: info['descricao'] for cod, info in DESCONTOS.items()}}
+            "descricoes": {
+                **{cod: info.get('descricao', '') 
+                   for cod, info in self.rubricas.get('proventos', {}).items()},
+                **{cod: info.get('descricao', '') 
+                   for cod, info in self.rubricas.get('descontos', {}).items()}
+            }
         }
-        
-        for line in rubricas_filtradas:
-            # Verifica todas as rubricas conhecidas
-            for rubrica in self.rubricas_completas:
-                if rubrica in line:
-                    valor = self.extrair_valor(line)
-                    
-                    if rubrica in self.codigos_proventos:
-                        totais["total_proventos"] += valor
-                        totais["rubricas"][rubrica] += valor
-                    else:
-                        totais["rubricas_detalhadas"][rubrica] += valor
-        
-        return totais
 
+        # Padrão para identificar rubricas
+        padrao_rubrica = re.compile(r'(\d{4}|\d{3}[A-Za-z]|\d[A-Za-z]\d{2})')
+
+        for line in lines:
+            # Verifica se a linha contém uma rubrica conhecida
+            match = padrao_rubrica.search(line)
+            if not match:
+                continue
+                
+            rubrica = match.group(1)
+            if rubrica not in self.rubricas_completas:
+                continue
+                
+            valor = self.extrair_valor(line)
+            
+            # Classifica como provento ou desconto
+            if rubrica in self.codigos_proventos:
+                resultados_mes["total_proventos"] += valor
+                resultados_mes["rubricas"][rubrica] += valor
+            else:
+                resultados_mes["rubricas_detalhadas"][rubrica] += valor
+        
+        return resultados_mes
+    
     def gerar_tabela_geral(self, resultados):
+        """Gera uma tabela consolidada com os resultados"""
         tabela = {
             "colunas": ["MÊS/ANO"],
             "dados": []
