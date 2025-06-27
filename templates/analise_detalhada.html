@@ -39,21 +39,17 @@
         <table class="tabela-analise">
             <thead>
                 <tr>
-                    <th>MÊS/ANO</th>
-                    {% for coluna_key in colunas_ordenadas %}
-                        <th>{{ descricao_rubricas.get(coluna_key, coluna_key.upper()) }}</th>
-                    {% endfor %}
+                    <th>RUBRICA</th>
+                    <th>DESCRIÇÃO</th>
+                    <th>VALOR</th>
                 </tr>
             </thead>
             <tbody>
-                {% for item in dados_tabela %}
+                {% for codigo, valor in resultados.items() %}
                 <tr>
-                    <td>{{ item.competencia }}</td>
-                    {% for coluna_key in colunas_ordenadas %}
-                        <td>
-                            {{ "R$ {:,.2f}".format(item.get(coluna_key, 0.0)).replace(",", "X").replace(".", ",").replace("X", ".") }}
-                        </td>
-                    {% endfor %}
+                    <td>{{ codigo }}</td>
+                    <td>{{ rubricas_detalhadas.get(codigo, 'Descrição não disponível') }}</td>
+                    <td>{{ "R$ {:,.2f}".format(valor).replace(",", "X").replace(".", ",").replace("X", ".") }}</td>
                 </tr>
                 {% endfor %}
             </tbody>
@@ -61,7 +57,7 @@
     </div>
 
     <div class="btn-container">
-        <a href="{{ url_for('calculadora_index') }}" class="btn btn-primary">
+        <a href="{{ url_for('calculadora') }}" class="btn btn-primary">
             <i class="fas fa-arrow-left"></i> Voltar
         </a>
         <button onclick="exportarParaExcel()" class="btn btn-success">
@@ -72,8 +68,18 @@
 
 <script>
 function exportarParaExcel() {
-    // Implementar lógica de exportação
-    alert("Exportação para Excel será implementada aqui");
+    // Implementação simplificada da exportação
+    let csv = 'Rubrica,Descrição,Valor\n';
+    document.querySelectorAll('.tabela-analise tbody tr').forEach(row => {
+        const cols = row.querySelectorAll('td');
+        csv += `"${cols[0].textContent}","${cols[1].textContent}","${cols[2].textContent}"\n`;
+    });
+    
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement('a');
+    link.href = URL.createObjectURL(blob);
+    link.download = 'analise_contracheques.csv';
+    link.click();
 }
 
 // Filtros
@@ -81,11 +87,22 @@ document.getElementById('filtroAno').addEventListener('change', filtrarTabela);
 document.getElementById('filtroRubrica').addEventListener('change', filtrarTabela);
 
 function filtrarTabela() {
-    const anoSelecionado = document.getElementById('filtroAno').value;
-    const rubricaSelecionada = document.getElementById('filtroRubrica').value;
+    const filtroAno = document.getElementById('filtroAno').value.toLowerCase();
+    const filtroRubrica = document.getElementById('filtroRubrica').value.toLowerCase();
     
-    // Implementar lógica de filtro
-    console.log(`Filtrar por ano: ${anoSelecionado}, rubrica: ${rubricaSelecionada}`);
+    document.querySelectorAll('.tabela-analise tbody tr').forEach(row => {
+        const cols = row.querySelectorAll('td');
+        const anoCol = cols[0].textContent.split('/')[1] || '';
+        const rubricaCol = cols[0].textContent.toLowerCase();
+        const descricaoCol = cols[1].textContent.toLowerCase();
+        
+        const matchAno = (filtroAno === 'todos' || anoCol.includes(filtroAno));
+        const matchRubrica = (filtroRubrica === 'todos' || 
+                             rubricaCol.includes(filtroRubrica) || 
+                             descricaoCol.includes(filtroRubrica));
+        
+        row.style.display = (matchAno && matchRubrica) ? '' : 'none';
+    });
 }
 </script>
 {% endblock %}
