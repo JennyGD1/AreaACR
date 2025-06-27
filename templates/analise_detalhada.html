@@ -11,7 +11,6 @@
 <div class="container">
     <h1>Análise Detalhada</h1>
     
-    <!-- Adicionando informações do período -->
     {% if periodo %}
     <div class="periodo-info">
         <h3>Período Analisado: {{ periodo }}</h3>
@@ -91,27 +90,10 @@
         <a href="{{ url_for('calculadora') }}" class="btn btn-primary">
             <i class="fas fa-arrow-left"></i> Voltar
         </a>
-        <button onclick="exportarParaExcel()" class="btn btn-success">
-            <i class="fas fa-file-excel"></i> Exportar para Excel
-        </button>
     </div>
 </div>
 
 <script>
-function exportarParaExcel() {
-    let csv = 'Código,Descrição,Valor,Tipo\n';
-    document.querySelectorAll('.tabela-analise tbody tr').forEach(row => {
-        const cols = row.querySelectorAll('td');
-        csv += `"${cols[0].textContent}","${cols[1].textContent}","${cols[2].textContent.replace('R$ ', '')}","${cols[3].textContent}"\n`;
-    });
-    
-    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
-    const link = document.createElement('a');
-    link.href = URL.createObjectURL(blob);
-    link.download = 'analise_contracheques_' + new Date().toISOString().slice(0,10) + '.csv';
-    link.click();
-}
-
 // Filtros melhorados
 document.getElementById('filtroTipo').addEventListener('change', filtrarTabela);
 document.getElementById('filtroRubrica').addEventListener('change', filtrarTabela);
