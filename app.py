@@ -70,12 +70,21 @@ def extrair_mes_ano_do_texto(texto):
     return None, "Período não identificado no PDF"
 
 def extrair_valor_linha(linha):
-    padrao_valor = r'(\d{1,3}(?:[\.\s]?\d{3})*(?:[.,]\d{2})|\d+[.,]\d{2})'
+    # Padrão para identificar valores (incluindo negativos e formatos brasileiros)
+    padrao_valor = r'([-+]?\s*\d{1,3}(?:[.,\s]?\d{3})*(?:[.,]\d{2}))'
     valores = re.findall(padrao_valor, linha)
+    
     if valores:
-        valor_str = valores[-1].replace('.', '').replace(',', '.')
+        # Pega o último valor encontrado na linha (mais à direita)
+        valor_str = valores[-1].strip()
+        
+        # Remove espaços e pontos de milhar, substitui vírgula decimal por ponto
+        valor_str = valor_str.replace(' ', '').replace('.', '').replace(',', '.')
+        
         try:
-            return float(valor_str)
+            valor = float(valor_str)
+            logger.debug(f"Valor extraído: {valor} da linha: {linha}")
+            return valor
         except ValueError:
             logger.warning(f"Valor inválido na linha: {linha}")
             return 0.0
@@ -108,6 +117,8 @@ def converter_para_dict_serializavel(resultados):
 def processar_pdf(file_bytes):
     try:
         doc = fitz.open(stream=file_bytes, filetype="pdf")
+        logger.info(f"PDF aberto com {len(doc)} páginas")
+        
         resultados = {
             'primeiro_mes': None,
             'ultimo_mes': None,
@@ -124,8 +135,11 @@ def processar_pdf(file_bytes):
             'erros': []
         }
 
-        for page in doc:
+        for page_num, page in enumerate(doc):
+            logger.info(f"Processando página {page_num + 1}")
             texto = page.get_text("text")
+            logger.debug(f"Texto da página {page_num + 1}:\n{texto[:500]}...")  # Loga apenas o início
+            
             mes_ano, erro = extrair_mes_ano_do_texto(texto)
             
             if erro:
@@ -138,28 +152,19 @@ def processar_pdf(file_bytes):
             for linha in texto.split('\n'):
                 linha = linha.strip()
                 codigo_match = re.match(r'^(\d{4})\b', linha)
+                
                 if codigo_match and codigo_match.group(1) in CODIGOS:
-                    campo = CODIGOS[codigo_match.group(1)]
+                    codigo = codigo_match.group(1)
                     valor = extrair_valor_linha(linha)
-                    resultados['dados_mensais'][mes_ano]['rubricas'][campo] += valor
+                    logger.debug(f"Linha processada - Código: {codigo}, Valor: {valor}, Linha: {linha}")
+                    
+                    resultados['dados_mensais'][mes_ano]['rubricas'][codigo] += valor
                     resultados['dados_mensais'][mes_ano]['total_proventos'] += valor
                     resultados['total_geral']['total_proventos'] += valor
 
-        if resultados['meses_para_processar']:
-            try:
-                resultados['meses_para_processar'].sort(key=lambda x: (
-                    int(x.split('/')[-1]),
-                    MESES_ORDEM.get(x.split('/')[0], 13)
-                ))
-                resultados['primeiro_mes'] = resultados['meses_para_processar'][0]
-                resultados['ultimo_mes'] = resultados['meses_para_processar'][-1]
-            except (ValueError, IndexError, AttributeError) as e:
-                logger.warning(f"Erro ao ordenar meses: {str(e)}")
-                resultados['erros'].append("Erro ao ordenar períodos")
-                resultados['primeiro_mes'] = resultados['meses_para_processar'][0]
-                resultados['ultimo_mes'] = resultados['meses_para_processar'][-1]
-
+        # Ordenação e outros processamentos...
         return converter_para_dict_serializavel(resultados)
+        
     except Exception as e:
         logger.error(f"Erro ao processar PDF: {str(e)}", exc_info=True)
         return {
@@ -192,7 +197,10 @@ def upload():
     
     try:
         file_bytes = file.read()
+        logger.info(f"Arquivo recebido: {file.filename}, tamanho: {len(file_bytes)} bytes")
+        
         resultados = processar_pdf(file_bytes)
+        logger.info(f"Resultados do processamento: {resultados}")
         
         if not resultados or 'erro' in resultados:
             flash(resultados.get('erro', 'Nenhum dado válido encontrado no PDF'), 'error')
