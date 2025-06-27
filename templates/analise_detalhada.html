@@ -23,21 +23,20 @@
             <div class="resumo-item">
                 <span class="resumo-label">Total Proventos:</span>
                 <span class="resumo-valor">
-                    {% set saldo = total_proventos|default(0) - total_descontos|default(0) %}
-                    R$ {{ "%0.2f"|format(saldo)|replace(".", ",") }}
+                    R$ {{ "%0.2f"|format(total_proventos|default(0))|replace(".", ",") }}
                 </span>
             </div>
             <div class="resumo-item">
                 <span class="resumo-label">Total Descontos:</span>
                 <span class="resumo-valor">
-                    {% set total_descontos = resultados.total_geral.total_descontos|default(0) %}
-                    R$ {{ "%0.2f"|format(total_descontos)|replace(".", ",") }}
+                    R$ {{ "%0.2f"|format(total_descontos|default(0))|replace(".", ",") }}
                 </span>
             </div>
             <div class="resumo-item">
                 <span class="resumo-label">Valor Líquido:</span>
                 <span class="resumo-valor">
-                    R$ {{ "%0.2f"|format(total_proventos|default(0) - total_descontos|default(0)|replace(".", ",") }}
+                    {% set saldo_liquido = total_proventos|default(0) - total_descontos|default(0) %}
+                    R$ {{ "%0.2f"|format(saldo_liquido)|replace(".", ",") }}
                 </span>
             </div>
         </div>
@@ -56,7 +55,7 @@
                 <label for="filtroRubrica">Rubrica:</label>
                 <select id="filtroRubrica" class="form-control">
                     <option value="todos">Todas</option>
-                    {% for codigo, descricao in resultados.rubricas_detalhadas.items() %}
+                    {% for codigo, descricao in CODIGOS.items() %}
                     <option value="{{ codigo }}">{{ codigo }} - {{ descricao }}</option>
                     {% endfor %}
                 </select>
@@ -77,14 +76,14 @@
             <tbody>
                 {% for mes, dados in resultados.dados_mensais.items() %}
                     {% for codigo, valor in dados.rubricas.items() %}
-                    <tr data-tipo="{% if codigo in resultados.codigos_proventos %}provento{% else %}desconto{% endif %}" 
+                    <tr data-tipo="{% if codigo in CODIGOS %}provento{% else %}desconto{% endif %}" 
                         data-rubrica="{{ codigo }}"
                         data-mes="{{ mes }}">
                         <td>{{ codigo }}</td>
-                        <td>{{ resultados.rubricas_detalhadas.get(codigo, 'Descrição não disponível') }}</td>
+                        <td>{{ CODIGOS.get(codigo, 'Descrição não disponível') }}</td>
                         <td>R$ {{ "%0.2f"|format(valor)|replace(".", ",") }}</td>
                         <td>
-                            {% if codigo in resultados.codigos_proventos %}
+                            {% if codigo in CODIGOS %}
                             <span class="badge badge-success">Provento</span>
                             {% else %}
                             <span class="badge badge-warning">Desconto</span>
@@ -106,6 +105,7 @@
         </button>
     </div>
 </div>
+{% endblock %}
 
 {% block extra_js %}
 <script>
@@ -139,5 +139,4 @@ document.addEventListener('DOMContentLoaded', function() {
     });
 });
 </script>
-{% endblock %}
 {% endblock %}
