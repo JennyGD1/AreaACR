@@ -23,7 +23,8 @@
             <div class="resumo-item">
                 <span class="resumo-label">Total Proventos:</span>
                 <span class="resumo-valor">
-                    R$ {{ "%0.2f"|format(total_proventos|default(0))|replace(".", ",") }}
+                    {% set saldo = total_proventos|default(0) - total_descontos|default(0) %}
+                    R$ {{ "%0.2f"|format(saldo)|replace(".", ",") }}
                 </span>
             </div>
             <div class="resumo-item">
