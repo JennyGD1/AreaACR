@@ -27,7 +27,7 @@ processador = ProcessadorContracheque()
 
 @app.route('/')
 def home():
-    return redirect(url_for('indexcalculadora'))
+    return redirect(url_for('index.html'))
 
 @app.route('/calculadora')
 def indexcalculadora():
@@ -36,38 +36,24 @@ def indexcalculadora():
 @app.route('/upload', methods=['POST'])
 def upload():
     if 'file' not in request.files:
-        flash('Nenhum arquivo enviado', 'error')
+        print("DEBUG - Arquivos recebidos:", request.files)  # Adicione para debug
+        flash('Nenhum arquivo na requisição')
         return redirect(url_for('indexcalculadora'))
     
     file = request.files['file']
     if file.filename == '':
-        flash('Nenhum arquivo selecionado', 'error')
+        flash('Arquivo vazio')
         return redirect(url_for('indexcalculadora'))
     
-    if file and file.filename.lower().endswith('.pdf'):
-        try:
-            # Garante nome seguro para o arquivo
-            filename = secure_filename(file.filename)
-            filepath = os.path.join(app.config['UPLOAD_FOLDER'], filename)
-            
-            # Salva temporariamente (se necessário)
-            file.save(filepath)
-            
-            # Processa o arquivo
-            resultados = processador.processar_pdf(filepath)
-            
-            # Remove o arquivo temporário
-            os.remove(filepath)
-            
-            session['resultados'] = resultados
-            return redirect(url_for('analise_detalhada'))
-            
-        except Exception as e:
-            flash(f'Erro ao processar arquivo: {str(e)}', 'error')
-            print(f"Erro no processamento: {str(e)}")
+    try:
+        # Processamento do PDF
+        resultados = processador.processar_pdf(file)
+        session['resultados'] = resultados
+        return redirect(url_for('analise_detalhada'))
     
-    flash('Formato de arquivo inválido. Envie apenas PDF.', 'error')
-    return redirect(url_for('indexcalculadora'))
+    except Exception as e:
+        flash(f'Erro no processamento: {str(e)}')
+        return redirect(url_for('indexcalculadora'))
 
 @app.route('/analise')
 def analise_detalhada():
