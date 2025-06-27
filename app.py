@@ -6,6 +6,7 @@ import re
 import fitz  # PyMuPDF
 from collections import defaultdict
 import logging
+import json
 
 try:
     from dotenv import load_dotenv
@@ -31,7 +32,7 @@ os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
 os.makedirs(app.config['SESSION_FILE_DIR'], exist_ok=True)
 
 # Configuração de logging
-logging.basicConfig(level=logging.INFO)  # Alterado para INFO em produção
+logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 Session(app)
@@ -59,14 +60,13 @@ MESES_ORDEM = {
 }
 
 def allowed_file(filename):
-    return '.' in filename and \
-           filename.rsplit('.', 1)[1].lower() in app.config['ALLOWED_EXTENSIONS']
+    return '.' in filename and filename.rsplit('.', 1)[1].lower() in app.config['ALLOWED_EXTENSIONS']
 
 def extrair_mes_ano_do_texto(texto):
     padrao_mes_ano = r'(Janeiro|Fevereiro|Março|Abril|Maio|Junho|Julho|Agosto|Setembro|Outubro|Novembro|Dezembro)\s+(\d{4})'
     match = re.search(padrao_mes_ano, texto, re.IGNORECASE)
     if match:
-        return f"{match.group(1)}/{match.group(2)}", None  # (mes_ano, erro)
+        return f"{match.group(1)}/{match.group(2)}", None
     return None, "Período não identificado no PDF"
 
 def extrair_valor_linha(linha):
@@ -81,13 +81,37 @@ def extrair_valor_linha(linha):
             return 0.0
     return 0.0
 
+def converter_para_dict_serializavel(resultados):
+    """Converte os defaultdicts para dicts regulares para serialização"""
+    if not resultados:
+        return resultados
+    
+    # Converte os dados mensais
+    dados_mensais = {}
+    for mes_ano, dados in resultados.get('dados_mensais', {}).items():
+        dados_mensais[mes_ano] = {
+            'total_proventos': dados['total_proventos'],
+            'rubricas': dict(dados['rubricas']),
+            'rubricas_detalhadas': dict(dados['rubricas_detalhadas'])
+        }
+    
+    # Cria novo dicionário serializável
+    return {
+        'primeiro_mes': resultados.get('primeiro_mes'),
+        'ultimo_mes': resultados.get('ultimo_mes'),
+        'meses_para_processar': resultados.get('meses_para_processar', []),
+        'dados_mensais': dados_mensais,
+        'total_geral': resultados.get('total_geral', {}),
+        'erros': resultados.get('erros', [])
+    }
+
 def processar_pdf(file_bytes):
     try:
         doc = fitz.open(stream=file_bytes, filetype="pdf")
         resultados = {
             'primeiro_mes': None,
             'ultimo_mes': None,
-            'meses_para_processar': [],  # Corrigido o nome da variável
+            'meses_para_processar': [],
             'dados_mensais': defaultdict(lambda: {
                 'total_proventos': 0,
                 'rubricas': defaultdict(float),
@@ -108,8 +132,8 @@ def processar_pdf(file_bytes):
                 resultados['erros'].append(erro)
                 continue
             
-            if mes_ano not in resultados['meses_para_processar']:  # Corrigido o nome da variável
-                resultados['meses_para_processar'].append(mes_ano)  # Corrigido o nome da variável
+            if mes_ano not in resultados['meses_para_processar']:
+                resultados['meses_para_processar'].append(mes_ano)
 
             for linha in texto.split('\n'):
                 linha = linha.strip()
@@ -121,23 +145,23 @@ def processar_pdf(file_bytes):
                     resultados['dados_mensais'][mes_ano]['total_proventos'] += valor
                     resultados['total_geral']['total_proventos'] += valor
 
-        if resultados['meses_para_processar']:  # Corrigido o nome da variável
+        if resultados['meses_para_processar']:
             try:
-                resultados['meses_para_processar'].sort(key=lambda x: (  # Corrigido o nome da variável
+                resultados['meses_para_processar'].sort(key=lambda x: (
                     int(x.split('/')[-1]),
                     MESES_ORDEM.get(x.split('/')[0], 13)
                 ))
-                resultados['primeiro_mes'] = resultados['meses_para_processar'][0]  # Corrigido typo
-                resultados['ultimo_mes'] = resultados['meses_para_processar'][-1]  # Corrigido o nome da variável
+                resultados['primeiro_mes'] = resultados['meses_para_processar'][0]
+                resultados['ultimo_mes'] = resultados['meses_para_processar'][-1]
             except (ValueError, IndexError, AttributeError) as e:
-                logging.warning(f"Erro ao ordenar meses: {str(e)}")  # Usando logging em vez de logger
+                logger.warning(f"Erro ao ordenar meses: {str(e)}")
                 resultados['erros'].append("Erro ao ordenar períodos")
-                resultados['primeiro_mes'] = resultados['meses_para_processar'][0]  # Corrigido o nome da variável
-                resultados['ultimo_mes'] = resultados['meses_para_processar'][-1]  # Corrigido o nome da variável
+                resultados['primeiro_mes'] = resultados['meses_para_processar'][0]
+                resultados['ultimo_mes'] = resultados['meses_para_processar'][-1]
 
-        return resultados
+        return converter_para_dict_serializavel(resultados)
     except Exception as e:
-        logging.error(f"Erro ao processar PDF: {str(e)}", exc_info=True)  # Usando logging em vez de logger
+        logger.error(f"Erro ao processar PDF: {str(e)}", exc_info=True)
         return {
             'erro': "Erro ao processar o arquivo PDF",
             'erros': [f"Erro no processamento: {str(e)}"]
@@ -178,14 +202,13 @@ def upload():
             flash('Alguns problemas foram encontrados no processamento', 'warning')
         
         session['resultados'] = resultados
-        session.modified = True  # Garante que a sessão será salva
+        session.modified = True
         return redirect(url_for('analise_detalhada'))
     
     except Exception as e:
-        logging.error(f"Erro no upload: {str(e)}", exc_info=True)
+        logger.error(f"Erro no upload: {str(e)}", exc_info=True)
         flash('Erro ao processar o arquivo. Tente novamente.', 'error')
         return redirect(url_for('calculadora'))
-
 
 @app.route('/analise')
 def analise_detalhada():
