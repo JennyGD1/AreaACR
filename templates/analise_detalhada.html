@@ -1,142 +1,86 @@
-    {% extends "base.html" %}
-
-{% block title %}Análise Detalhada{% endblock %}
-{% block body_class %}page-analise{% endblock %}
-
-{% block extra_css %}
-<link rel="stylesheet" href="{{ url_for('static', filename='css/pages/analise.css') }}">
-{% endblock %}
+{% extends "base.html" %}
 
 {% block content %}
 <div class="container">
     <h1>Análise Detalhada</h1>
     
-    {% if resultados.primeiro_mes and resultados.ultimo_mes %}
-    <div class="periodo-info">
-        <h3>Período Analisado: {{ resultados.primeiro_mes }} a {{ resultados.ultimo_mes }}</h3>
-    </div>
-    {% endif %}
-
-    <div id="painelControle">
-        <h2>Resumo Financeiro</h2>
-        <div class="resumo-financeiro">
-            <div class="resumo-item">
-                <span class="resumo-label">Total Proventos:</span>
-                <span class="resumo-valor">
-                    R$ {{ "%0.2f"|format(total_proventos|default(0))|replace(".", ",") }}
-                </span>
-            </div>
-            <div class="resumo-item">
-                <span class="resumo-label">Total Descontos:</span>
-                <span class="resumo-valor">
-                    R$ {{ "%0.2f"|format(total_descontos|default(0))|replace(".", ",") }}
-                </span>
-            </div>
-            <div class="resumo-item">
-                <span class="resumo-label">Valor Líquido:</span>
-                <span class="resumo-valor">
-                    {% set saldo_liquido = total_proventos|default(0) - total_descontos|default(0) %}
-                    R$ {{ "%0.2f"|format(saldo_liquido)|replace(".", ",") }}
-                </span>
-            </div>
-        </div>
-
-        <h2>Filtros</h2>
-        <div class="filtros-container">
-            <div class="filtro-item">
-                <label for="filtroTipo">Tipo:</label>
-                <select id="filtroTipo" class="form-control">
-                    <option value="todos">Todos</option>
-                    <option value="proventos">Proventos</option>
-                    <option value="descontos">Descontos</option>
-                </select>
-            </div>
-            <div class="filtro-item">
-                <label for="filtroRubrica">Rubrica:</label>
-                <select id="filtroRubrica" class="form-control">
-                    <option value="todos">Todas</option>
-                    {% for codigo, descricao in CODIGOS.items() %}
-                    <option value="{{ codigo }}">{{ codigo }} - {{ descricao }}</option>
-                    {% endfor %}
-                </select>
-            </div>
+    <div class="filtros-container mb-4">
+        <div class="btn-group" role="group">
+            <button type="button" class="btn btn-primary active" data-tipo="descontos">Descontos</button>
+            <button type="button" class="btn btn-secondary" data-tipo="proventos">Proventos</button>
         </div>
     </div>
 
-    <div class="tabela-container">
-        <table class="tabela-analise table table-striped table-bordered">
-            <thead class="thead-dark">
+    <!-- Tabela de Descontos (padrão) -->
+    <div id="tabela-descontos" class="tabela-container">
+        <h3>Descontos por Mês</h3>
+        <table class="table table-striped">
+            <thead>
                 <tr>
-                    <th>CÓDIGO</th>
-                    <th>DESCRIÇÃO</th>
-                    <th>VALOR</th>
-                    <th>TIPO</th>
+                    <th>MÊS/ANO</th>
+                    {% for codigo in resultados.colunas_descontos|sort %}
+                    <th>{{ CODIGOS[codigo]['descricao'] }}</th>
+                    {% endfor %}
                 </tr>
             </thead>
             <tbody>
-                {% for mes, dados in resultados.dados_mensais.items() %}
-                    {% for codigo, valor in dados.rubricas.items() %}
-                    <tr data-tipo="{% if codigo in CODIGOS %}provento{% else %}desconto{% endif %}" 
-                        data-rubrica="{{ codigo }}"
-                        data-mes="{{ mes }}">
-                        <td>{{ codigo }}</td>
-                        <td>{{ CODIGOS.get(codigo, 'Descrição não disponível') }}</td>
-                        <td>R$ {{ "%0.2f"|format(valor)|replace(".", ",") }}</td>
-                        <td>
-                            {% if codigo in CODIGOS %}
-                            <span class="badge badge-success">Provento</span>
-                            {% else %}
-                            <span class="badge badge-warning">Desconto</span>
-                            {% endif %}
-                        </td>
-                    </tr>
+                {% for mes in resultados.meses_ordenados %}
+                <tr>
+                    <td>{{ mes }}</td>
+                    {% for codigo in resultados.colunas_descontos|sort %}
+                    <td>R$ {{ "%0.2f"|format(resultados.descontos[mes].get(codigo, 0.0))|replace(".", ",") }}</td>
                     {% endfor %}
+                </tr>
                 {% endfor %}
             </tbody>
         </table>
     </div>
 
-    <div class="btn-container mt-4">
-        <a href="{{ url_for('calculadora') }}" class="btn btn-primary">
-            <i class="fas fa-arrow-left"></i> Voltar
-        </a>
-        <button id="btnExportar" class="btn btn-success ml-2">
-            <i class="fas fa-file-excel"></i> Exportar
-        </button>
+    <!-- Tabela de Proventos (oculta inicialmente) -->
+    <div id="tabela-proventos" class="tabela-container" style="display: none;">
+        <h3>Proventos por Mês</h3>
+        <table class="table table-striped">
+            <thead>
+                <tr>
+                    <th>MÊS/ANO</th>
+                    {% for codigo in resultados.colunas_proventos|sort %}
+                    <th>{{ CODIGOS[codigo]['descricao'] }}</th>
+                    {% endfor %}
+                </tr>
+            </thead>
+            <tbody>
+                {% for mes in resultados.meses_ordenados %}
+                <tr>
+                    <td>{{ mes }}</td>
+                    {% for codigo in resultados.colunas_proventos|sort %}
+                    <td>R$ {{ "%0.2f"|format(resultados.proventos[mes].get(codigo, 0.0))|replace(".", ",") }}</td>
+                    {% endfor %}
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
     </div>
 </div>
-{% endblock %}
 
 {% block extra_js %}
 <script>
 document.addEventListener('DOMContentLoaded', function() {
-    // Filtros
-    const filtrarTabela = () => {
-        const filtroTipo = document.getElementById('filtroTipo').value;
-        const filtroRubrica = document.getElementById('filtroRubrica').value;
-        
-        document.querySelectorAll('.tabela-analise tbody tr').forEach(row => {
-            const tipoRow = row.getAttribute('data-tipo');
-            const rubricaRow = row.getAttribute('data-rubrica');
+    // Alternar entre proventos e descontos
+    document.querySelectorAll('[data-tipo]').forEach(btn => {
+        btn.addEventListener('click', function() {
+            document.querySelectorAll('[data-tipo]').forEach(b => b.classList.remove('active'));
+            this.classList.add('active');
             
-            const matchTipo = (filtroTipo === 'todos' || 
-                             (filtroTipo === 'proventos' && tipoRow === 'provento') ||
-                             (filtroTipo === 'descontos' && tipoRow === 'desconto'));
-            
-            const matchRubrica = (filtroRubrica === 'todos' || rubricaRow === filtroRubrica);
-            
-            row.style.display = (matchTipo && matchRubrica) ? '' : 'none';
+            if (this.dataset.tipo === 'proventos') {
+                document.getElementById('tabela-descontos').style.display = 'none';
+                document.getElementById('tabela-proventos').style.display = 'block';
+            } else {
+                document.getElementById('tabela-descontos').style.display = 'block';
+                document.getElementById('tabela-proventos').style.display = 'none';
+            }
         });
-    };
-
-    document.getElementById('filtroTipo').addEventListener('change', filtrarTabela);
-    document.getElementById('filtroRubrica').addEventListener('change', filtrarTabela);
-
-    // Exportar para Excel
-    document.getElementById('btnExportar').addEventListener('click', function() {
-        // Implementar lógica de exportação aqui
-        alert('Funcionalidade de exportação será implementada!');
     });
 });
 </script>
+{% endblock %}
 {% endblock %}
