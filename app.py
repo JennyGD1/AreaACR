@@ -1,5 +1,3 @@
-# app.py (VERSÃO SIMPLIFICADA E FUNCIONAL)
-
 from flask import Flask, render_template, request, redirect, url_for, flash, session
 from werkzeug.utils import secure_filename
 import os
@@ -7,9 +5,14 @@ import fitz
 import re
 from processador_contracheque import ProcessadorContracheque
 
+# Configuração do Flask
 app = Flask(__name__)
-app.secret_key = 'sua-chave-secreta-aqui'
+app.secret_key = 'sua-chave-secreta-aqui'  # Use uma chave segura em produção
 app.config['UPLOAD_FOLDER'] = 'uploads'
+app.config['SESSION_COOKIE_MAX_SIZE'] = 4093  # Tamanho máximo do cookie
+app.config['PERMANENT_SESSION_LIFETIME'] = 3600  # 1 hora
+
+# Garante que a pasta de uploads existe
 os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
 
 processador = ProcessadorContracheque()
@@ -28,7 +31,7 @@ def index():
 def calculadora():
     session.clear()
     return render_template('indexcalculadora.html')
-   
+
 @app.route('/upload', methods=['POST'])
 def upload():
     if 'files' not in request.files:
@@ -62,16 +65,22 @@ def upload():
         return redirect(url_for('calculadora'))
     
     try:
-        # Processa os textos mas não armazena tudo na sessão
         resultados = processador.processar_texto("\n".join(textos))
         
-        # Armazena apenas o necessário na sessão
-        session['resultados'] = resultados
-        session['total_proventos'] = sum(valor for cod, valor in resultados.items() if cod in processador.codigos_proventos)
-        session['total_descontos'] = sum(valor for cod, valor in resultados.items() if cod not in processador.codigos_proventos)
+        # Armazena apenas os dados essenciais na sessão
+        session['resultados'] = {
+            codigo: valor for codigo, valor in resultados.items()
+        }
+        session['total_proventos'] = sum(
+            valor for cod, valor in resultados.items() 
+            if cod in processador.codigos_proventos
+        )
+        session['total_descontos'] = sum(
+            valor for cod, valor in resultados.items() 
+            if cod not in processador.codigos_proventos
+        )
         
-        # Redireciona diretamente sem usar url_for para evitar problemas
-        return redirect('/analise_detalhada')
+        return redirect(url_for('analise_detalhada'))
         
     except Exception as e:
         flash(f'Erro ao processar arquivos: {str(e)}')
@@ -79,66 +88,23 @@ def upload():
 
 @app.route('/analise_detalhada')
 def analise_detalhada():
-    if 'dados_processados' not in session:
+    if 'resultados' not in session:
         flash('Nenhum dado disponível para análise')
         return redirect(url_for('calculadora'))
     
-    resultados = session['dados_processados']
-    
-    # Extrair período processado
+    # Extrai o período do texto processado (se necessário)
     periodo = "Período não identificado"
-    if 'textos_extraidos' in session:
-        texto_completo = "\n".join(session['textos_extraidos'])
-        periodos = re.findall(r'(\d{2})\.(\d{4})', texto_completo)
-        if periodos:
-            periodo_recente = sorted(periodos, key=lambda x: (int(x[1]), int(x[0])))[-1]
-            periodo = f"{periodo_recente[0]}/{periodo_recente[1]}"
     
-    # Calcular totais
-    total_proventos = sum(valor for cod, valor in resultados.items() if cod in processador.codigos_proventos)
-    total_descontos = sum(valor for cod, valor in resultados.items() if cod not in processador.codigos_proventos)
-    
-    return render_template('analise_detalhada.html',
-                         resultados=resultados,
-                         periodo=periodo,
-                         total_proventos=total_proventos,
-                         total_descontos=total_descontos,
-                         meses=MESES,
-                         rubricas_detalhadas=processador.rubricas_detalhadas,
-                         codigos_proventos=processador.codigos_proventos)
-    
-@app.route('/resultados')
-def resultados():
-    if 'texto_contracheques' not in session:
-        return redirect(url_for('calculadora'))
-    
-    texto = session['texto_contracheques']
-    
-    # Extrair meses/anos presentes
-    meses_anos = []
-    padrao_mes_ano = r'(Janeiro|Fevereiro|Março|Abril|Maio|Junho|Julho|Agosto|Setembro|Outubro|Novembro|Dezembro)\/(\d{4})'
-    matches = re.findall(padrao_mes_ano, texto)
-    
-    for mes, ano in matches:
-        meses_anos.append(f"{mes}/{ano}")
-    
-    if not meses_anos:
-        flash('Nenhum mês/ano encontrado nos contracheques')
-        return redirect(url_for('calculadora'))
-    
-    # Processar rubricas
-    rubricas = processador.processar_texto(texto)
-    
-    # Calcular total de proventos
-    total_proventos = sum(valor for cod, valor in rubricas.items() if cod in processador.codigos_proventos)
-    
-    return render_template('resultados.html',
-                         meses_anos=meses_anos,
-                         rubricas=rubricas,
-                         total_proventos=total_proventos,
-                         meses=MESES,
-                         rubricas_detalhadas=processador.rubricas_detalhadas,
-                         descricao_rubricas=processador.rubricas_detalhadas)
+    return render_template(
+        'analise_detalhada.html',
+        resultados=session['resultados'],
+        total_proventos=session['total_proventos'],
+        total_descontos=session['total_descontos'],
+        periodo=periodo,
+        rubricas_detalhadas=processador.rubricas_detalhadas,
+        codigos_proventos=processador.codigos_proventos,
+        meses=MESES
+    )
 
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', 10000))
