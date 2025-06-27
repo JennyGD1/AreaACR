@@ -6,7 +6,6 @@ import re
 import fitz  # PyMuPDF
 from collections import defaultdict
 import logging
-from dotenv import load_dotenv  # Adicione esta linha
 
 # Carrega variáveis de ambiente
 load_dotenv()
