@@ -166,7 +166,7 @@ class ProcessadorContracheque:
         # Ordena os meses encontrados
         meses_encontrados.sort(key=lambda x: (
             int(x.split('/')[1]) * 100 + int(self.meses[x.split('/')[0]])
-        )
+        ))
         
         primeiro_mes = meses_encontrados[0]
         ultimo_mes = meses_encontrados[-1]
