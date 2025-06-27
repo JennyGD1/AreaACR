@@ -1,4 +1,6 @@
 {
+  "rubricas": {
+    "proventos": {
             "0001": {'tipo': 'provento'},
             "0002": {'tipo': 'provento'},
             "0003": {'tipo': 'provento'},
@@ -720,8 +722,7 @@
             "/371": {'tipo': 'provento'},
             "/372": {'tipo': 'provento'},
             "/T80": {'tipo': 'provento'},
-    #descontos
-            # Descontos
+    
             "7033": {'descricao': "Titular", 'tipo': 'desconto'},
             "7035": {'descricao': "Cônjuge", 'tipo': 'desconto'},
             "7038": {'descricao': "Agregado Jovem", 'tipo': 'desconto'},
