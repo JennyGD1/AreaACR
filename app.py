@@ -1,4 +1,5 @@
 from flask import Flask, render_template, request, redirect, url_for, flash, session
+from flask_session import Session  # pip install Flask-Session
 from werkzeug.utils import secure_filename
 import os
 import fitz
@@ -7,10 +8,9 @@ from processador_contracheque import ProcessadorContracheque
 
 # Configuração do Flask
 app = Flask(__name__)
-app.secret_key = 'sua-chave-secreta-aqui'  # Use uma chave segura em produção
-app.config['UPLOAD_FOLDER'] = 'uploads'
-app.config['SESSION_COOKIE_MAX_SIZE'] = 4093  # Tamanho máximo do cookie
-app.config['PERMANENT_SESSION_LIFETIME'] = 3600  # 1 hora
+app.config['SESSION_TYPE'] = 'filesystem'
+app.config['SESSION_FILE_DIR'] = '/tmp/flask_session'
+Session(app)
 
 # Garante que a pasta de uploads existe
 os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
@@ -34,56 +34,32 @@ def calculadora():
 
 @app.route('/upload', methods=['POST'])
 def upload():
-    if 'files' not in request.files:
-        flash('Nenhum arquivo enviado')
-        return redirect(url_for('calculadora'))
+    if 'file' not in request.files:
+        return redirect(request.url)
     
-    arquivos = request.files.getlist('files')
-    textos = []
+    file = request.files['file']
+    if file.filename == '':
+        return redirect(request.url)
     
-    for arquivo in arquivos:
-        if arquivo.filename == '':
-            continue
+    if file and allowed_file(file.filename):
+        try:
+            # Processa o arquivo
+            resultados = processador.processar_pdf(file)
             
-        if arquivo and arquivo.filename.lower().endswith('.pdf'):
-            caminho = os.path.join(app.config['UPLOAD_FOLDER'], secure_filename(arquivo.filename))
-            arquivo.save(caminho)
+            # Armazena apenas o necessário na sessão ou usa cache
+            session['resultados'] = {
+                'resumo': resultados.get('resumo', {}),
+                'dados_principais': resultados.get('dados_principais', {})
+            }
             
-            try:
-                doc = fitz.open(caminho)
-                texto = ""
-                for pagina in doc:
-                    texto += pagina.get_text()
-                textos.append(texto)
-            except Exception as e:
-                flash(f'Erro ao ler PDF {arquivo.filename}: {str(e)}')
-            finally:
-                os.remove(caminho)
-    
-    if not textos:
-        flash('Nenhum texto válido extraído dos PDFs')
-        return redirect(url_for('calculadora'))
-    
-    try:
-        resultados = processador.processar_texto("\n".join(textos))
-        
-        # Armazena apenas os dados essenciais na sessão
-        session['resultados'] = {
-            codigo: valor for codigo, valor in resultados.items()
-        }
-        session['total_proventos'] = sum(
-            valor for cod, valor in resultados.items() 
-            if cod in processador.codigos_proventos
-        )
-        session['total_descontos'] = sum(
-            valor for cod, valor in resultados.items() 
-            if cod not in processador.codigos_proventos
-        )
-        
-        return redirect(url_for('analise_detalhada'))
-        
-    except Exception as e:
-        flash(f'Erro ao processar arquivos: {str(e)}')
+            # Renderiza diretamente em vez de redirecionar
+            return render_template('resultado.html', resultados=resultados)
+            
+        except Exception as e:
+            flash(f"Erro ao processar arquivo: {str(e)}")
+            return redirect(url_for('calculadora'))
+    else:
+        flash("Tipo de arquivo não permitido")
         return redirect(url_for('calculadora'))
 
 @app.route('/analise_detalhada')
