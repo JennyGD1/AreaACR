@@ -77,19 +77,22 @@ def extrair_mes_ano_do_texto(texto):
     return None, "Período não identificado no PDF"
 
 def extrair_valor_linha(linha):
-    # Padrão melhorado para capturar valores negativos e diferentes formatos
     padrao_valor = r'([-+]?\s*\d{1,3}(?:[.,\s]?\d{3})*(?:[.,]\d{2}))'
     valores = re.findall(padrao_valor, linha)
     
-    if valores:
-        valor_str = valores[-1].strip()
-        valor_str = valor_str.replace(' ', '').replace('.', '').replace(',', '.')
+    if not valores:
+        return 0.0
         
-        try:
-            return abs(float(valor_str))  # Garante valor absoluto
-        except ValueError:
-            logger.warning(f"Valor inválido na linha: {linha}")
-    return 0.0
+    valor_str = valores[-1].strip()
+    # Remove todos os caracteres não numéricos exceto o último ponto/vírgula
+    valor_str = re.sub(r'[^\d,-]', '', valor_str)
+    valor_str = valor_str.replace(',', '.')
+    
+    try:
+        return abs(float(valor_str))
+    except ValueError:
+        logger.warning(f"Valor inválido na linha: {linha}")
+        return 0.0
 
 def converter_para_dict_serializavel(resultados):
     """Converte os defaultdicts para dicts regulares para serialização"""
@@ -200,6 +203,7 @@ def upload():
         logger.info(f"Arquivo recebido: {file.filename}, tamanho: {len(file_bytes)} bytes")
         
         resultados = processar_pdf(file_bytes)
+        resultados = converter_para_dict_serializavel(resultados)
         logger.info(f"Resultados do processamento: {resultados}")
         
         if not resultados or 'erro' in resultados:
@@ -220,16 +224,17 @@ def upload():
 
 @app.route('/analise')
 def analise_detalhada():
-    resultados = session.get('resultados')
-    
-    if not resultados:
+    if 'resultados' not in session:
         flash('Nenhum dado de análise disponível. Por favor, envie um arquivo primeiro.', 'error')
         return redirect(url_for('calculadora'))
     
-    return render_template(
-        'analise_detalhada.html',
-        resultados=resultados,
-        CODIGOS=CODIGOS
-    )
+    try:
+        resultados = session['resultados']
+        return render_template('analise_detalhada.html', resultados=resultados, CODIGOS=CODIGOS)
+    except Exception as e:
+        logger.error(f"Erro ao carregar análise: {str(e)}")
+        flash('Erro ao carregar os resultados. Por favor, tente novamente.', 'error')
+        return redirect(url_for('calculadora'))
+        
 if __name__ == '__main__':
     app.run(debug=os.getenv('FLASK_DEBUG', 'False') == 'True')
