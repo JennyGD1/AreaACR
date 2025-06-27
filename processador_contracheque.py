@@ -135,11 +135,11 @@ class ProcessadorContracheque:
             "7049": "Retroativo"
         }
 
-   def converter_data_para_numerico(self, data_texto):
+    def converter_data_para_numerico(self, data_texto):  # ← Corrigido (4 espaços)
         mes, ano = data_texto.split('/')
         return f"{self.meses[mes]}/{ano}"
 
-    def extrair_valor(self, linha):
+    def extrair_valor(self, linha):  # ← Removida linha em branco extra
         padrao = r'(\d{1,3}(?:\.\d{3})*,\d{2})'
         match = re.search(padrao, linha)
         if match:
@@ -163,7 +163,7 @@ class ProcessadorContracheque:
             # Ordena os meses encontrados
             meses_encontrados.sort(key=lambda x: (
                 int(x.split('/')[1]) * 100 + int(self.meses[x.split('/')[0]])
-            )
+            ))
             
             primeiro_mes = meses_encontrados[0]
             ultimo_mes = meses_encontrados[-1]
