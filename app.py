@@ -123,52 +123,56 @@ def converter_para_dict_serializavel(resultados):
 def processar_pdf(file_bytes):
     try:
         doc = fitz.open(stream=file_bytes, filetype="pdf")
-        logger.info(f"PDF aberto com {len(doc)} páginas")
-        
         resultados = {
-            'primeiro_mes': None,
-            'ultimo_mes': None,
-            'meses_para_processar': [],
-            'dados_mensais': defaultdict(lambda: {
-                'total_proventos': 0,
-                'rubricas': defaultdict(float),
-                'rubricas_detalhadas': defaultdict(float)
-            }),
-            'total_geral': {
-                'total_proventos': 0,
-                'total_descontos': 0
-            },
+            'meses_ordenados': [],
+            'proventos': defaultdict(lambda: defaultdict(float)),
+            'descontos': defaultdict(lambda: defaultdict(float)),
+            'colunas_proventos': set(),
+            'colunas_descontos': set(),
             'erros': []
         }
 
-        for page_num, page in enumerate(doc):
-            logger.info(f"Processando página {page_num + 1}")
+        for page in doc:
             texto = page.get_text("text")
-            logger.debug(f"Texto da página {page_num + 1}:\n{texto[:500]}...")  # Loga apenas o início
-            
             mes_ano, erro = extrair_mes_ano_do_texto(texto)
             
             if erro:
                 resultados['erros'].append(erro)
                 continue
             
-            if mes_ano not in resultados['meses_para_processar']:
-                resultados['meses_para_processar'].append(mes_ano)
+            if mes_ano not in resultados['meses_ordenados']:
+                resultados['meses_ordenados'].append(mes_ano)
 
             for linha in texto.split('\n'):
                 linha = linha.strip()
                 codigo_match = re.match(r'^(\d{4})\b', linha)
                 
-                if codigo_match and codigo_match.group(1) in CODIGOS:
+                if codigo_match:
                     codigo = codigo_match.group(1)
-                    valor = extrair_valor_linha(linha)
-                    logger.debug(f"Linha processada - Código: {codigo}, Valor: {valor}, Linha: {linha}")
-                    
-                    resultados['dados_mensais'][mes_ano]['rubricas'][codigo] += valor
-                    resultados['dados_mensais'][mes_ano]['total_proventos'] += valor
-                    resultados['total_geral']['total_proventos'] += valor
+                    if codigo in CODIGOS:
+                        valor = extrair_valor_linha(linha)
+                        info = CODIGOS[codigo]
+                        
+                        if info['tipo'] == 'provento':
+                            resultados['proventos'][mes_ano][codigo] = valor
+                            resultados['colunas_proventos'].add(codigo)
+                        else:
+                            resultados['descontos'][mes_ano][codigo] = valor
+                            resultados['colunas_descontos'].add(codigo)
 
-        # Ordenação e outros processamentos...
+        # Ordenar meses cronologicamente
+        resultados['meses_ordenados'].sort(key=lambda x: (
+            int(x.split('/')[-1]),  # ano
+            MESES_ORDEM.get(x.split('/')[0], 13)  # mês
+        )
+        
+        # Garantir todas as colunas mesmo sem valores
+        for mes in resultados['meses_ordenados']:
+            for codigo in resultados['colunas_proventos']:
+                resultados['proventos'][mes].setdefault(codigo, 0.0)
+            for codigo in resultados['colunas_descontos']:
+                resultados['descontos'][mes].setdefault(codigo, 0.0)
+        
         return converter_para_dict_serializavel(resultados)
         
     except Exception as e:
