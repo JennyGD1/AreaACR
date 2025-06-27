@@ -120,19 +120,19 @@ class ProcessadorContracheque:
         ]
         
         self.rubricas_detalhadas = {
-            "7033": "Titular",
-            "7035": "Cônjuge",
-            "7038": "Agregado Jovem",
-            "7039": "Agregado Maior",
-            "7034": "Dependente",
-            "7037": "Plano Especial",
-            "7040": "Coparticipação",
-            "7088": "Parc. Risco Titular",
-            "7090": "Parc. Risco Cônjuge",
-            "7089": "Parc. Risco Dependente",
-            "7091": "Parc. Risco Agregado",
-            "7044": "Restituição",
-            "7049": "Retroativo"
+            "7033": {'descricao':"Titular", 'tipo': 'desconto'},
+            "7035": {'descricao':"Cônjuge", 'tipo': 'desconto'},
+            "7038": {'descricao':"Agregado Jovem", 'tipo': 'desconto'},
+            "7039": {'descricao':"Agregado Maior", 'tipo': 'desconto'},
+            "7034": {'descricao': "Dependente", 'tipo': 'desconto'},
+            '7037': {'descricao': 'Plano Especial', 'tipo': 'desconto'},
+            "7040": {'descricao':"Coparticipação", 'tipo': 'desconto'},
+            "7088": {'descricao':"Parc. Risco Titular", 'tipo': 'desconto'},
+            "7090": {'descricao':"Parc. Risco Cônjuge", 'tipo': 'desconto'},
+            "7089": {'descricao':"Parc. Risco Dependente", 'tipo': 'desconto'},
+            "7091": {'descricao':"Parc. Risco Agregado", 'tipo': 'desconto'},
+            "7044": {'descricao':"Restituição", 'tipo': 'desconto'},
+            "7049": {'descricao':"Retroativo" 'tipo': 'desconto'},
         }
 
     def converter_data_para_numerico(self, data_texto):  # ← Corrigido (4 espaços)
