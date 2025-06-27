@@ -125,7 +125,19 @@ def analise_detalhada():
     
     try:
         resultados = session['resultados']
+        
+        # Garante que os dados estão no formato correto
+        if not isinstance(resultados, dict):
+            resultados = json.loads(resultados)
+        
+        # Processa a tabela geral se necessário
+        if 'dados_mensais' in resultados:
+            processador = ProcessadorContracheque()
+            tabela_geral = processador.gerar_tabela_geral(resultados)
+            resultados.update(tabela_geral)
+        
         return render_template('analise_detalhada.html', resultados=resultados)
+        
     except Exception as e:
         logger.error(f"Erro ao carregar análise: {str(e)}")
         flash('Erro ao carregar os resultados. Por favor, tente novamente.', 'error')
