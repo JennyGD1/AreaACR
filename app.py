@@ -64,8 +64,9 @@ def upload():
     # Processa os textos e armazena na sessão
     try:
         resultados = processador.processar_texto("\n".join(textos))
-        session['dados_processados'] = resultados  # Armazena os resultados na sessão
-        return redirect(url_for('analise_detalhada'))  # Redireciona para análise detalhada
+        session['dados_processados'] = resultados
+        session['textos_extraidos'] = textos  # Armazena os textos brutos
+        return redirect(url_for('analise_detalhada'))
     except Exception as e:
         flash(f'Erro ao processar arquivos: {str(e)}')
         return redirect(url_for('calculadora'))
@@ -78,23 +79,27 @@ def analise_detalhada():
     
     resultados = session['dados_processados']
     
-    # Extrair meses/anos presentes
-    meses_anos = []
-    padrao_mes_ano = r'(Janeiro|Fevereiro|Março|Abril|Maio|Junho|Julho|Agosto|Setembro|Outubro|Novembro|Dezembro)\/(\d{4})'
-    matches = re.findall(padrao_mes_ano, "\n".join(session.get('textos_extraidos', [])))
+    # Extrair período processado
+    periodo = "Período não identificado"
+    if 'textos_extraidos' in session:
+        texto_completo = "\n".join(session['textos_extraidos'])
+        periodos = re.findall(r'(\d{2})\.(\d{4})', texto_completo)
+        if periodos:
+            periodo_recente = sorted(periodos, key=lambda x: (int(x[1]), int(x[0])))[-1]
+            periodo = f"{periodo_recente[0]}/{periodo_recente[1]}"
     
-    for mes, ano in matches:
-        meses_anos.append(f"{mes}/{ano}")
-    
-    # Calcular total de proventos
+    # Calcular totais
     total_proventos = sum(valor for cod, valor in resultados.items() if cod in processador.codigos_proventos)
+    total_descontos = sum(valor for cod, valor in resultados.items() if cod not in processador.codigos_proventos)
     
     return render_template('analise_detalhada.html',
                          resultados=resultados,
-                         meses_anos=meses_anos,
+                         periodo=periodo,
                          total_proventos=total_proventos,
+                         total_descontos=total_descontos,
                          meses=MESES,
-                         rubricas_detalhadas=processador.rubricas_detalhadas)
+                         rubricas_detalhadas=processador.rubricas_detalhadas,
+                         codigos_proventos=processador.codigos_proventos)
     
 @app.route('/resultados')
 def resultados():
