@@ -721,8 +721,9 @@
             "/370": {"tipo": "provento"},
             "/371": {"tipo": "provento"},
             "/372": {"tipo": "provento"},
-            "/T80": {"tipo": "provento"},
-    
+            "/T80": {"tipo": "provento"}
+},
+    "descontos": {
             "7033": {"descricao": "Titular", "tipo": "desconto"},
             "7035": {"descricao": "Cônjuge", "tipo": "desconto"},
             "7038": {"descricao": "Agregado Jovem", "tipo": "desconto"},
@@ -736,4 +737,6 @@
             "7091": {"descricao": "Parc. Risco Agregado", "tipo": "desconto"},
             "7044": {"descricao": "Restituição", "tipo": "desconto"},
             "7049": {"descricao": "Retroativo", "tipo": "desconto"}
-       }
+      }
+  }
+}
