@@ -10,6 +10,14 @@ import logging
 import json
 from processador_contracheque import ProcessadorContracheque
 
+def main():
+    # Carrega configurações uma vez
+    rubricas = load_rubricas()
+    
+    # Inicializa os módulos com as rubricas
+    processador = ProcessadorContracheque(rubricas)
+    analisador = Analisador(rubricas)
+    
 try:
     from dotenv import load_dotenv
     load_dotenv()
