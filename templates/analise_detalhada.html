@@ -155,4 +155,11 @@ document.addEventListener('DOMContentLoaded', filtrarTabela);
     color: #212529;
 }
 </style>
+<span class="resumo-valor">
+    {% if total_proventos is defined %}
+        R$ {{ "%.2f"|format(total_proventos) }}
+    {% else %}
+        R$ 0,00
+    {% endif %}
+</span>
 {% endblock %}
