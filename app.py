@@ -44,33 +44,38 @@ def upload():
         flash('Nenhum arquivo selecionado', 'error')
         return redirect(url_for('calculadora'))
     
-    if file and file.filename.lower().endswith('.pdf'):
-        try:
-            # Processamento em memória (sem salvar arquivo)
-            pdf_bytes = file.read()
-            resultados = processador.processar_pdf(pdf_bytes)
-            
-            # Debug: verifique os resultados no console
-            print("Resultados do processamento:", resultados)
-            
-            session['resultados'] = resultados
-            return redirect(url_for('analise_detalhada'))
-            
-        except Exception as e:
-            flash(f'Erro no processamento: {str(e)}', 'error')
-            print("Erro detalhado:", str(e))
-            return redirect(url_for('calculadora'))
+    if not file.filename.lower().endswith('.pdf'):
+        flash('Apenas arquivos PDF são aceitos', 'error')
+        return redirect(url_for('calculadora'))
     
-    flash('Formato inválido. Envie apenas PDF.', 'error')
-    return redirect(url_for('calculadora'))
+    try:
+        # Processa o arquivo diretamente da memória
+        file_bytes = file.read()
+        resultados = processador.processar_pdf(file_bytes)
+        
+        # Debug: Verifique os resultados no console
+        print("Resultados do processamento:", resultados)
+        
+        if not resultados:
+            flash('Nenhum dado encontrado no PDF', 'error')
+            return redirect(url_for('calculadora'))
+        
+        session['resultados'] = resultados
+        return redirect(url_for('analise_detalhada'), code=303)  # Código 303 para redirecionamento POST-GET
+    
+    except Exception as e:
+        flash(f'Erro no processamento: {str(e)}', 'error')
+        print("Erro detalhado:", str(e))
+        return redirect(url_for('calculadora'))
 
 @app.route('/analise')
 def analise_detalhada():
-    resultados = session.get('resultados')
-    
-    if not resultados:
-        flash('Nenhum resultado encontrado', 'error')
+    if 'resultados' not in session:
+        flash('Sessão expirada ou resultados não encontrados', 'error')
         return redirect(url_for('calculadora'))
+    
+    resultados = session['resultados']
+    return render_template('analise_detalhada.html', resultados=resultados)
     
     # Debug: verifique se os resultados chegam no template
     print("Resultados enviados para o template:", resultados)
