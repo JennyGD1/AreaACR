@@ -9,14 +9,14 @@ from collections import defaultdict
 import logging
 import json
 from processador_contracheque import ProcessadorContracheque
-from analisador import Analisador  # Adicione esta linha
+from analisador import AnalisadorDescontos
 
 # Carrega as rubricas uma vez no início da aplicação
 rubricas = load_rubricas()
 
 # Inicializa os módulos com as rubricas
 processador = ProcessadorContracheque(rubricas)
-analisador = Analisador(rubricas)  # Remove se não estiver usando
+analisador = AnalisadorDescontos()
 
 try:
     from dotenv import load_dotenv
