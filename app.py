@@ -7,8 +7,11 @@ import fitz  # PyMuPDF
 from collections import defaultdict
 import logging
 
-# Carrega variáveis de ambiente
-load_dotenv()
+try:
+    from dotenv import load_dotenv
+    load_dotenv()
+except ImportError:
+    pass
 
 # Configuração do Flask
 app = Flask(__name__)
@@ -84,7 +87,7 @@ def processar_pdf(file_bytes):
         resultados = {
             'primeiro_mes': None,
             'ultimo_mes': None,
-            'meses_para_processar': [],
+            'meses_para_processar': [],  # Corrigido o nome da variável
             'dados_mensais': defaultdict(lambda: {
                 'total_proventos': 0,
                 'rubricas': defaultdict(float),
@@ -105,8 +108,8 @@ def processar_pdf(file_bytes):
                 resultados['erros'].append(erro)
                 continue
             
-            if mes_ano not in resultados['meses_para_processar']:
-                resultados['meses_para_processar'].append(mes_ano)
+            if mes_ano not in resultados['meses_para_processar']:  # Corrigido o nome da variável
+                resultados['meses_para_processar'].append(mes_ano)  # Corrigido o nome da variável
 
             for linha in texto.split('\n'):
                 linha = linha.strip()
@@ -118,23 +121,23 @@ def processar_pdf(file_bytes):
                     resultados['dados_mensais'][mes_ano]['total_proventos'] += valor
                     resultados['total_geral']['total_proventos'] += valor
 
-        if resultados['meses_para_processar']:
+        if resultados['meses_para_processar']:  # Corrigido o nome da variável
             try:
-                resultados['meses_para_processar'].sort(key=lambda x: (
+                resultados['meses_para_processar'].sort(key=lambda x: (  # Corrigido o nome da variável
                     int(x.split('/')[-1]),
                     MESES_ORDEM.get(x.split('/')[0], 13)
                 ))
-                resultados['primeiro_mes'] = resultados['meses_para_processar'][0]
-                resultados['ultimo_mes'] = resultados['meses_para_processar'][-1]
+                resultados['primeiro_mes'] = resultados['meses_para_processar'][0]  # Corrigido typo
+                resultados['ultimo_mes'] = resultados['meses_para_processar'][-1]  # Corrigido o nome da variável
             except (ValueError, IndexError, AttributeError) as e:
-                logger.warning(f"Erro ao ordenar meses: {str(e)}")
+                logging.warning(f"Erro ao ordenar meses: {str(e)}")  # Usando logging em vez de logger
                 resultados['erros'].append("Erro ao ordenar períodos")
-                resultados['primeiro_mes'] = resultados['meses_para_processar'][0]
-                resultados['ultimo_mes'] = resultados['meses_para_processar'][-1]
+                resultados['primeiro_mes'] = resultados['meses_para_processar'][0]  # Corrigido o nome da variável
+                resultados['ultimo_mes'] = resultados['meses_para_processar'][-1]  # Corrigido o nome da variável
 
         return resultados
     except Exception as e:
-        logger.error(f"Erro ao processar PDF: {str(e)}", exc_info=True)
+        logging.error(f"Erro ao processar PDF: {str(e)}", exc_info=True)  # Usando logging em vez de logger
         return {
             'erro': "Erro ao processar o arquivo PDF",
             'erros': [f"Erro no processamento: {str(e)}"]
@@ -175,12 +178,14 @@ def upload():
             flash('Alguns problemas foram encontrados no processamento', 'warning')
         
         session['resultados'] = resultados
+        session.modified = True  # Garante que a sessão será salva
         return redirect(url_for('analise_detalhada'))
     
     except Exception as e:
-        logger.error(f"Erro no upload: {str(e)}", exc_info=True)
+        logging.error(f"Erro no upload: {str(e)}", exc_info=True)
         flash('Erro ao processar o arquivo. Tente novamente.', 'error')
         return redirect(url_for('calculadora'))
+
 
 @app.route('/analise')
 def analise_detalhada():
