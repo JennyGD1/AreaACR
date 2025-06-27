@@ -9,7 +9,6 @@ from processador_contracheque import ProcessadorContracheque
 # Configuração do Flask
 app = Flask(__name__)
 app.config['SESSION_TYPE'] = 'filesystem'
-app.config['SESSION_FILE_DIR'] = '/tmp/flask_session'
 Session(app)
 
 # Garante que a pasta de uploads existe
