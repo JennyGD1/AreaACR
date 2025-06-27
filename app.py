@@ -37,32 +37,40 @@ def calculadora():
 @app.route('/upload', methods=['POST'])
 def upload():
     if 'file' not in request.files:
-        return redirect(request.url)
+        flash('Nenhum arquivo selecionado')
+        return redirect(url_for('calculadora'))
     
     file = request.files['file']
     if file.filename == '':
-        return redirect(request.url)
+        flash('Nenhum arquivo selecionado')
+        return redirect(url_for('calculadora'))
     
     if file and allowed_file(file.filename):
         try:
             # Processa o arquivo
             resultados = processador.processar_pdf(file)
             
-            # Armazena apenas o necessário na sessão ou usa cache
-            session['resultados'] = {
-                'resumo': resultados.get('resumo', {}),
-                'dados_principais': resultados.get('dados_principais', {})
-            }
+            # Armazena os resultados na sessão
+            session['resultados'] = resultados
             
-            # Renderiza diretamente em vez de redirecionar
-            return render_template('resultado.html', resultados=resultados)
+            # Redireciona para a página de resultados
+            return redirect(url_for('mostrar_resultados'))
             
         except Exception as e:
-            flash(f"Erro ao processar arquivo: {str(e)}")
+            flash(f'Erro ao processar arquivo: {str(e)}')
             return redirect(url_for('calculadora'))
-    else:
-        flash("Tipo de arquivo não permitido")
+    
+    flash('Tipo de arquivo não permitido')
+    return redirect(url_for('calculadora'))
+    
+@app.route('/resultados')
+def mostrar_resultados():
+    resultados = session.get('resultados')
+    if not resultados:
+        flash('Nenhum resultado para mostrar')
         return redirect(url_for('calculadora'))
+    
+    return render_template('resultados.html', resultados=resultados)
 
 @app.route('/analise_detalhada')
 def analise_detalhada():
