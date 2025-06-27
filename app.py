@@ -15,10 +15,6 @@ app.config['MAX_CONTENT_LENGTH'] = 16 * 1024 * 1024  # 16MB
 Session(app)
 
 # Garante que a pasta de uploads existe
-os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
-
-processador = ProcessadorContracheque()
-
 app.config['UPLOAD_FOLDER'] = os.path.join('tmp')
 os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
 
@@ -37,50 +33,37 @@ def index():
 @app.route('/upload', methods=['POST'])
 def upload():
     if 'file' not in request.files:
-        flash('Nenhum arquivo enviado')
-        return redirect(url_for('calculadora'))
+        return redirect(url_for('indexcalculadora'))
     
     file = request.files['file']
     if file.filename == '':
-        flash('Nenhum arquivo selecionado')
-        return redirect(url_for('calculadora'))
+        return redirect(url_for('indexcalculadora'))
     
     if file and file.filename.lower().endswith('.pdf'):
         try:
-            # Salva temporariamente o arquivo
-            filepath = os.path.join(app.config['UPLOAD_FOLDER'], file.filename)
-            file.save(filepath)
-            
-            # Processa o arquivo
-            resultados = processador.processar_pdf(filepath)
-            
-            # Remove o arquivo temporário
-            os.remove(filepath)
+            # Processa diretamente da memória
+            resultados = processador.processar_pdf(file)
             
             # Armazena resultados na sessão
             session['resultados'] = resultados
             
-            # Redireciona para a página de resultados
-            return redirect(url_for('resultados'))
+            # Redireciona para análise detalhada
+            return redirect(url_for('analise_detalhada'))
             
         except Exception as e:
-            flash(f'Erro ao processar arquivo: {str(e)}')
-            return redirect(url_for('calculadora'))
+            print(f"Erro no processamento: {str(e)}")
+            return redirect(url_for('indexcalculadora'))
     
-    flash('Por favor, envie um arquivo PDF válido')
-    return redirect(url_for('calculadora'))
+    return redirect(url_for('indexcalculadora'))
 
-@app.route('/resultados')
-def resultados():
-    if 'resultados' not in session:
-        flash('Nenhum resultado encontrado')
-        return redirect(url_for('calculadora'))
-    
-    return render_template('resultados.html', resultados=session['resultados'])
+@app.route('/analise')
+def analise_detalhada():
+    resultados = session.get('resultados', {})
+    return render_template('analise_detalhada.html', resultados=resultados)
 
 @app.route('/calculadora')
-def calculadora():
-    return render_template('calculadora.html')
+def indexcalculadora():
+    return render_template('indexcalculadora.html')
 
 
 @app.route('/analise_detalhada')
