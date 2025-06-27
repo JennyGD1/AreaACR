@@ -11,9 +11,9 @@
 <div class="container">
     <h1>Análise Detalhada</h1>
     
-    {% if periodo %}
+    {% if resultados.primeiro_mes and resultados.ultimo_mes %}
     <div class="periodo-info">
-        <h3>Período Analisado: {{ periodo }}</h3>
+        <h3>Período Analisado: {{ resultados.primeiro_mes }} a {{ resultados.ultimo_mes }}</h3>
     </div>
     {% endif %}
 
@@ -22,15 +22,22 @@
         <div class="resumo-financeiro">
             <div class="resumo-item">
                 <span class="resumo-label">Total Proventos:</span>
-                <span class="resumo-valor">{{ "R$ {:,.2f}".format(total_proventos).replace(",", "X").replace(".", ",").replace("X", ".") }}</span>
+                <span class="resumo-valor">
+                    R$ {{ "%0.2f"|format(total_proventos|default(0)|replace(".", ",") }}
+                </span>
             </div>
             <div class="resumo-item">
                 <span class="resumo-label">Total Descontos:</span>
-                <span class="resumo-valor">{{ "R$ {:,.2f}".format(total_descontos).replace(",", "X").replace(".", ",").replace("X", ".") }}</span>
+                <span class="resumo-valor">
+                    {% set total_descontos = resultados.total_geral.total_descontos|default(0) %}
+                    R$ {{ "%0.2f"|format(total_descontos)|replace(".", ",") }}
+                </span>
             </div>
             <div class="resumo-item">
                 <span class="resumo-label">Valor Líquido:</span>
-                <span class="resumo-valor">{{ "R$ {:,.2f}".format(total_proventos - total_descontos).replace(",", "X").replace(".", ",").replace("X", ".") }}</span>
+                <span class="resumo-valor">
+                    R$ {{ "%0.2f"|format(total_proventos|default(0) - total_descontos|default(0)|replace(".", ",") }}
+                </span>
             </div>
         </div>
 
@@ -38,7 +45,7 @@
         <div class="filtros-container">
             <div class="filtro-item">
                 <label for="filtroTipo">Tipo:</label>
-                <select id="filtroTipo">
+                <select id="filtroTipo" class="form-control">
                     <option value="todos">Todos</option>
                     <option value="proventos">Proventos</option>
                     <option value="descontos">Descontos</option>
@@ -46,9 +53,9 @@
             </div>
             <div class="filtro-item">
                 <label for="filtroRubrica">Rubrica:</label>
-                <select id="filtroRubrica">
+                <select id="filtroRubrica" class="form-control">
                     <option value="todos">Todas</option>
-                    {% for codigo, descricao in rubricas_detalhadas.items() %}
+                    {% for codigo, descricao in resultados.rubricas_detalhadas.items() %}
                     <option value="{{ codigo }}">{{ codigo }} - {{ descricao }}</option>
                     {% endfor %}
                 </select>
@@ -57,8 +64,8 @@
     </div>
 
     <div class="tabela-container">
-        <table class="tabela-analise">
-            <thead>
+        <table class="tabela-analise table table-striped table-bordered">
+            <thead class="thead-dark">
                 <tr>
                     <th>CÓDIGO</th>
                     <th>DESCRIÇÃO</th>
@@ -67,99 +74,69 @@
                 </tr>
             </thead>
             <tbody>
-                {% for codigo, valor in resultados.items() %}
-                <tr data-tipo="{% if codigo in codigos_proventos %}provento{% else %}desconto{% endif %}" 
-                    data-rubrica="{{ codigo }}">
-                    <td>{{ codigo }}</td>
-                    <td>{{ rubricas_detalhadas.get(codigo, 'Descrição não disponível') }}</td>
-                    <td>{{ "R$ {:,.2f}".format(valor).replace(",", "X").replace(".", ",").replace("X", ".") }}</td>
-                    <td>
-                        {% if codigo in codigos_proventos %}
-                        <span class="badge badge-success">Provento</span>
-                        {% else %}
-                        <span class="badge badge-warning">Desconto</span>
-                        {% endif %}
-                    </td>
-                </tr>
+                {% for mes, dados in resultados.dados_mensais.items() %}
+                    {% for codigo, valor in dados.rubricas.items() %}
+                    <tr data-tipo="{% if codigo in resultados.codigos_proventos %}provento{% else %}desconto{% endif %}" 
+                        data-rubrica="{{ codigo }}"
+                        data-mes="{{ mes }}">
+                        <td>{{ codigo }}</td>
+                        <td>{{ resultados.rubricas_detalhadas.get(codigo, 'Descrição não disponível') }}</td>
+                        <td>R$ {{ "%0.2f"|format(valor)|replace(".", ",") }}</td>
+                        <td>
+                            {% if codigo in resultados.codigos_proventos %}
+                            <span class="badge badge-success">Provento</span>
+                            {% else %}
+                            <span class="badge badge-warning">Desconto</span>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% endfor %}
                 {% endfor %}
             </tbody>
         </table>
     </div>
 
-    <div class="btn-container">
+    <div class="btn-container mt-4">
         <a href="{{ url_for('calculadora') }}" class="btn btn-primary">
             <i class="fas fa-arrow-left"></i> Voltar
         </a>
+        <button id="btnExportar" class="btn btn-success ml-2">
+            <i class="fas fa-file-excel"></i> Exportar
+        </button>
     </div>
 </div>
 
+{% block extra_js %}
 <script>
-// Filtros melhorados
-document.getElementById('filtroTipo').addEventListener('change', filtrarTabela);
-document.getElementById('filtroRubrica').addEventListener('change', filtrarTabela);
+document.addEventListener('DOMContentLoaded', function() {
+    // Filtros
+    const filtrarTabela = () => {
+        const filtroTipo = document.getElementById('filtroTipo').value;
+        const filtroRubrica = document.getElementById('filtroRubrica').value;
+        
+        document.querySelectorAll('.tabela-analise tbody tr').forEach(row => {
+            const tipoRow = row.getAttribute('data-tipo');
+            const rubricaRow = row.getAttribute('data-rubrica');
+            
+            const matchTipo = (filtroTipo === 'todos' || 
+                             (filtroTipo === 'proventos' && tipoRow === 'provento') ||
+                             (filtroTipo === 'descontos' && tipoRow === 'desconto'));
+            
+            const matchRubrica = (filtroRubrica === 'todos' || rubricaRow === filtroRubrica);
+            
+            row.style.display = (matchTipo && matchRubrica) ? '' : 'none';
+        });
+    };
 
-function filtrarTabela() {
-    const filtroTipo = document.getElementById('filtroTipo').value;
-    const filtroRubrica = document.getElementById('filtroRubrica').value;
-    
-    document.querySelectorAll('.tabela-analise tbody tr').forEach(row => {
-        const tipoRow = row.getAttribute('data-tipo');
-        const rubricaRow = row.getAttribute('data-rubrica');
-        
-        const matchTipo = (filtroTipo === 'todos' || 
-                          (filtroTipo === 'proventos' && tipoRow === 'provento') ||
-                          (filtroTipo === 'descontos' && tipoRow === 'desconto'));
-        
-        const matchRubrica = (filtroRubrica === 'todos' || rubricaRow === filtroRubrica);
-        
-        row.style.display = (matchTipo && matchRubrica) ? '' : 'none';
+    document.getElementById('filtroTipo').addEventListener('change', filtrarTabela);
+    document.getElementById('filtroRubrica').addEventListener('change', filtrarTabela);
+
+    // Exportar para Excel
+    document.getElementById('btnExportar').addEventListener('click', function() {
+        // Implementar lógica de exportação aqui
+        alert('Funcionalidade de exportação será implementada!');
     });
-}
-
-// Filtrar ao carregar a página
-document.addEventListener('DOMContentLoaded', filtrarTabela);
+});
 </script>
-
-<style>
-.resumo-financeiro {
-    display: flex;
-    gap: 20px;
-    margin-bottom: 20px;
-    flex-wrap: wrap;
-}
-.resumo-item {
-    background: #f8f9fa;
-    padding: 10px 15px;
-    border-radius: 5px;
-    min-width: 200px;
-}
-.resumo-label {
-    font-weight: bold;
-    display: block;
-    margin-bottom: 5px;
-}
-.resumo-valor {
-    font-size: 1.2em;
-}
-.badge {
-    padding: 3px 6px;
-    border-radius: 3px;
-    font-size: 0.8em;
-}
-.badge-success {
-    background: #28a745;
-    color: white;
-}
-.badge-warning {
-    background: #ffc107;
-    color: #212529;
-}
-</style>
-<span class="resumo-valor">
-    {% if total_proventos is defined %}
-        R$ {{ "%.2f"|format(total_proventos) }}
-    {% else %}
-        R$ 0,00
-    {% endif %}
-</span>
+{% endblock %}
 {% endblock %}
