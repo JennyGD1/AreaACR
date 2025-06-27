@@ -39,41 +39,35 @@
     setTimeout(() => ripple.remove(), 600);
   });
 
-document.addEventListener('DOMContentLoaded', function() {
-    const form = document.getElementById('upload-form');
+document.getElementById('upload-form').addEventListener('submit', async (e) => {
+    e.preventDefault();
     
-    if (form) {
-        form.addEventListener('submit', function(e) {
-            e.preventDefault();
-            
-            const fileInput = document.getElementById('file-input');
-            const feedback = document.getElementById('upload-feedback');
-            
-            if (fileInput.files.length === 0) {
-                feedback.textContent = 'Por favor, selecione um arquivo';
-                feedback.style.color = 'red';
-                return;
-            }
-            
-            const formData = new FormData();
-            formData.append('file', fileInput.files[0]);
-            
-            feedback.textContent = 'Processando...';
-            feedback.style.color = 'blue';
-            
-            fetch('/upload', {
-                method: 'POST',
-                body: formData
-            })
-            .then(response => {
-                if (response.redirected) {
-                    window.location.href = response.url;
-                }
-            })
-            .catch(error => {
-                feedback.textContent = 'Erro no upload: ' + error.message;
-                feedback.style.color = 'red';
-            });
+    const fileInput = document.getElementById('pdf-upload');
+    const feedback = document.getElementById('status-processamento');
+    
+    if (!fileInput.files[0]) {
+        feedback.textContent = "Selecione um arquivo PDF";
+        feedback.style.color = "red";
+        return;
+    }
+
+    feedback.textContent = "Processando...";
+    feedback.style.color = "blue";
+
+    try {
+        const formData = new FormData();
+        formData.append('file', fileInput.files[0]);
+        
+        const response = await fetch('/upload', {
+            method: 'POST',
+            body: formData
         });
+
+        if (response.redirected) {
+            window.location.href = response.url;
+        }
+    } catch (error) {
+        feedback.textContent = "Erro: " + error.message;
+        feedback.style.color = "red";
     }
 });
