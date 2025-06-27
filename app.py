@@ -223,8 +223,8 @@ def analise_detalhada():
         'analise_detalhada.html',
         resultados=resultados,
         total_proventos=total_geral.get('total_proventos', 0),
-        total_descontos=total_geral.get('total_descontos', 0)
+        total_descontos=total_geral.get('total_descontos', 0),
+        CODIGOS=CODIGOS  # Adicionando esta linha para passar a constante CODIGOS para o template
     )
-
 if __name__ == '__main__':
     app.run(debug=os.getenv('FLASK_DEBUG', 'False') == 'True')
