@@ -159,13 +159,12 @@
         {% endwith %}
         
         <div class="upload-container">
-            <form action="{{ url_for('upload') }}" method="post" enctype="multipart/form-data" id="upload-form">
-                <input type="file" name="files" id="file-upload" multiple hidden aria-label="Selecionar arquivos" />
-                <label for="file-upload" class="upload-btn">📁 Escolher Arquivos PDF</label>
-                <p id="file-name" class="file-name">Nenhum arquivo selecionado</p>
-                <button type="button" class="process-btn">Processar</button>
-                <progress id="upload-progress" value="0" max="100" hidden></progress>
-            </form>
+        <form action="{{ url_for('upload') }}" method="post" enctype="multipart/form-data" id="upload-form">
+            <input type="file" name="file" id="file-upload" accept=".pdf" required>
+            <label for="file-upload" class="upload-btn">📁 Escolher Arquivo PDF</label>
+            <p id="file-name" class="file-name">Nenhum arquivo selecionado</p>
+            <button type="submit" class="process-btn">Processar</button>
+        </form>
         </div>
             <!-- Adicione logo após o formulário -->
 {% if arquivos_processados and resultados %}
