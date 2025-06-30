@@ -151,16 +151,9 @@ class ProcessadorContracheque:
         elif padrao_tabela_c.search(texto):
             return 'C'
         else:
-            # Em 2015, o anexo I não era chamado de Tabela A explicitamente.
-            # No entanto, a estrutura do documento sugere que ele pode ser o "padrão" inicial.
-            # Poderíamos tentar identificar o ano ou conteúdo específico.
-            # Por enquanto, se nenhuma tabela explícita for encontrada, podemos tentar inferir
-            # baseando-nos em um padrão de texto ou deixar como desconhecida.
-            # Se o texto contiver "Lei nº 13.450, de 26 de Outubro de 2015", pode ser um indício.
             if re.search(r'Lei n[ºo]\s*13\.450,\s*de\s*26\s*de\s*Outubro\s*de\s*2015', texto, re.IGNORECASE):
-                return '2015' # Representando a tabela da Lei 13.450
+                return '2015'
             return 'Desconhecida'
-
 
     def gerar_totais(self, resultados):
         """Gera totais mensais e anuais organizados por tabela"""
@@ -211,7 +204,6 @@ class ProcessadorContracheque:
         current_section = None
         
         # Padrão para identificar "Mês/Ano" (ex: Janeiro/2023)
-        # Garante que seja o nome completo do mês e 4 dígitos para o ano.
         month_year_pattern = re.compile(r'^(Janeiro|Fevereiro|Março|Abril|Maio|Junho|Julho|Agosto|Setembro|Outubro|Novembro|Dezembro)\/\d{4}$')
         
         lines = texto.split('\n')
@@ -236,7 +228,7 @@ class ProcessadorContracheque:
             partes = cabecalho.split('/')
             if len(partes) == 2 and partes[0] in self.meses and partes[1].isdigit():
                 meses_validos.append(cabecalho)
-        return list(set(meses_validos)) # Remove duplicatas
+        return list(set(meses_validos))
 
     def _extrair_texto_pdf(self, file_bytes):
         """Extrai texto do PDF usando PyMuPDF, garantindo processamento de múltiplas páginas"""
@@ -244,27 +236,24 @@ class ProcessadorContracheque:
             doc = fitz.open(stream=file_bytes, filetype="pdf")
             texto = ""
             for page in doc:
-                # Extrai texto com layout preservado para melhor identificação de tabelas
                 texto += page.get_text("text", flags=fitz.TEXT_PRESERVE_LIGATURES | fitz.TEXT_PRESERVE_WHITESPACE)
-                texto += "\n--- PAGE BREAK ---\n" # Marcador para separar páginas
+                texto += "\n--- PAGE BREAK ---\n"
             return texto
         except Exception as e:
             raise Exception(f"Erro ao extrair texto do PDF: {str(e)}")
 
-def processar_mes(self, data_texto, mes_ano):
+    def processar_mes(self, data_texto, mes_ano):
         """Processa os dados de um mês específico"""
         lines = [line.strip() for line in data_texto.split('\n') if line.strip()]
         
         # Dicionário para armazenar os resultados
         resultados_mes = {
             "total_proventos": 0.0,
-            "rubricas": defaultdict(float), # Armazena proventos
-            "rubricas_detalhadas": defaultdict(float), # Armazena descontos
-            "descricoes": {} # Descrições serão preenchidas na camada de análise/apresentação
+            "rubricas": defaultdict(float),
+            "rubricas_detalhadas": defaultdict(float),
+            "descricoes": {}
         }
 
-        # Padrão para identificar rubricas (código da rubrica)
-        # O padrão agora é mais flexível para incluir 4 dígitos, 3 dígitos + letra, ou letra + 3 dígitos
         padrao_rubrica = re.compile(r'^((\d{4})|(\d{3}[A-Za-z])|([A-Za-z]\d{3}))\s+.*(\d{1,3}(?:\.\d{3})*,\d{2})$')
 
         for line in lines:
@@ -274,24 +263,18 @@ def processar_mes(self, data_texto, mes_ano):
                 valor_str = match.group(5)
                 valor = self.extrair_valor(valor_str)
 
-                # LINHAS DE DEBUG:
                 print(f"DEBUG: Mês/Ano: {mes_ano}, Linha: '{line}'")
                 print(f"DEBUG: Rubrica encontrada: '{rubrica_codigo}', Valor: {valor}")
-                # FIM DAS LINHAS DE DEBUG
 
-                # Classifica como provento ou desconto
                 if rubrica_codigo in self.codigos_proventos:
                     resultados_mes["total_proventos"] += valor
                     resultados_mes["rubricas"][rubrica_codigo] += valor
                 elif rubrica_codigo in self.rubricas_detalhadas:
                     resultados_mes["rubricas_detalhadas"][rubrica_codigo] += valor
                 else:
-                    # Esta rubrica foi encontrada pelo regex, mas não está no rubricas.json
                     print(f"DEBUG: Mês/Ano: {mes_ano}, Rubrica '{rubrica_codigo}' encontrada mas NÃO CLASSIFICADA: '{line}'")
             else:
-                # LINHA DE DEBUG PARA LINHAS QUE NÃO CORRESPONDEM AO PADRÃO INICIAL:
                 print(f"DEBUG: Mês/Ano: {mes_ano}, Linha NÃO CORRESPONDE ao padrão: '{line}'")
-                # FIM DA LINHA DE DEBUG
         
         return resultados_mes
         
@@ -316,13 +299,13 @@ def processar_mes(self, data_texto, mes_ano):
 
         # Adiciona colunas para proventos e descontos que foram encontrados
         for cod in sorted_rubricas:
-            descricao = self._gerar_descricoes().get(cod, cod) # Use a descrição ou o código
+            descricao = self._gerar_descricoes().get(cod, cod)
             tabela["colunas"].append(f"{descricao} ({cod})")
         
         # Adiciona colunas para totais
         tabela["colunas"].append("TOTAL PROVENTOS")
         tabela["colunas"].append("TOTAL DESCONTOS")
-        tabela["colunas"].append("TOTAL LÍQUIDO") # Adicionar total líquido
+        tabela["colunas"].append("TOTAL LÍQUIDO")
 
         # Preenche os dados
         for mes_ano in resultados["meses_para_processar"]:
@@ -335,13 +318,10 @@ def processar_mes(self, data_texto, mes_ano):
             total_proventos_mes = 0.0
             total_descontos_mes = 0.0
 
-            # Preenche os valores para as rubricas encontradas
             for cod in sorted_rubricas:
                 valor_provento = dados_mes.get("rubricas", {}).get(cod, 0.0)
                 valor_desconto = dados_mes.get("rubricas_detalhadas", {}).get(cod, 0.0)
                 
-                # Se uma rubrica for tanto provento quanto desconto, decide como apresentar.
-                # Para simplificar, vou adicionar o valor, mas em um cenário real, talvez queira separar.
                 if cod in self.rubricas.get('proventos', {}):
                     linha_dados["valores"].append(valor_provento)
                     total_proventos_mes += valor_provento
@@ -349,12 +329,11 @@ def processar_mes(self, data_texto, mes_ano):
                     linha_dados["valores"].append(valor_desconto)
                     total_descontos_mes += valor_desconto
                 else:
-                    linha_dados["valores"].append(0.0) # Se não for nem provento nem desconto mapeado
+                    linha_dados["valores"].append(0.0)
 
-            # Adiciona os totais no final da linha
             linha_dados["valores"].append(total_proventos_mes)
             linha_dados["valores"].append(total_descontos_mes)
-            linha_dados["valores"].append(total_proventos_mes - total_descontos_mes) # Total líquido
+            linha_dados["valores"].append(total_proventos_mes - total_descontos_mes)
             
             tabela["dados"].append(linha_dados)
             
