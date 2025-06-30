@@ -111,18 +111,10 @@ def upload():
         return redirect(url_for('calculadora'))
 
     files = request.files.getlist('files[]')
-    if not files or all(file.filename == '' for file in files):
-        flash('Nenhum arquivo selecionado', 'error')
-        return redirect(url_for('calculadora'))
-
-    resultados_globais = { # Alterado para resultados_globais
+    resultados_globais = {
         'dados_mensais': {},
         'erros': [],
-        'quantidade_arquivos': 0,
-        'primeiro_mes': None,
-        'ultimo_mes': None,
-        'meses_para_processar': [],
-        'tabela': 'Desconhecida'
+        'quantidade_arquivos': 0
     }
 
     try:
@@ -132,79 +124,49 @@ def upload():
                 filepath = os.path.join(app.config['UPLOAD_FOLDER'], filename)
                 file.save(filepath)
                 
-                # Processa cada arquivo PDF
+                # Adicione logs para depuração
+                app.logger.info(f"Processando arquivo: {filename}")
+                
                 dados_contracheque = processador.processar_contracheque(filepath)
+                app.logger.info(f"Dados processados: {json.dumps(dados_contracheque, indent=2)}")
                 
-                # Atualiza resultados_globais com os dados do contracheque atual
                 resultados_globais['dados_mensais'].update(dados_contracheque.get('dados_mensais', {}))
-                
-                # Atualiza meses (primeiro, último, e lista completa)
-                if dados_contracheque.get('primeiro_mes'):
-                    if not resultados_globais['primeiro_mes'] or \
-                       processador.meses_anos.index(dados_contracheque['primeiro_mes']) < \
-                       processador.meses_anos.index(resultados_globais['primeiro_mes']):
-                        resultados_globais['primeiro_mes'] = dados_contracheque['primeiro_mes']
-                
-                if dados_contracheque.get('ultimo_mes'):
-                    if not resultados_globais['ultimo_mes'] or \
-                       processador.meses_anos.index(dados_contracheque['ultimo_mes']) > \
-                       processador.meses_anos.index(resultados_globais['ultimo_mes']):
-                        resultados_globais['ultimo_mes'] = dados_contracheque['ultimo_mes']
-
-                if dados_contracheque.get('tabela') and resultados_globais['tabela'] == 'Desconhecida':
-                    resultados_globais['tabela'] = dados_contracheque['tabela']
-
                 resultados_globais['quantidade_arquivos'] += 1
-                
-                # Remove o arquivo após processamento
                 os.remove(filepath)
-            else:
-                flash(f'Arquivo {file.filename} não é um PDF válido', 'error')
 
-        # Após processar todos os arquivos, recalcula a lista completa de meses a processar
-        if resultados_globais['primeiro_mes'] and resultados_globais['ultimo_mes']:
-            index_primeiro = processador.meses_anos.index(resultados_globais['primeiro_mes'])
-            index_ultimo = processador.meses_anos.index(resultados_globais['ultimo_mes'])
-            resultados_globais['meses_para_processar'] = processador.meses_anos[index_primeiro:index_ultimo + 1]
-
-        # Agora, chame o analisador com os resultados consolidados
-        analise_planserv = analisador.analisar_resultados(resultados_globais)
-        resultados_globais['proventos_totais_planserv'] = analise_planserv['proventos']
-        resultados_globais['descontos_totais_planserv'] = analise_planserv['descontos']
-
-        # Geração da tabela geral (mensal, anual, etc.)
+        # Gera a tabela geral
         tabela_geral = processador.gerar_tabela_geral(resultados_globais)
-        resultados_globais['tabela_geral'] = tabela_geral
-
-
-        if resultados_globais['quantidade_arquivos'] > 0:
-            # Prepara os dados para a sessão
-            session['resultados'] = json.dumps(converter_para_dict_serializavel(resultados_globais))
-            flash('Arquivos processados com sucesso!', 'success')
-            return redirect(url_for('analise_detalhada'))
-        else:
-            flash('Nenhum arquivo válido foi processado', 'error')
-            return redirect(url_for('calculadora'))
-
+        app.logger.info(f"Tabela geral gerada: {json.dumps(tabela_geral, indent=2)}")
+        
+        session['resultados'] = json.dumps(tabela_geral)
+        return redirect(url_for('analise_detalhada'))
+        
     except Exception as e:
-        logger.error(f"Erro no processamento: {str(e)}")
-        flash(f'Ocorreu um erro ao processar os arquivos: {str(e)}', 'error') # Exibe o erro para debug
+        app.logger.error(f"Erro no processamento: {str(e)}")
+        flash(f'Erro ao processar arquivos: {str(e)}', 'error')
         return redirect(url_for('calculadora'))
     
 @app.route('/analise')
 def analise_detalhada():
     if 'resultados' not in session:
-        flash('Nenhum dado de análise disponível. Por favor, envie um arquivo primeiro.', 'error')
+        flash('Nenhum dado disponível', 'error')
         return redirect(url_for('calculadora'))
     
     try:
         resultados = json.loads(session['resultados'])
+        app.logger.info(f"Resultados para análise: {json.dumps(resultados, indent=2)}")
         
+        # Verifique a estrutura dos dados
+        if 'colunas' not in resultados or 'dados' not in resultados:
+            app.logger.error("Estrutura de resultados inválida")
+            flash('Dados formatados incorretamente', 'error')
+            return redirect(url_for('calculadora'))
+            
         return render_template('analise_detalhada.html', resultados=resultados)
         
     except Exception as e:
-        logger.error(f"Erro ao carregar análise: {str(e)}")
-        flash('Erro ao carregar os resultados. Por favor, tente novamente.', 'error')
+        app.logger.error(f"Erro ao carregar análise: {str(e)}")
+        flash('Erro ao exibir resultados', 'error')
         return redirect(url_for('calculadora'))
         
 if __name__ == '__main__':
