@@ -192,7 +192,6 @@ class ProcessadorContracheque:
                for cod, info in self.rubricas.get('descontos', {}).items()}
         }
 
-    
     def _extrair_secoes(self, texto):
         """Extrai seções do texto por mês/ano"""
         sections = defaultdict(str)
@@ -221,16 +220,17 @@ class ProcessadorContracheque:
         return list(set(meses_validos))  # Remove duplicatas
 
     def _extrair_texto_pdf(self, file_bytes):
+        """Extrai texto do PDF usando PyMuPDF, garantindo processamento de múltiplas páginas"""
         try:
-        doc = fitz.open(stream=file_bytes, filetype="pdf")
-        texto = ""
-        for page in doc:
-            # Extrai texto com layout preservado para melhor identificação de tabelas
-            texto += page.get_text("text", flags=fitz.TEXT_PRESERVE_LIGATURES | fitz.TEXT_PRESERVE_WHITESPACE)
-            texto += "\n--- PAGE BREAK ---\n"  # Marcador para separar páginas
-        return texto
-    except Exception as e:
-        raise Exception(f"Erro ao extrair texto do PDF: {str(e)}")
+            doc = fitz.open(stream=file_bytes, filetype="pdf")
+            texto = ""
+            for page in doc:
+                # Extrai texto com layout preservado para melhor identificação de tabelas
+                texto += page.get_text("text", flags=fitz.TEXT_PRESERVE_LIGATURES | fitz.TEXT_PRESERVE_WHITESPACE)
+                texto += "\n--- PAGE BREAK ---\n"  # Marcador para separar páginas
+            return texto
+        except Exception as e:
+            raise Exception(f"Erro ao extrair texto do PDF: {str(e)}")
 
     def processar_mes(self, data_texto, mes_ano):
         """Processa os dados de um mês específico"""
