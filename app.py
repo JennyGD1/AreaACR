@@ -9,7 +9,7 @@ from collections import defaultdict
 import logging
 import json
 from processador_contracheque import ProcessadorContracheque
-from analisador import AnalisadorDescontos
+from analisador import AnalisadorPlanserv
 
 # Carrega as rubricas uma vez no início da aplicação
 rubricas = load_rubricas()
