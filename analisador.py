@@ -4,87 +4,95 @@ from processador_contracheque import ProcessadorContracheque
 
 logger = logging.getLogger(__name__)
 
-class AnalisadorDescontos:
+class AnalisadorPlanserv:
     def __init__(self):
         self.processador = ProcessadorContracheque()
         self.rubricas_detalhadas = self.processador.rubricas_detalhadas
         
-        # Configurações padrão
-        self.rubricas_unicas = ['7033', '7035']  # Titular e Cônjuge são únicos
-        self.valores_referencia = {
-            '7034': [150.00],  # Dependente
-            '7038': [100.00],   # Agregado Jovem
-            '7039': [200.00],   # Agregado Maior
-            '7040': [50.00]     # Coparticipação
+        # Rubricas específicas do Planserv que queremos somar
+        self.rubricas_planserv = {
+            'proventos': ['7001', '7002', '7003'],  # Exemplo - ajuste conforme suas rubricas
+            'descontos': ['7033', '7034', '7035', '7038', '7039', '7040']  # Exemplo
         }
 
-    def determinar_quantidade_pessoas(self, rubrica, valor):
+    def calcular_totais(self, resultados):
         """
-        Estima a quantidade de pessoas com base no valor de uma rubrica.
+        Calcula totais de proventos e descontos Planserv
+        Retorna: {
+            'proventos': {'total': X, 'rubricas': {'cod1': valor1, ...}},
+            'descontos': {'total': Y, 'rubricas': {'cod1': valor1, ...}}
+        }
         """
-        try:
-            valor_num = float(valor)
-        except (ValueError, TypeError):
-            return "N/A"
+        totais = {
+            'proventos': {'total': 0.0, 'rubricas': {}},
+            'descontos': {'total': 0.0, 'rubricas': {}}
+        }
 
-        if rubrica in self.rubricas_unicas:
-            return 1
-        
-        valores_ref = self.valores_referencia.get(rubrica)
-        if not valores_ref:
-            return 1
+        if not resultados or 'dados_mensais' not in resultados:
+            return totais
 
-        if rubrica == "7034":  # Lógica especial para dependentes
-            for ref in valores_ref:
-                if abs(valor_num - ref) < 0.01:
-                    return 1
-                if ref > 0:
-                    multiplicador = valor_num / ref
-                    if abs(multiplicador - round(multiplicador)) < 0.01:
-                        return int(round(multiplicador))
-            return "X"
+        # Inicializa as rubricas com zero
+        for cod in self.rubricas_planserv['proventos']:
+            totais['proventos']['rubricas'][cod] = 0.0
+        for cod in self.rubricas_planserv['descontos']:
+            totais['descontos']['rubricas'][cod] = 0.0
 
-        menor_diferenca = float('inf')
-        valor_ref_proximo = valores_ref[0]
-        for ref in valores_ref:
-            diferenca = abs(valor_num - ref)
-            if diferenca < menor_diferenca:
-                menor_diferenca = diferenca
-                valor_ref_proximo = ref
-        
-        if valor_ref_proximo > 0:
-            quantidade = round(valor_num / valor_ref_proximo)
-            return int(quantidade if quantidade > 0 else 1)
-        
-        return 1
+        # Soma os valores por mês
+        for mes_ano, dados_mes in resultados['dados_mensais'].items():
+            # Proventos
+            if 'rubricas' in dados_mes:
+                for cod, valor in dados_mes['rubricas'].items():
+                    if cod in self.rubricas_planserv['proventos']:
+                        totais['proventos']['rubricas'][cod] += valor
+                        totais['proventos']['total'] += valor
+            
+            # Descontos
+            if 'rubricas_detalhadas' in dados_mes:
+                for cod, valor in dados_mes['rubricas_detalhadas'].items():
+                    if cod in self.rubricas_planserv['descontos']:
+                        totais['descontos']['rubricas'][cod] += valor
+                        totais['descontos']['total'] += valor
+
+        return totais
 
     def analisar_resultados(self, resultados):
         """
-        Recebe os dados já extraídos e adiciona a camada de análise.
+        Versão simplificada que retorna apenas os totais
         """
         if not resultados or 'dados_mensais' not in resultados:
-            return resultados
+            return {'erro': 'Nenhum dado válido encontrado'}
 
-        analise_completa = resultados.copy()
-        analise_completa['analise_descontos'] = {}
+        # Calcula totais
+        totais = self.calcular_totais(resultados)
+        
+        # Adiciona descrições para melhor legibilidade
+        resultado_final = {
+            'proventos': {
+                'total': totais['proventos']['total'],
+                'detalhes': []
+            },
+            'descontos': {
+                'total': totais['descontos']['total'],
+                'detalhes': []
+            },
+            'tabela': resultados.get('tabela', 'Desconhecida')
+        }
 
-        for mes_ano, dados_mes in resultados['dados_mensais'].items():
-            if 'rubricas_detalhadas' not in dados_mes:
-                continue
-                
-            for rubrica, valor in dados_mes['rubricas_detalhadas'].items():
-                if valor > 0:
-                    if rubrica not in analise_completa['analise_descontos']:
-                        analise_completa['analise_descontos'][rubrica] = {
-                            'descricao': self.rubricas_detalhadas[rubrica]['descricao'],
-                            'valores': {}
-                        }
-                    
-                    quantidade = self.determinar_quantidade_pessoas(rubrica, valor)
-                    
-                    analise_completa['analise_descontos'][rubrica]['valores'][mes_ano] = {
-                        'valor': valor,
-                        'pessoas': quantidade
-                    }
+        # Preenche detalhes com descrições
+        for cod, valor in totais['proventos']['rubricas'].items():
+            if valor > 0:
+                resultado_final['proventos']['detalhes'].append({
+                    'codigo': cod,
+                    'descricao': self.processador.rubricas['proventos'].get(cod, {}).get('descricao', 'Desconhecido'),
+                    'valor': valor
+                })
 
-        return analise_completa
+        for cod, valor in totais['descontos']['rubricas'].items():
+            if valor > 0:
+                resultado_final['descontos']['detalhes'].append({
+                    'codigo': cod,
+                    'descricao': self.rubricas_detalhadas.get(cod, {}).get('descricao', 'Desconhecido'),
+                    'valor': valor
+                })
+
+        return resultado_final
