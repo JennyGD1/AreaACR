@@ -269,22 +269,26 @@ class ProcessadorContracheque:
 
 
         for line in lines:
-            # Verifica se a linha contém uma rubrica conhecida e um valor monetário
-            match = padrao_rubrica.match(line)
-            if match:
-                rubrica_codigo = match.group(1).strip() # O código da rubrica é o primeiro grupo
-                valor_str = match.group(5) # O valor é o quinto grupo capturado
-                valor = self.extrair_valor(valor_str) # Reutiliza a função extrair_valor
+        match = padrao_rubrica.match(line)
+        if match:
+            rubrica_codigo = match.group(1).strip()
+            valor_str = match.group(5)
+            valor = self.extrair_valor(valor_str)
 
-                print(f"DEBUG: Mês/Ano: {mes_ano}, Linha: '{line}'")
-                print(f"DEBUG: Rubrica encontrada: '{rubrica_codigo}', Valor: {valor}")
-                
-                # Classifica como provento ou desconto
-                if rubrica_codigo in self.codigos_proventos:
-                    resultados_mes["total_proventos"] += valor
-                    resultados_mes["rubricas"][rubrica_codigo] += valor
-                elif rubrica_codigo in self.rubricas_detalhadas: # verifica se é um código de desconto
-                    resultados_mes["rubricas_detalhadas"][rubrica_codigo] += valor
+            # LINHAS DE DEBUG:
+            print(f"DEBUG: Mês/Ano: {mes_ano}, Linha: '{line}'")
+            print(f"DEBUG: Rubrica encontrada: '{rubrica_codigo}', Valor: {valor}")
+            # FIM DAS LINHAS DE DEBUG
+
+            if rubrica_codigo in self.codigos_proventos:
+                resultados_mes["total_proventos"] += valor
+                resultados_mes["rubricas"][rubrica_codigo] += valor
+            elif rubrica_codigo in self.rubricas_detalhadas:
+                resultados_mes["rubricas_detalhadas"][rubrica_codigo] += valor
+        else:
+            # LINHA DE DEBUG PARA LINHAS NÃO CORRESPONDENTES:
+            print(f"DEBUG: Mês/Ano: {mes_ano}, Linha NÃO CORRESPONDE ao padrão: '{line}'")
+            # FIM DA LINHA DE DEBUG
         
         # As descrições devem ser acessadas do `self.rubricas` (o dicionário completo de rubricas)
         # e não calculadas aqui para cada mês, pois são estáticas.
