@@ -127,7 +127,6 @@ class ProcessadorContracheque:
             tabela = self._identificar_tabela(texto)
             
             # Processa os dados normalmente
-            # Os dados mensais são preenchidos por processar_pdf, que chama processar_mes
             results = self.processar_pdf(file_bytes)
             results['tabela'] = tabela # Adiciona informação da tabela
             
@@ -152,7 +151,7 @@ class ProcessadorContracheque:
             return 'C'
         else:
             if re.search(r'Lei n[ºo]\s*13\.450,\s*de\s*26\s*de\s*Outubro\s*de\s*2015', texto, re.IGNORECASE):
-                return '2015'
+                return '2015' # Representando a tabela da Lei 13.450
             return 'Desconhecida'
 
     def gerar_totais(self, resultados):
@@ -254,13 +253,19 @@ class ProcessadorContracheque:
             "descricoes": {}
         }
 
-        padrao_rubrica = re.compile(r'^((\d{4})|(\d{3}[A-Za-z])|([A-Za-z]\d{3}))\s+.*(\d{1,3}(?:\.\d{3})*,\d{2})$')
+        # Padrão para identificar rubricas (código da rubrica)
+        # O padrão agora é mais flexível para incluir 4 dígitos, 3 dígitos + letra, ou letra + 3 dígitos
+        padrao_rubrica = re.compile(
+            r'^(?P<codigo>[a-zA-Z0-9]{3,4})\s+.*?'  # Captura o código da rubrica (3 ou 4 chars alfanuméricos)
+            r'(?:\d{1,3}(?:\.\d{3})*,\d{2}\s+)*?'    # Ignora porcentagens/horas e outros números intermediários, opcionalmente
+            r'(?P<valor>\d{1,3}(?:\.\d{3})*,\d{2})$' # Captura o ÚLTIMO valor monetário antes do final da linha
+        )
 
         for line in lines:
             match = padrao_rubrica.match(line)
             if match:
-                rubrica_codigo = match.group(1).strip()
-                valor_str = match.group(5)
+                rubrica_codigo = match.group('codigo').strip() # Acessa pelo nome do grupo
+                valor_str = match.group('valor')             # Acessa pelo nome do grupo
                 valor = self.extrair_valor(valor_str)
 
                 print(f"DEBUG: Mês/Ano: {mes_ano}, Linha: '{line}'")
@@ -288,26 +293,21 @@ class ProcessadorContracheque:
         if not resultados or "meses_para_processar" not in resultados:
             return tabela
         
-        # Coleta todas as rubricas que apareceram nos dados mensais
         all_rubricas_found = set()
         for mes_ano, dados_mes in resultados["dados_mensais"].items():
             all_rubricas_found.update(dados_mes.get("rubricas", {}).keys())
             all_rubricas_found.update(dados_mes.get("rubricas_detalhadas", {}).keys())
         
-        # Ordena as rubricas para garantir uma ordem consistente nas colunas
         sorted_rubricas = sorted(list(all_rubricas_found))
 
-        # Adiciona colunas para proventos e descontos que foram encontrados
         for cod in sorted_rubricas:
             descricao = self._gerar_descricoes().get(cod, cod)
             tabela["colunas"].append(f"{descricao} ({cod})")
         
-        # Adiciona colunas para totais
         tabela["colunas"].append("TOTAL PROVENTOS")
         tabela["colunas"].append("TOTAL DESCONTOS")
         tabela["colunas"].append("TOTAL LÍQUIDO")
 
-        # Preenche os dados
         for mes_ano in resultados["meses_para_processar"]:
             dados_mes = resultados["dados_mensais"].get(mes_ano, {})
             linha_dados = {
