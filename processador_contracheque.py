@@ -136,27 +136,27 @@ class ProcessadorContracheque:
             raise Exception(f"Erro ao processar contracheque: {str(e)}")
 
     def _identificar_tabela(self, texto):
-    """Identifica a qual tabela pertence o contracheque com base no conteúdo"""
-    # Verifica se é da Bahia
-    if "GOVERNO DO ESTADO DA BAHIA" in texto:
-        if "Lei nº 13.450" in texto:
-            return "BAHIA_2015"
-        else:
-            return "BAHIA"
+        """Identifica a qual tabela pertence o contracheque com base no conteúdo"""
+        # Verifica se é da Bahia
+        if "GOVERNO DO ESTADO DA BAHIA" in texto:
+            if "Lei nº 13.450" in texto:
+                return "BAHIA_2015"
+            else:
+                return "BAHIA"
     
-    # Padrões originais para outras tabelas
-    padrao_tabela_a = re.compile(r'Tabela\s*A', re.IGNORECASE)
-    padrao_tabela_b = re.compile(r'Tabela\s*B', re.IGNORECASE)
-    padrao_tabela_c = re.compile(r'Tabela\s*C', re.IGNORECASE)
+        # Padrões originais para outras tabelas
+        padrao_tabela_a = re.compile(r'Tabela\s*A', re.IGNORECASE)
+        padrao_tabela_b = re.compile(r'Tabela\s*B', re.IGNORECASE)
+        padrao_tabela_c = re.compile(r'Tabela\s*C', re.IGNORECASE)
     
-    if padrao_tabela_a.search(texto):
-        return 'A'
-    elif padrao_tabela_b.search(texto):
-        return 'B'
-    elif padrao_tabela_c.search(texto):
-        return 'C'
+        if padrao_tabela_a.search(texto):
+            return 'A'
+        elif padrao_tabela_b.search(texto):
+            return 'B'
+        elif padrao_tabela_c.search(texto):
+            return 'C'
     
-    return 'Desconhecida'
+        return 'Desconhecida'
 
     def gerar_totais(self, resultados):
         """Gera totais mensais e anuais organizados por tabela"""
