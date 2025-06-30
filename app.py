@@ -101,6 +101,7 @@ def index():
 
 @app.route('/calculadora')
 def calculadora():
+    # Removido o bloco de código que tentava carregar resultados aqui
     return render_template('indexcalculadora.html')
 
 @app.route('/upload', methods=['POST'])
@@ -167,15 +168,11 @@ def upload():
             resultados_globais['meses_para_processar'] = processador.meses_anos[index_primeiro:index_ultimo + 1]
 
         # Agora, chame o analisador com os resultados consolidados
-        # A função analisar_resultados do AnalisadorPlanserv já retorna proventos e descontos totais
-        # e detalhados do Planserv.
         analise_planserv = analisador.analisar_resultados(resultados_globais)
         resultados_globais['proventos_totais_planserv'] = analise_planserv['proventos']
         resultados_globais['descontos_totais_planserv'] = analise_planserv['descontos']
 
-        # Geração da tabela geral (mensal, anual, etc.) deve ser feita aqui ou em /analise
-        # Se for aqui, os resultados de gerar_tabela_geral também devem ser adicionados
-        # a resultados_globais antes da serialização.
+        # Geração da tabela geral (mensal, anual, etc.)
         tabela_geral = processador.gerar_tabela_geral(resultados_globais)
         resultados_globais['tabela_geral'] = tabela_geral
 
@@ -199,16 +196,12 @@ def analise_detalhada():
     if 'resultados' not in session:
         flash('Nenhum dado de análise disponível. Por favor, envie um arquivo primeiro.', 'error')
         return redirect(url_for('calculadora'))
-
+    
     try:
         resultados = json.loads(session['resultados'])
-
-        # LINHA DE DEBUG IMPORTANTE:
-        logger.info(f"Resultados na rota /analise: {json.dumps(resultados, indent=2)}")
-        # FIM DA LINHA DE DEBUG
-
+        
         return render_template('analise_detalhada.html', resultados=resultados)
-
+        
     except Exception as e:
         logger.error(f"Erro ao carregar análise: {str(e)}")
         flash('Erro ao carregar os resultados. Por favor, tente novamente.', 'error')
