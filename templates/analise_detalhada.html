@@ -11,25 +11,29 @@
     {% if resultados %}
     <div class="filtros-container mb-4">
         <div class="btn-group" role="group">
-            <button type="button" class="btn btn-primary active" data-tipo="descontos">Descontos</button>
-            <button type="button" class="btn btn-secondary" data-tipo="proventos">Proventos</button>
+            <button type="button" class="btn btn-primary active" data-tipo="descontos-geral">Descontos Detalhados</button>
+            <button type="button" class="btn btn-secondary" data-tipo="proventos-geral">Proventos por Mês</button>
+            <button type="button" class="btn btn-secondary" data-tipo="planserv-totais">Totais Planserv</button> {# Novo botão para os totais Planserv #}
         </div>
     </div>
 
-    <!-- Tabela de Descontos -->
-    <div id="tabela-descontos" class="tabela-container">
-        <h3>Descontos por Mês</h3>
+    {# TABELA GERAL: PROVENTOS E DESCONTOS (DETALHADA POR RUBRICA) #}
+    {# Esta tabela agora exibirá todas as rubricas que apareceram no contracheque processado #}
+    {# Os valores já estarão classificados como provento (positivo) ou desconto (negativo) na source #}
+    <div id="tabela-descontos-geral" class="tabela-container"> {# ID ajustado para corresponder ao novo botão #}
+        <h3>Detalhes de Rubricas por Mês (Proventos e Descontos)</h3>
+        {% if resultados.tabela_geral %} {# Verifica se tabela_geral existe #}
         <table class="table table-striped">
             <thead>
                 <tr>
                     <th>MÊS/ANO</th>
-                    {% for coluna in resultados.colunas[1:] %}
+                    {% for coluna in resultados.tabela_geral.colunas[1:] %} {# Acessa 'tabela_geral' #}
                     <th>{{ coluna }}</th>
                     {% endfor %}
                 </tr>
             </thead>
             <tbody>
-                {% for linha in resultados.dados %}
+                {% for linha in resultados.tabela_geral.dados %} {# Acessa 'tabela_geral' #}
                 <tr>
                     <td>{{ linha.mes_ano }}</td>
                     {% for valor in linha.valores %}
@@ -39,11 +43,15 @@
                 {% endfor %}
             </tbody>
         </table>
+        {% else %}
+        <p>Não foi possível gerar a tabela detalhada de rubricas.</p>
+        {% endif %}
     </div>
 
-    <!-- Tabela de Proventos -->
-    <div id="tabela-proventos" class="tabela-container" style="display: none;">
-        <h3>Proventos por Mês</h3>
+    {# TABELA SIMPLIFICADA DE PROVENTOS TOTAIS POR MÊS #}
+    {# Esta tabela exibe apenas o total de proventos por mês, como estava antes #}
+    <div id="tabela-proventos-geral" class="tabela-container" style="display: none;"> {# ID ajustado #}
+        <h3>Proventos Totais por Mês</h3>
         <table class="table table-striped">
             <thead>
                 <tr>
@@ -61,6 +69,46 @@
             </tbody>
         </table>
     </div>
+
+    {# NOVAS SEÇÕES: TOTAIS DO PLANSERV #}
+    <div id="planserv-totais" class="tabela-container" style="display: none;">
+        <h3>Totais de Proventos e Descontos do Planserv (Período Completo)</h3>
+        
+        {% if resultados.proventos_totais_planserv %}
+            <h4>Proventos que Incidem no Planserv: R$ {{ "%.2f"|format(resultados.proventos_totais_planserv.total)|replace(".", ",") }}</h4>
+            {% if resultados.proventos_totais_planserv.detalhes %}
+                <p>Detalhes:</p>
+                <ul>
+                    {% for detalhe in resultados.proventos_totais_planserv.detalhes %}
+                        <li>{{ detalhe.descricao }} ({{ detalhe.codigo }}): R$ {{ "%.2f"|format(detalhe.valor)|replace(".", ",") }}</li>
+                    {% endfor %}
+                </ul>
+            {% else %}
+                <p>Nenhuma rubrica de provento do Planserv encontrada no período.</p>
+            {% endif %}
+        {% else %}
+            <p>Informações de proventos do Planserv não disponíveis.</p>
+        {% endif %}
+
+        <hr>
+
+        {% if resultados.descontos_totais_planserv %}
+            <h4>Descontos do Planserv: R$ {{ "%.2f"|format(resultados.descontos_totais_planserv.total)|replace(".", ",") }}</h4>
+            {% if resultados.descontos_totais_planserv.detalhes %}
+                <p>Detalhes:</p>
+                <ul>
+                    {% for detalhe in resultados.descontos_totais_planserv.detalhes %}
+                        <li>{{ detalhe.descricao }} ({{ detalhe.codigo }}): R$ {{ "%.2f"|format(detalhe.valor)|replace(".", ",") }}</li>
+                    {% endfor %}
+                </ul>
+            {% else %}
+                <p>Nenhuma rubrica de desconto do Planserv encontrada no período.</p>
+            {% endif %}
+        {% else %}
+            <p>Informações de descontos do Planserv não disponíveis.</p>
+        {% endif %}
+    </div>
+
     {% else %}
     <div class="alert alert-warning">
         Nenhum resultado disponível para exibição. Por favor, envie um arquivo primeiro.
@@ -86,9 +134,14 @@ document.addEventListener('DOMContentLoaded', function() {
                 t.style.display = 'none';
             });
             
-            document.getElementById(`tabela-${this.dataset.tipo}`).style.display = 'block';
+            document.getElementById(`${this.dataset.tipo}`).style.display = 'block';
         });
     });
+
+    // Ativar o primeiro botão por padrão ao carregar a página
+    if (buttons.length > 0) {
+        buttons[0].click(); // Simula um clique no primeiro botão ao carregar a página
+    }
 });
 </script>
 {% endblock %}
