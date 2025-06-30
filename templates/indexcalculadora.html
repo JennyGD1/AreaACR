@@ -43,25 +43,19 @@
         
         <div class="upload-container">
             <form id="upload-form" method="POST" enctype="multipart/form-data" action="{{ url_for('upload') }}">
-                <!-- Input file modificado para múltiplos arquivos -->
-                <input type="file" name="files" id="file-upload" accept=".pdf" multiple required style="display: none;">
-                
-                <!-- Botão visual personalizado para selecionar arquivo -->
-                <label for="file-upload" class="upload-btn">
-                    📁 Anexar contracheques
-                </label>
-                
-                <!-- Feedback dos nomes dos arquivos (atualizado para múltiplos) -->
-                <div id="file-names" class="file-name">Nenhum arquivo selecionado</div>
-                
-                <!-- Botão de processar -->
-                <button type="submit" class="process-btn" id="submit-btn">
-                    Processar
-                </button>
-                
-                <!-- Mensagens de feedback -->
-                <div id="upload-feedback" class="feedback-message"></div>
-            </form>
+    <!-- Alterado para múltiplos arquivos -->
+    <input type="file" name="files[]" id="file-upload" accept=".pdf" multiple required style="display: none;">
+    
+    <label for="file-upload" class="upload-btn">
+        📁 Anexar contracheques
+    </label>
+    
+    <div id="file-names" class="file-name">Nenhum arquivo selecionado</div>
+    
+    <button type="submit" class="process-btn" id="submit-btn">
+        Processar
+    </button>
+</form>
         </div>
         
         {% if arquivos_processados and resultados %}
@@ -85,61 +79,64 @@
 </div>
 
 <script>
-    document.addEventListener('DOMContentLoaded', () => {
-        const fileInput = document.getElementById('file-upload');
-        const fileNamesDisplay = document.getElementById('file-names');
-        const submitBtn = document.getElementById('submit-btn');
-        const feedbackDiv = document.getElementById('upload-feedback');
-        const form = document.getElementById('upload-form');
+document.addEventListener('DOMContentLoaded', () => {
+    const fileInput = document.getElementById('file-upload');
+    const fileNamesDiv = document.getElementById('file-names');
+    const submitBtn = document.getElementById('submit-btn');
+    const feedbackDiv = document.getElementById('upload-feedback');
+    const form = document.getElementById('upload-form');
 
-        // Atualiza os nomes dos arquivos selecionados
-        fileInput.addEventListener('change', function() {
-            if (this.files && this.files.length > 0) {
-                const names = Array.from(this.files).map(file => file.name).join(', ');
-                fileNamesDisplay.innerHTML = `
-                    <strong>${this.files.length} arquivo(s) selecionado(s):</strong><br>
-                    ${names}
-                `;
-                fileNamesDisplay.style.color = '#224aa2'; // Azul da Maida
-            } else {
-                fileNamesDisplay.textContent = 'Nenhum arquivo selecionado';
-                fileNamesDisplay.style.color = '#666'; // Cinza
-            }
-        });
-
-        // Validação do formulário
-        form.addEventListener('submit', function(e) {
-            e.preventDefault();
-            
-            if (!fileInput.files || fileInput.files.length === 0) {
-                showFeedback('Selecione pelo menos um arquivo PDF antes de processar', 'error');
-                return;
-            }
-
-            // Verifica se todos os arquivos são PDF
-            const invalidFiles = Array.from(fileInput.files).filter(
-                file => !file.name.toLowerCase().endsWith('.pdf')
-            );
-            
-            if (invalidFiles.length > 0) {
-                showFeedback('Apenas arquivos PDF são permitidos', 'error');
-                return;
-            }
-
-            // Mostra loading
-            submitBtn.disabled = true;
-            submitBtn.innerHTML = `
-                <span class="spinner"></span> Processando...
-            `;
-
-            // Envia o formulário
-            this.submit();
-        });
-
-        function showFeedback(message, type) {
-            feedbackDiv.textContent = message;
-            feedbackDiv.className = `feedback-message ${type}`;
+    // Novo código para mostrar múltiplos arquivos
+    fileInput.addEventListener('change', function(e) {
+        const files = e.target.files;
+        
+        if (files.length > 0) {
+            let html = `<strong>${files.length} arquivo(s) selecionado(s):</strong><ul>`;
+            Array.from(files).forEach(file => {
+                html += `<li>${file.name}</li>`;
+            });
+            html += '</ul>';
+            fileNamesDiv.innerHTML = html;
+            fileNamesDiv.style.color = '#224aa2'; // Azul da Maida
+        } else {
+            fileNamesDiv.textContent = 'Nenhum arquivo selecionado';
+            fileNamesDiv.style.color = '#666'; // Cinza
         }
     });
+
+    // Mantendo a validação existente
+    form.addEventListener('submit', function(e) {
+        e.preventDefault();
+        
+        if (!fileInput.files || fileInput.files.length === 0) {
+            showFeedback('Selecione pelo menos um arquivo PDF antes de processar', 'error');
+            return;
+        }
+
+        // Verifica se todos os arquivos são PDF
+        const invalidFiles = Array.from(fileInput.files).filter(
+            file => !file.name.toLowerCase().endsWith('.pdf')
+        );
+        
+        if (invalidFiles.length > 0) {
+            showFeedback('Apenas arquivos PDF são permitidos', 'error');
+            return;
+        }
+
+        // Mostra loading
+        submitBtn.disabled = true;
+        submitBtn.innerHTML = `
+            <span class="spinner"></span> Processando...
+        `;
+
+        // Envia o formulário
+        this.submit();
+    });
+
+    function showFeedback(message, type) {
+        feedbackDiv.textContent = message;
+        feedbackDiv.className = `feedback-message ${type}`;
+    }
+});
 </script>
 {% endblock %}
