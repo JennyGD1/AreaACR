@@ -112,6 +112,87 @@ class ProcessadorContracheque:
         except Exception as e:
             raise Exception(f"Erro ao processar PDF: {str(e)}")
 
+    def processar_contracheque(self, filepath):
+        """Processa um arquivo PDF de contracheque e retorna dados estruturados"""
+        try:
+            with open(filepath, 'rb') as f:
+                file_bytes = f.read()
+            
+            # Extrai texto do PDF
+            texto = self._extrair_texto_pdf(file_bytes)
+            
+            # Identifica a tabela (A, B ou C) - nova funcionalidade
+            tabela = self._identificar_tabela(texto)
+            
+            # Processa os dados normalmente
+            resultados = self.processar_pdf(file_bytes)
+            resultados['tabela'] = tabela  # Adiciona informação da tabela
+            
+            return resultados
+            
+        except Exception as e:
+            raise Exception(f"Erro ao processar contracheque: {str(e)}")
+
+    def _identificar_tabela(self, texto):
+        """Identifica a qual tabela (A, B ou C) pertence o contracheque"""
+        # Padrões para identificar cada tabela
+        padrao_tabela_a = re.compile(r'Tabela\s*A', re.IGNORECASE)
+        padrao_tabela_b = re.compile(r'Tabela\s*B', re.IGNORECASE)
+        padrao_tabela_c = re.compile(r'Tabela\s*C', re.IGNORECASE)
+        
+        if padrao_tabela_a.search(texto):
+            return 'A'
+        elif padrao_tabela_b.search(texto):
+            return 'B'
+        elif padrao_tabela_c.search(texto):
+            return 'C'
+        else:
+            return 'Desconhecida'
+
+    def gerar_totais(self, resultados):
+        """Gera totais mensais e anuais organizados por tabela"""
+        totais = {
+            'mensais': defaultdict(lambda: defaultdict(float)),
+            'anuais': defaultdict(lambda: defaultdict(float)),
+            'geral': defaultdict(float)
+        }
+        
+        if not resultados or 'dados_mensais' not in resultados:
+            return totais
+        
+        tabela = resultados.get('tabela', 'Desconhecida')
+        
+        for mes_ano, dados in resultados['dados_mensais'].items():
+            ano = mes_ano.split('/')[1]
+            
+            # Processa proventos
+            for rubrica, valor in dados.get('rubricas', {}).items():
+                totais['mensais'][mes_ano][rubrica] += valor
+                totais['anuais'][ano][rubrica] += valor
+                totais['geral'][rubrica] += valor
+            
+            # Processa descontos
+            for rubrica, valor in dados.get('rubricas_detalhadas', {}).items():
+                totais['mensais'][mes_ano][rubrica] += valor
+                totais['anuais'][ano][rubrica] += valor
+                totais['geral'][rubrica] += valor
+        
+        return {
+            'tabela': tabela,
+            'totais': totais,
+            'descricoes': self._gerar_descricoes()
+        }
+
+    def _gerar_descricoes(self):
+        """Gera dicionário com descrições de todas as rubricas"""
+        return {
+            **{cod: info.get('descricao', '') 
+               for cod, info in self.rubricas.get('proventos', {}).items()},
+            **{cod: info.get('descricao', '') 
+               for cod, info in self.rubricas.get('descontos', {}).items()}
+        }
+
+    
     def _extrair_secoes(self, texto):
         """Extrai seções do texto por mês/ano"""
         sections = defaultdict(str)
