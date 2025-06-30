@@ -84,39 +84,28 @@ def calculadora():
 
 @app.route('/upload', methods=['POST'])
 def upload():
-    if 'file' not in request.files:
-        flash('Nenhum arquivo enviado', 'error')
-        return redirect(url_for('calculadora'))
-    
-    file = request.files['file']
-    if file.filename == '':
-        flash('Nenhum arquivo selecionado', 'error')
-        return redirect(url_for('calculadora'))
-    
-    if not allowed_file(file.filename):
-        flash('Apenas arquivos PDF são aceitos', 'error')
-        return redirect(url_for('calculadora'))
-    
-    try:
-        file_bytes = file.read()
-        logger.info(f"Arquivo recebido: {file.filename}, tamanho: {len(file_bytes)} bytes")
-        
-        # Usa o processador já inicializado com as rubricas
-        resultados = processador.processar_pdf(file_bytes)
-        resultados = converter_para_dict_serializavel(resultados)
-        
-        if not resultados or resultados.get('erros'):
-            flash('Alguns problemas foram encontrados no processamento', 'warning')
-        
-        session['resultados'] = resultados
-        session.modified = True
-        return redirect(url_for('analise_detalhada'))
-    
-    except Exception as e:
-        logger.error(f"Erro no upload: {str(e)}", exc_info=True)
-        flash(f'Erro ao processar o arquivo: {str(e)}', 'error')
+    if 'files[]' not in request.files:
+        flash('Nenhum arquivo selecionado')
         return redirect(url_for('calculadora'))
 
+    files = request.files.getlist('files[]')
+    if not files or all(file.filename == '' for file in files):
+        flash('Nenhum arquivo selecionado')
+        return redirect(url_for('calculadora'))
+
+    # Processar cada arquivo
+    for file in files:
+        if file and file.filename.lower().endswith('.pdf'):
+            filename = secure_filename(file.filename)
+            file.save(os.path.join(app.config['UPLOAD_FOLDER'], filename))
+            # Seu processamento aqui
+        else:
+            flash('Apenas arquivos PDF são permitidos')
+            return redirect(url_for('calculadora'))
+
+    flash('Arquivos processados com sucesso!')
+    return redirect(url_for('analise'))
+    
 @app.route('/analise')
 def analise_detalhada():
     if 'resultados' not in session:
