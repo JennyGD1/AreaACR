@@ -4,19 +4,19 @@ from werkzeug.utils import secure_filename
 from config_manager import load_rubricas
 import os
 import re
-import fitz  # PyMuPDF
+import fitz # PyMuPDF
 from collections import defaultdict
 import logging
 import json
 from processador_contracheque import ProcessadorContracheque
-from analisador import AnalisadorPlanserv
+from analisador import AnalisadorPlanserv # Alterado: AnalisadorDescontos para AnalisadorPlanserv
 
 # Carrega as rubricas uma vez no início da aplicação
 rubricas = load_rubricas()
 
 # Inicializa os módulos com as rubricas
 processador = ProcessadorContracheque(rubricas)
-analisador = AnalisadorDescontos()
+analisador = AnalisadorPlanserv() # Alterado: Instancia AnalisadorPlanserv
 
 try:
     from dotenv import load_dotenv
@@ -32,7 +32,7 @@ app.secret_key = os.getenv('SECRET_KEY', 'fallback_secret_key')
 app.config.update(
     SESSION_TYPE='filesystem',
     UPLOAD_FOLDER=os.path.join('tmp', 'uploads'),
-    MAX_CONTENT_LENGTH=16 * 1024 * 1024,  # 16MB
+    MAX_CONTENT_LENGTH=16 * 1024 * 1024, # 16MB
     SESSION_FILE_DIR=os.path.join('tmp', 'flask_session'),
     ALLOWED_EXTENSIONS={'pdf'}
 )
@@ -62,17 +62,38 @@ def converter_para_dict_serializavel(resultados):
             'total_proventos': dados['total_proventos'],
             'rubricas': dict(dados['rubricas']),
             'rubricas_detalhadas': dict(dados['rubricas_detalhadas']),
-            'descricoes': dados.get('descricoes', {})
+            'descricoes': dados.get('descricoes', {}) # Descrições podem estar aqui ou serem geradas dinamicamente
         }
     
     # Cria novo dicionário serializável
-    return {
+    serializable_results = {
         'primeiro_mes': resultados.get('primeiro_mes'),
         'ultimo_mes': resultados.get('ultimo_mes'),
         'meses_para_processar': resultados.get('meses_para_processar', []),
         'dados_mensais': dados_mensais,
-        'erros': resultados.get('erros', [])
+        'erros': resultados.get('erros', []),
+        'tabela': resultados.get('tabela', 'Desconhecida'), # Adiciona a tabela
+        # Adiciona os totais calculados pelo analisador aqui para serem serializados
+        'proventos_totais_planserv': resultados.get('proventos_totais_planserv'),
+        'descontos_totais_planserv': resultados.get('descontos_totais_planserv')
     }
+
+    # Se 'totais' foi adicionado pelo `processador.gerar_totais`, garantir que também seja serializável
+    if 'totais' in resultados:
+        serializable_results['totais'] = {
+            'mensais': {k: dict(v) for k, v in resultados['totais']['mensais'].items()},
+            'anuais': {k: dict(v) for k, v in resultados['totais']['anuais'].items()},
+            'geral': dict(resultados['totais']['geral'])
+        }
+    if 'descricoes' in resultados:
+        serializable_results['descricoes_tabela_geral'] = resultados['descricoes'] # Renomeado para evitar conflito
+
+    # Para 'tabela_geral' que é gerada no /analise, ela já deve ser um dict normal, mas vamos garantir
+    if 'tabela_geral' in resultados:
+        serializable_results['tabela_geral'] = resultados['tabela_geral']
+    
+    return serializable_results
+
 
 @app.route('/')
 def index():
@@ -93,10 +114,14 @@ def upload():
         flash('Nenhum arquivo selecionado', 'error')
         return redirect(url_for('calculadora'))
 
-    resultados = {
+    resultados_globais = { # Alterado para resultados_globais
         'dados_mensais': {},
         'erros': [],
-        'quantidade_arquivos': 0
+        'quantidade_arquivos': 0,
+        'primeiro_mes': None,
+        'ultimo_mes': None,
+        'meses_para_processar': [],
+        'tabela': 'Desconhecida'
     }
 
     try:
@@ -107,19 +132,57 @@ def upload():
                 file.save(filepath)
                 
                 # Processa cada arquivo PDF
-                dados = processador.processar_contracheque(filepath)
-                analisador.analisar(dados, resultados)
+                dados_contracheque = processador.processar_contracheque(filepath)
                 
-                resultados['quantidade_arquivos'] += 1
+                # Atualiza resultados_globais com os dados do contracheque atual
+                resultados_globais['dados_mensais'].update(dados_contracheque.get('dados_mensais', {}))
+                
+                # Atualiza meses (primeiro, último, e lista completa)
+                if dados_contracheque.get('primeiro_mes'):
+                    if not resultados_globais['primeiro_mes'] or \
+                       processador.meses_anos.index(dados_contracheque['primeiro_mes']) < \
+                       processador.meses_anos.index(resultados_globais['primeiro_mes']):
+                        resultados_globais['primeiro_mes'] = dados_contracheque['primeiro_mes']
+                
+                if dados_contracheque.get('ultimo_mes'):
+                    if not resultados_globais['ultimo_mes'] or \
+                       processador.meses_anos.index(dados_contracheque['ultimo_mes']) > \
+                       processador.meses_anos.index(resultados_globais['ultimo_mes']):
+                        resultados_globais['ultimo_mes'] = dados_contracheque['ultimo_mes']
+
+                if dados_contracheque.get('tabela') and resultados_globais['tabela'] == 'Desconhecida':
+                    resultados_globais['tabela'] = dados_contracheque['tabela']
+
+                resultados_globais['quantidade_arquivos'] += 1
                 
                 # Remove o arquivo após processamento
                 os.remove(filepath)
             else:
                 flash(f'Arquivo {file.filename} não é um PDF válido', 'error')
 
-        if resultados['quantidade_arquivos'] > 0:
+        # Após processar todos os arquivos, recalcula a lista completa de meses a processar
+        if resultados_globais['primeiro_mes'] and resultados_globais['ultimo_mes']:
+            index_primeiro = processador.meses_anos.index(resultados_globais['primeiro_mes'])
+            index_ultimo = processador.meses_anos.index(resultados_globais['ultimo_mes'])
+            resultados_globais['meses_para_processar'] = processador.meses_anos[index_primeiro:index_ultimo + 1]
+
+        # Agora, chame o analisador com os resultados consolidados
+        # A função analisar_resultados do AnalisadorPlanserv já retorna proventos e descontos totais
+        # e detalhados do Planserv.
+        analise_planserv = analisador.analisar_resultados(resultados_globais)
+        resultados_globais['proventos_totais_planserv'] = analise_planserv['proventos']
+        resultados_globais['descontos_totais_planserv'] = analise_planserv['descontos']
+
+        # Geração da tabela geral (mensal, anual, etc.) deve ser feita aqui ou em /analise
+        # Se for aqui, os resultados de gerar_tabela_geral também devem ser adicionados
+        # a resultados_globais antes da serialização.
+        tabela_geral = processador.gerar_tabela_geral(resultados_globais)
+        resultados_globais['tabela_geral'] = tabela_geral
+
+
+        if resultados_globais['quantidade_arquivos'] > 0:
             # Prepara os dados para a sessão
-            session['resultados'] = json.dumps(converter_para_dict_serializavel(resultados))
+            session['resultados'] = json.dumps(converter_para_dict_serializavel(resultados_globais))
             flash('Arquivos processados com sucesso!', 'success')
             return redirect(url_for('analise_detalhada'))
         else:
@@ -128,7 +191,7 @@ def upload():
 
     except Exception as e:
         logger.error(f"Erro no processamento: {str(e)}")
-        flash('Ocorreu um erro ao processar os arquivos', 'error')
+        flash(f'Ocorreu um erro ao processar os arquivos: {str(e)}', 'error') # Exibe o erro para debug
         return redirect(url_for('calculadora'))
     
 @app.route('/analise')
@@ -138,17 +201,10 @@ def analise_detalhada():
         return redirect(url_for('calculadora'))
     
     try:
-        resultados = session['resultados']
+        resultados = json.loads(session['resultados'])
         
-        # Garante que os dados estão no formato correto
-        if not isinstance(resultados, dict):
-            resultados = json.loads(resultados)
-        
-        # Processa a tabela geral se necessário
-        if 'dados_mensais' in resultados:
-            processador = ProcessadorContracheque()
-            tabela_geral = processador.gerar_tabela_geral(resultados)
-            resultados.update(tabela_geral)
+        # A tabela_geral e os totais Planserv já devem vir serializados da rota /upload
+        # então não precisam ser recalculados aqui, apenas passados para o template.
         
         return render_template('analise_detalhada.html', resultados=resultados)
         
