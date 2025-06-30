@@ -4,19 +4,19 @@ from werkzeug.utils import secure_filename
 from config_manager import load_rubricas
 import os
 import re
-import fitz # PyMuPDF
+import fitz  # PyMuPDF
 from collections import defaultdict
 import logging
 import json
 from processador_contracheque import ProcessadorContracheque
-from analisador import AnalisadorPlanserv # Alterado: AnalisadorDescontos para AnalisadorPlanserv
+from analisador import AnalisadorPlanserv  # Alterado: AnalisadorDescontos para AnalisadorPlanserv
 
 # Carrega as rubricas uma vez no início da aplicação
 rubricas = load_rubricas()
 
 # Inicializa os módulos com as rubricas
 processador = ProcessadorContracheque(rubricas)
-analisador = AnalisadorPlanserv() # Alterado: Instancia AnalisadorPlanserv
+analisador = AnalisadorPlanserv()  # Alterado: Instancia AnalisadorPlanserv
 
 try:
     from dotenv import load_dotenv
@@ -32,7 +32,7 @@ app.secret_key = os.getenv('SECRET_KEY', 'fallback_secret_key')
 app.config.update(
     SESSION_TYPE='filesystem',
     UPLOAD_FOLDER=os.path.join('tmp', 'uploads'),
-    MAX_CONTENT_LENGTH=16 * 1024 * 1024, # 16MB
+    MAX_CONTENT_LENGTH=16 * 1024 * 1024,  # 16MB
     SESSION_FILE_DIR=os.path.join('tmp', 'flask_session'),
     ALLOWED_EXTENSIONS={'pdf'}
 )
@@ -47,8 +47,10 @@ logger = logging.getLogger(__name__)
 
 Session(app)
 
+
 def allowed_file(filename):
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in app.config['ALLOWED_EXTENSIONS']
+
 
 def converter_para_dict_serializavel(resultados):
     """Converte os defaultdicts para dicts regulares para serialização"""
@@ -62,7 +64,7 @@ def converter_para_dict_serializavel(resultados):
             'total_proventos': dados['total_proventos'],
             'rubricas': dict(dados['rubricas']),
             'rubricas_detalhadas': dict(dados['rubricas_detalhadas']),
-            'descricoes': dados.get('descricoes', {}) # Descrições podem estar aqui ou serem geradas dinamicamente
+            'descricoes': dados.get('descricoes', {})  # Descrições podem estar aqui ou serem geradas dinamicamente
         }
     
     # Cria novo dicionário serializável
@@ -72,7 +74,7 @@ def converter_para_dict_serializavel(resultados):
         'meses_para_processar': resultados.get('meses_para_processar', []),
         'dados_mensais': dados_mensais,
         'erros': resultados.get('erros', []),
-        'tabela': resultados.get('tabela', 'Desconhecida'), # Adiciona a tabela
+        'tabela': resultados.get('tabela', 'Desconhecida'),  # Adiciona a tabela
         # Adiciona os totais calculados pelo analisador aqui para serem serializados
         'proventos_totais_planserv': resultados.get('proventos_totais_planserv'),
         'descontos_totais_planserv': resultados.get('descontos_totais_planserv')
@@ -86,7 +88,7 @@ def converter_para_dict_serializavel(resultados):
             'geral': dict(resultados['totais']['geral'])
         }
     if 'descricoes' in resultados:
-        serializable_results['descricoes_tabela_geral'] = resultados['descricoes'] # Renomeado para evitar conflito
+        serializable_results['descricoes_tabela_geral'] = resultados['descricoes']  # Renomeado para evitar conflito
 
     # Para 'tabela_geral' que é gerada no /analise, ela já deve ser um dict normal, mas vamos garantir
     if 'tabela_geral' in resultados:
@@ -99,9 +101,11 @@ def converter_para_dict_serializavel(resultados):
 def index():
     return render_template('index.html')
 
+
 @app.route('/calculadora')
 def calculadora():
     return render_template('indexcalculadora.html', json=json)
+
 
 @app.route('/upload', methods=['POST'])
 def upload():
@@ -144,7 +148,8 @@ def upload():
         app.logger.error(f"Erro no processamento: {str(e)}")
         flash(f'Erro ao processar arquivos: {str(e)}', 'error')
         return redirect(url_for('calculadora'))
-    
+
+
 @app.route('/analise')
 def analise_detalhada():
     if 'resultados' not in session:
@@ -153,20 +158,24 @@ def analise_detalhada():
     
     try:
         resultados = json.loads(session['resultados'])
-        app.logger.info(f"Resultados para análise: {json.dumps(resultados, indent=2)}")
         
-        # Verifique a estrutura dos dados
-        if 'colunas' not in resultados or 'dados' not in resultados:
-            app.logger.error("Estrutura de resultados inválida")
+        # Verifica a estrutura dos dados
+        if not isinstance(resultados, dict):
             flash('Dados formatados incorretamente', 'error')
             return redirect(url_for('calculadora'))
             
         return render_template('analise_detalhada.html', resultados=resultados)
         
     except Exception as e:
-        app.logger.error(f"Erro ao carregar análise: {str(e)}")
+        logger.error(f"Erro ao carregar análise: {str(e)}")
         flash('Erro ao exibir resultados', 'error')
         return redirect(url_for('calculadora'))
         
+    except Exception as e:
+        app.logger.error(f"Erro ao carregar análise: {str(e)}")
+        flash('Erro ao exibir resultados', 'error')
+        return redirect(url_for('calculadora'))
+
+
 if __name__ == '__main__':
     app.run(debug=os.getenv('FLASK_DEBUG', 'False') == 'True')
