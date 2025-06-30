@@ -85,26 +85,51 @@ def calculadora():
 @app.route('/upload', methods=['POST'])
 def upload():
     if 'files[]' not in request.files:
-        flash('Nenhum arquivo selecionado')
+        flash('Nenhum arquivo selecionado', 'error')
         return redirect(url_for('calculadora'))
 
     files = request.files.getlist('files[]')
     if not files or all(file.filename == '' for file in files):
-        flash('Nenhum arquivo selecionado')
+        flash('Nenhum arquivo selecionado', 'error')
         return redirect(url_for('calculadora'))
 
-    # Processar cada arquivo
-    for file in files:
-        if file and file.filename.lower().endswith('.pdf'):
-            filename = secure_filename(file.filename)
-            file.save(os.path.join(app.config['UPLOAD_FOLDER'], filename))
-            # Seu processamento aqui
+    resultados = {
+        'dados_mensais': {},
+        'erros': [],
+        'quantidade_arquivos': 0
+    }
+
+    try:
+        for file in files:
+            if file and allowed_file(file.filename):
+                filename = secure_filename(file.filename)
+                filepath = os.path.join(app.config['UPLOAD_FOLDER'], filename)
+                file.save(filepath)
+                
+                # Processa cada arquivo PDF
+                dados = processador.processar_contracheque(filepath)
+                analisador.analisar(dados, resultados)
+                
+                resultados['quantidade_arquivos'] += 1
+                
+                # Remove o arquivo após processamento
+                os.remove(filepath)
+            else:
+                flash(f'Arquivo {file.filename} não é um PDF válido', 'error')
+
+        if resultados['quantidade_arquivos'] > 0:
+            # Prepara os dados para a sessão
+            session['resultados'] = json.dumps(converter_para_dict_serializavel(resultados))
+            flash('Arquivos processados com sucesso!', 'success')
+            return redirect(url_for('analise_detalhada'))
         else:
-            flash('Apenas arquivos PDF são permitidos')
+            flash('Nenhum arquivo válido foi processado', 'error')
             return redirect(url_for('calculadora'))
 
-    flash('Arquivos processados com sucesso!')
-    return redirect(url_for('analise'))
+    except Exception as e:
+        logger.error(f"Erro no processamento: {str(e)}")
+        flash('Ocorreu um erro ao processar os arquivos', 'error')
+        return redirect(url_for('calculadora'))
     
 @app.route('/analise')
 def analise_detalhada():
