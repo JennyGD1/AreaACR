@@ -101,8 +101,7 @@ def index():
 
 @app.route('/calculadora')
 def calculadora():
-    # Removido o bloco de código que tentava carregar resultados aqui
-    return render_template('indexcalculadora.html')
+    return render_template('indexcalculadora.html', json=json)
 
 @app.route('/upload', methods=['POST'])
 def upload():
