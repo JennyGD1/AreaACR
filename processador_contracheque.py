@@ -136,23 +136,27 @@ class ProcessadorContracheque:
             raise Exception(f"Erro ao processar contracheque: {str(e)}")
 
     def _identificar_tabela(self, texto):
-        """Identifica a qual tabela (A, B ou C) pertence o contracheque"""
-        # Padrões para identificar cada tabela
-        # Usando expressões regulares para flexibilidade e ignorando case
-        padrao_tabela_a = re.compile(r'Tabela\s*A', re.IGNORECASE)
-        padrao_tabela_b = re.compile(r'Tabela\s*B', re.IGNORECASE)
-        padrao_tabela_c = re.compile(r'Tabela\s*C', re.IGNORECASE)
-        
-        if padrao_tabela_a.search(texto):
-            return 'A'
-        elif padrao_tabela_b.search(texto):
-            return 'B'
-        elif padrao_tabela_c.search(texto):
-            return 'C'
+    """Identifica a qual tabela pertence o contracheque com base no conteúdo"""
+    # Verifica se é da Bahia
+    if "GOVERNO DO ESTADO DA BAHIA" in texto:
+        if "Lei nº 13.450" in texto:
+            return "BAHIA_2015"
         else:
-            if re.search(r'Lei n[ºo]\s*13\.450,\s*de\s*26\s*de\s*Outubro\s*de\s*2015', texto, re.IGNORECASE):
-                return '2015' # Representando a tabela da Lei 13.450
-            return 'Desconhecida'
+            return "BAHIA"
+    
+    # Padrões originais para outras tabelas
+    padrao_tabela_a = re.compile(r'Tabela\s*A', re.IGNORECASE)
+    padrao_tabela_b = re.compile(r'Tabela\s*B', re.IGNORECASE)
+    padrao_tabela_c = re.compile(r'Tabela\s*C', re.IGNORECASE)
+    
+    if padrao_tabela_a.search(texto):
+        return 'A'
+    elif padrao_tabela_b.search(texto):
+        return 'B'
+    elif padrao_tabela_c.search(texto):
+        return 'C'
+    
+    return 'Desconhecida'
 
     def gerar_totais(self, resultados):
         """Gera totais mensais e anuais organizados por tabela"""
@@ -198,27 +202,34 @@ class ProcessadorContracheque:
         }
 
     def _extrair_secoes(self, texto):
-        """Extrai seções do texto por mês/ano"""
-        sections = defaultdict(str)
-        current_section = None
-        
-        # Padrão para identificar "Mês/Ano" (ex: Janeiro/2023)
-        month_year_pattern = re.compile(r'^(Janeiro|Fevereiro|Março|Abril|Maio|Junho|Julho|Agosto|Setembro|Outubro|Novembro|Dezembro)\/\d{4}$')
-        
-        lines = texto.split('\n')
-        
-        for i, linha in enumerate(lines):
-            linha = linha.strip()
-            if not linha:
-                continue
-                
-            # Verifica se é um cabeçalho de mês/ano
-            if month_year_pattern.match(linha):
-                current_section = linha
-            elif current_section:
-                sections[current_section] += linha + '\n'
-        
-        return sections
+    """Extrai seções do texto por mês/ano"""
+    sections = defaultdict(str)
+    current_section = None
+    
+    # Padrão para identificar cabeçalhos de mês/ano
+    month_year_pattern = re.compile(
+        r'^(?:AVISO DE CRÉDITO\s+)?'  # Opcional: prefixo "AVISO DE CRÉDITO"
+        r'(Janeiro|Fevereiro|Março|Abril|Maio|Junho|Julho|Agosto|Setembro|Outubro|Novembro|Dezembro)'
+        r'\s*/\s*(\d{4})$'  # Mês/Ano
+    )
+    
+    lines = texto.split('\n')
+    
+    for linha in lines:
+        linha = linha.strip()
+        if not linha:
+            continue
+            
+        # Verifica se é um cabeçalho de mês/ano
+        match = month_year_pattern.match(linha)
+        if match:
+            mes = match.group(1)
+            ano = match.group(2)
+            current_section = f"{mes}/{ano}"
+        elif current_section:
+            sections[current_section] += linha + '\n'
+    
+    return sections
 
     def _identificar_meses(self, sections):
         """Identifica os meses presentes no texto"""
@@ -230,57 +241,61 @@ class ProcessadorContracheque:
         return list(set(meses_validos))
 
     def _extrair_texto_pdf(self, file_bytes):
-        """Extrai texto do PDF usando PyMuPDF, garantindo processamento de múltiplas páginas"""
-        try:
-            doc = fitz.open(stream=file_bytes, filetype="pdf")
-            texto = ""
-            for page in doc:
-                texto += page.get_text("text", flags=fitz.TEXT_PRESERVE_LIGATURES | fitz.TEXT_PRESERVE_WHITESPACE)
-                texto += "\n--- PAGE BREAK ---\n"
-            return texto
-        except Exception as e:
-            raise Exception(f"Erro ao extrair texto do PDF: {str(e)}")
+    """Extrai texto do PDF usando PyMuPDF, garantindo processamento de múltiplas páginas"""
+    try:
+        doc = fitz.open(stream=file_bytes, filetype="pdf")
+        texto = ""
+        for page in doc:
+            # Extrai texto com layout preservado e flags adicionais para melhorar a extração
+            texto += page.get_text("text", flags=
+                fitz.TEXT_PRESERVE_LIGATURES | 
+                fitz.TEXT_PRESERVE_WHITESPACE |
+                fitz.TEXT_MEDIABOX_CLIP |
+                fitz.TEXT_DEHYPHENATE)
+            texto += "\n--- PAGE BREAK ---\n"
+        return texto
+    except Exception as e:
+        raise Exception(f"Erro ao extrair texto do PDF: {str(e)}")
 
     def processar_mes(self, data_texto, mes_ano):
-        """Processa os dados de um mês específico"""
-        lines = [line.strip() for line in data_texto.split('\n') if line.strip()]
-        
-        # Dicionário para armazenar os resultados
-        resultados_mes = {
-            "total_proventos": 0.0,
-            "rubricas": defaultdict(float),
-            "rubricas_detalhadas": defaultdict(float),
-            "descricoes": {}
-        }
+    """Processa os dados de um mês específico"""
+    lines = [line.strip() for line in data_texto.split('\n') if line.strip()]
+    
+    resultados_mes = {
+        "total_proventos": 0.0,
+        "rubricas": defaultdict(float),
+        "rubricas_detalhadas": defaultdict(float),
+        "descricoes": {}
+    }
 
-        # Padrão para identificar rubricas (código da rubrica)
-        # O padrão agora é mais flexível para incluir 4 dígitos, 3 dígitos + letra, ou letra + 3 dígitos
-        padrao_rubrica = re.compile(
-            r'^(?P<codigo>[A-Za-z0-9\/]+)\s+.*' +  # Captura o código (flexível), seguido de espaço e QUALQUER COISA (guloso)
-            r'(?P<valor>\d{1,3}(?:\.\d{3})*,\d{2})$' # Captura o ÚLTIMO valor monetário antes do final da linha
-        )
+    # Padrão melhorado para identificar rubricas no formato do contracheque da Bahia
+    padrao_rubrica = re.compile(
+        r'^(?P<codigo>\d{1,4}[A-Za-z]?)\s+'  # Código da rubrica (1-4 dígitos + opcional letra)
+        r'.*?'  # Descrição (não capturada)
+        r'(?P<valor>\d{1,3}(?:\.\d{3})*,\d{2})'  # Valor monetário
+    )
 
-        for line in lines:
-            match = padrao_rubrica.match(line)
-            if match:
-                rubrica_codigo = match.group('codigo').strip() # Acessa pelo nome do grupo
-                valor_str = match.group('valor')             # Acessa pelo nome do grupo
-                valor = self.extrair_valor(valor_str)
+    for line in lines:
+        # Tenta encontrar rubricas de proventos e descontos
+        match = padrao_rubrica.match(line)
+        if match:
+            rubrica_codigo = match.group('codigo').strip()
+            valor_str = match.group('valor')
+            valor = self.extrair_valor(valor_str)
 
-                print(f"DEBUG: Mês/Ano: {mes_ano}, Linha: '{line}'")
-                print(f"DEBUG: Rubrica encontrada: '{rubrica_codigo}', Valor: {valor}")
+            logger.debug(f"Processando linha: {line}")
+            logger.debug(f"Rubrica encontrada: {rubrica_codigo}, Valor: {valor}")
 
-                if rubrica_codigo in self.codigos_proventos:
-                    resultados_mes["total_proventos"] += valor
-                    resultados_mes["rubricas"][rubrica_codigo] += valor
-                elif rubrica_codigo in self.rubricas_detalhadas:
-                    resultados_mes["rubricas_detalhadas"][rubrica_codigo] += valor
-                else:
-                    print(f"DEBUG: Mês/Ano: {mes_ano}, Rubrica '{rubrica_codigo}' encontrada mas NÃO CLASSIFICADA: '{line}'")
+            # Verifica se é provento ou desconto
+            if rubrica_codigo in self.codigos_proventos:
+                resultados_mes["total_proventos"] += valor
+                resultados_mes["rubricas"][rubrica_codigo] += valor
+            elif rubrica_codigo in self.rubricas_detalhadas:
+                resultados_mes["rubricas_detalhadas"][rubrica_codigo] += valor
             else:
-                print(f"DEBUG: Mês/Ano: {mes_ano}, Linha NÃO CORRESPONDE ao padrão: '{line}'")
+                logger.debug(f"Rubrica não classificada: {rubrica_codigo}")
         
-        return resultados_mes
+    return resultados_mes
         
     def gerar_tabela_geral(self, resultados):
         """Gera uma tabela consolidada com os resultados"""
