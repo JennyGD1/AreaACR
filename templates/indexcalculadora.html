@@ -58,22 +58,30 @@
 </form>
         </div>
         
-        {% if arquivos_processados and resultados %}
-        <div class="resultados-container">
-            <h2>Resultados do Processamento</h2>
+    {% if session.get('resultados') %}
+    {% set resultados = session['resultados'] %}
+    {% if resultados is string %}
+        {% set resultados = json.loads(resultados) %}
+    {% endif %}
+    
+    <div class="resultados-container">
+        <h2>Resultados do Processamento</h2>
+        
+        <div class="resumo-container">
+            <div class="resumo-item">
+                <h3>Total Processado</h3>
+                <p>{{ resultados.quantidade_arquivos }} arquivo(s)</p>
+            </div>
             
-            <div class="resumo-container">
-                <div class="resumo-item">
-                    <h3>Total de Proventos</h3>
-                    <p>R$ {{ "%.2f"|format(resultados.total_proventos) }}</p>
-                </div>
-                
-                <div class="resumo-item">
-                    <h3>Arquivos Processados</h3>
-                    <p>{{ resultados.quantidade_arquivos }}</p>
-                </div>
+            <div class="resumo-item">
+                <h3>Próxima Etapa</h3>
+                <a href="{{ url_for('analise_detalhada') }}" class="btn btn-primary">
+                    Ver Análise Detalhada
+                </a>
             </div>
         </div>
+    </div>
+{% endif %}
         {% endif %}
     </div>
 </div>
