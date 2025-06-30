@@ -3,7 +3,6 @@
 {% block extra_css %}
 <link rel="stylesheet" href="{{ url_for('static', filename='css/pages/calculadora.css') }}">
 <style>
-    /* Seus estilos existentes permanecem iguais */
     :root {
         --maida-azul: #224aa2;
         --maida-rosa: #ff6b8b;
@@ -14,7 +13,141 @@
         --transicao-padrao: all 0.3s ease;
     }
     
-    /* ... (mantenha todos os outros estilos existentes) ... */
+    .page-header {
+        text-align: center;
+        margin-bottom: 30px;
+    }
+    
+    .page-header img {
+        max-width: 180px;
+        height: auto;
+        margin-bottom: 20px;
+    }
+       
+    .calculator-container {
+        background: white;
+        border-radius: 15px;
+        padding: 40px;
+        box-shadow: 0 5px 20px rgba(0,0,0,0.1);
+        width: 90%;
+        max-width: 600px;
+        margin: 40px auto;
+        text-align: center;
+    }
+    
+    .calculator-header {
+        margin-bottom: 30px;
+    }
+    
+    .calculator-header h1 {
+        color: var(--maida-azul);
+        font-size: 2rem;
+        margin-bottom: 5px;
+    }
+    
+    .calculator-header p {
+        color: #666;
+        font-size: 1rem;
+        margin-bottom: 30px;
+    }
+    
+    .upload-container {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 15px;
+        margin-top: 20px;
+    }
+    
+    .file-name {
+        color: #666;
+        font-size: 0.9rem;
+        margin: 10px 0;
+    }
+    
+    .resultados-container {
+        margin-top: 40px;
+        padding: 30px;
+        background: #f8f9fa;
+        border-radius: 15px;
+    }
+
+    .resumo-container {
+        display: flex;
+        justify-content: center;
+        gap: 30px;
+        margin: 25px 0;
+    }
+
+    .resumo-item {
+        background: white;
+        padding: 20px;
+        border-radius: 10px;
+        min-width: 200px;
+        box-shadow: 0 3px 10px rgba(0,0,0,0.1);
+    }
+
+    .upload-btn {
+        display: inline-block;
+        padding: 10px 20px;
+        background-color: var(--maida-azul);
+        color: white;
+        border-radius: 4px;
+        cursor: pointer;
+        transition: var(--transicao-padrao);
+    }
+
+    .upload-btn:hover {
+        background-color: #1a3a8f;
+        transform: translateY(-2px);
+    }
+    
+    .process-btn {
+        padding: 12px 25px;
+        background-color: var(--maida-rosa);
+        color: white;
+        border: none;
+        border-radius: 8px;
+        font-weight: bold;
+        cursor: pointer;
+        transition: var(--transicao-padrao);
+    }
+    
+    .process-btn:hover {
+        background-color: #e05575;
+        transform: translateY(-2px);
+    }
+
+    .spinner {
+        display: inline-block;
+        width: 18px;
+        height: 18px;
+        border: 3px solid rgba(255,255,255,0.3);
+        border-radius: 50%;
+        border-top-color: white;
+        animation: spin 1s ease-in-out infinite;
+    }
+
+    @keyframes spin {
+        to { transform: rotate(360deg); }
+    }
+
+    .feedback-message {
+        margin-top: 10px;
+        padding: 8px 12px;
+        border-radius: 4px;
+        font-size: 0.9rem;
+    }
+
+    .feedback-message.error {
+        background-color: #ffebee;
+        color: #c62828;
+    }
+
+    .feedback-message.success {
+        background-color: #e8f5e9;
+        color: #2e7d32;
+    }
 </style>
 {% endblock %}
 
@@ -43,45 +176,45 @@
         
         <div class="upload-container">
             <form id="upload-form" method="POST" enctype="multipart/form-data" action="{{ url_for('upload') }}">
-    <!-- Alterado para múltiplos arquivos -->
-    <input type="file" name="files[]" id="file-upload" accept=".pdf" multiple required style="display: none;">
-    
-    <label for="file-upload" class="upload-btn">
-        📁 Anexar contracheques
-    </label>
-    
-    <div id="file-names" class="file-name">Nenhum arquivo selecionado</div>
-    
-    <button type="submit" class="process-btn" id="submit-btn">
-        Processar
-    </button>
-</form>
+                <input type="file" name="files[]" id="file-upload" accept=".pdf" multiple required style="display: none;">
+                
+                <label for="file-upload" class="upload-btn">
+                    📁 Anexar contracheques
+                </label>
+                
+                <div id="file-names" class="file-name">Nenhum arquivo selecionado</div>
+                
+                <button type="submit" class="process-btn" id="submit-btn">
+                    Processar
+                </button>
+                
+                <div id="upload-feedback" class="feedback-message"></div>
+            </form>
         </div>
         
-    {% if session.get('resultados') %}
-    {% set resultados = session['resultados'] %}
-    {% if resultados is string %}
-        {% set resultados = json.loads(resultados) %}
-    {% endif %}
-    
-    <div class="resultados-container">
-        <h2>Resultados do Processamento</h2>
-        
-        <div class="resumo-container">
-            <div class="resumo-item">
-                <h3>Total Processado</h3>
-                <p>{{ resultados.quantidade_arquivos }} arquivo(s)</p>
-            </div>
+        {% if session.get('resultados') %}
+            {% set resultados = session['resultados'] %}
+            {% if resultados is string %}
+                {% set resultados = json.loads(resultados) %}
+            {% endif %}
             
-            <div class="resumo-item">
-                <h3>Próxima Etapa</h3>
-                <a href="{{ url_for('analise_detalhada') }}" class="btn btn-primary">
-                    Ver Análise Detalhada
-                </a>
+            <div class="resultados-container">
+                <h2>Resultados do Processamento</h2>
+                
+                <div class="resumo-container">
+                    <div class="resumo-item">
+                        <h3>Total Processado</h3>
+                        <p>{{ resultados.quantidade_arquivos }} arquivo(s)</p>
+                    </div>
+                    
+                    <div class="resumo-item">
+                        <h3>Próxima Etapa</h3>
+                        <a href="{{ url_for('analise_detalhada') }}" class="btn btn-primary">
+                            Ver Análise Detalhada
+                        </a>
+                    </div>
+                </div>
             </div>
-        </div>
-    </div>
-{% endif %}
         {% endif %}
     </div>
 </div>
@@ -94,7 +227,6 @@ document.addEventListener('DOMContentLoaded', () => {
     const feedbackDiv = document.getElementById('upload-feedback');
     const form = document.getElementById('upload-form');
 
-    // Novo código para mostrar múltiplos arquivos
     fileInput.addEventListener('change', function(e) {
         const files = e.target.files;
         
@@ -105,14 +237,13 @@ document.addEventListener('DOMContentLoaded', () => {
             });
             html += '</ul>';
             fileNamesDiv.innerHTML = html;
-            fileNamesDiv.style.color = '#224aa2'; // Azul da Maida
+            fileNamesDiv.style.color = '#224aa2';
         } else {
             fileNamesDiv.textContent = 'Nenhum arquivo selecionado';
-            fileNamesDiv.style.color = '#666'; // Cinza
+            fileNamesDiv.style.color = '#666';
         }
     });
 
-    // Mantendo a validação existente
     form.addEventListener('submit', function(e) {
         e.preventDefault();
         
@@ -121,7 +252,6 @@ document.addEventListener('DOMContentLoaded', () => {
             return;
         }
 
-        // Verifica se todos os arquivos são PDF
         const invalidFiles = Array.from(fileInput.files).filter(
             file => !file.name.toLowerCase().endsWith('.pdf')
         );
@@ -131,13 +261,11 @@ document.addEventListener('DOMContentLoaded', () => {
             return;
         }
 
-        // Mostra loading
         submitBtn.disabled = true;
         submitBtn.innerHTML = `
             <span class="spinner"></span> Processando...
         `;
 
-        // Envia o formulário
         this.submit();
     });
 
