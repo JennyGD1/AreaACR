@@ -251,7 +251,7 @@ class ProcessadorContracheque:
         except Exception as e:
             raise Exception(f"Erro ao extrair texto do PDF: {str(e)}")
 
-    def processar_mes(self, data_texto, mes_ano):
+def processar_mes(self, data_texto, mes_ano):
         """Processa os dados de um mês específico"""
         lines = [line.strip() for line in data_texto.split('\n') if line.strip()]
         
@@ -267,32 +267,32 @@ class ProcessadorContracheque:
         # O padrão agora é mais flexível para incluir 4 dígitos, 3 dígitos + letra, ou letra + 3 dígitos
         padrao_rubrica = re.compile(r'^((\d{4})|(\d{3}[A-Za-z])|([A-Za-z]\d{3}))\s+.*(\d{1,3}(?:\.\d{3})*,\d{2})$')
 
-
         for line in lines:
-        match = padrao_rubrica.match(line)
-        if match:
-            rubrica_codigo = match.group(1).strip()
-            valor_str = match.group(5)
-            valor = self.extrair_valor(valor_str)
+            match = padrao_rubrica.match(line)
+            if match:
+                rubrica_codigo = match.group(1).strip()
+                valor_str = match.group(5)
+                valor = self.extrair_valor(valor_str)
 
-            # LINHAS DE DEBUG:
-            print(f"DEBUG: Mês/Ano: {mes_ano}, Linha: '{line}'")
-            print(f"DEBUG: Rubrica encontrada: '{rubrica_codigo}', Valor: {valor}")
-            # FIM DAS LINHAS DE DEBUG
+                # LINHAS DE DEBUG:
+                print(f"DEBUG: Mês/Ano: {mes_ano}, Linha: '{line}'")
+                print(f"DEBUG: Rubrica encontrada: '{rubrica_codigo}', Valor: {valor}")
+                # FIM DAS LINHAS DE DEBUG
 
-            if rubrica_codigo in self.codigos_proventos:
-                resultados_mes["total_proventos"] += valor
-                resultados_mes["rubricas"][rubrica_codigo] += valor
-            elif rubrica_codigo in self.rubricas_detalhadas:
-                resultados_mes["rubricas_detalhadas"][rubrica_codigo] += valor
-        else:
-            # LINHA DE DEBUG PARA LINHAS NÃO CORRESPONDENTES:
-            print(f"DEBUG: Mês/Ano: {mes_ano}, Linha NÃO CORRESPONDE ao padrão: '{line}'")
-            # FIM DA LINHA DE DEBUG
+                # Classifica como provento ou desconto
+                if rubrica_codigo in self.codigos_proventos:
+                    resultados_mes["total_proventos"] += valor
+                    resultados_mes["rubricas"][rubrica_codigo] += valor
+                elif rubrica_codigo in self.rubricas_detalhadas:
+                    resultados_mes["rubricas_detalhadas"][rubrica_codigo] += valor
+                else:
+                    # Esta rubrica foi encontrada pelo regex, mas não está no rubricas.json
+                    print(f"DEBUG: Mês/Ano: {mes_ano}, Rubrica '{rubrica_codigo}' encontrada mas NÃO CLASSIFICADA: '{line}'")
+            else:
+                # LINHA DE DEBUG PARA LINHAS QUE NÃO CORRESPONDEM AO PADRÃO INICIAL:
+                print(f"DEBUG: Mês/Ano: {mes_ano}, Linha NÃO CORRESPONDE ao padrão: '{line}'")
+                # FIM DA LINHA DE DEBUG
         
-        # As descrições devem ser acessadas do `self.rubricas` (o dicionário completo de rubricas)
-        # e não calculadas aqui para cada mês, pois são estáticas.
-        # result['descricoes'] será preenchida na função `gerar_totais` ou `analisar_resultados`.
         return resultados_mes
         
     def gerar_tabela_geral(self, resultados):
