@@ -221,8 +221,7 @@ class ProcessadorContracheque:
         return list(set(meses_validos))  # Remove duplicatas
 
     def _extrair_texto_pdf(self, file_bytes):
-    """Extrai texto do PDF usando PyMuPDF, garantindo processamento de múltiplas páginas"""
-    try:
+        try:
         doc = fitz.open(stream=file_bytes, filetype="pdf")
         texto = ""
         for page in doc:
