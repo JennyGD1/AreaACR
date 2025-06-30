@@ -276,6 +276,9 @@ class ProcessadorContracheque:
                 valor_str = match.group(5) # O valor é o quinto grupo capturado
                 valor = self.extrair_valor(valor_str) # Reutiliza a função extrair_valor
 
+                print(f"DEBUG: Mês/Ano: {mes_ano}, Linha: '{line}'")
+                print(f"DEBUG: Rubrica encontrada: '{rubrica_codigo}', Valor: {valor}")
+                
                 # Classifica como provento ou desconto
                 if rubrica_codigo in self.codigos_proventos:
                     resultados_mes["total_proventos"] += valor
