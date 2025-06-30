@@ -199,15 +199,16 @@ def analise_detalhada():
     if 'resultados' not in session:
         flash('Nenhum dado de análise disponível. Por favor, envie um arquivo primeiro.', 'error')
         return redirect(url_for('calculadora'))
-    
+
     try:
         resultados = json.loads(session['resultados'])
-        
-        # A tabela_geral e os totais Planserv já devem vir serializados da rota /upload
-        # então não precisam ser recalculados aqui, apenas passados para o template.
-        
+
+        # LINHA DE DEBUG IMPORTANTE:
+        logger.info(f"Resultados na rota /analise: {json.dumps(resultados, indent=2)}")
+        # FIM DA LINHA DE DEBUG
+
         return render_template('analise_detalhada.html', resultados=resultados)
-        
+
     except Exception as e:
         logger.error(f"Erro ao carregar análise: {str(e)}")
         flash('Erro ao carregar os resultados. Por favor, tente novamente.', 'error')
