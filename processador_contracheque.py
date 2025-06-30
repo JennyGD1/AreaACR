@@ -256,10 +256,8 @@ class ProcessadorContracheque:
         # Padrão para identificar rubricas (código da rubrica)
         # O padrão agora é mais flexível para incluir 4 dígitos, 3 dígitos + letra, ou letra + 3 dígitos
         padrao_rubrica = re.compile(
-            r'^(?P<codigo>[A-Za-z0-9\/]+)\s+'     # Captura o código (inclui '/') no início da linha
-            r'(?:.*?)\s+'                       # Ignora a descrição (não guloso) e espaços
-            r'(?:(?:[\d\.]+|\d{1,3}(?:\.\d{3})*,\d{2})\s+)*?' # Ignora números como '30.00' ou '01.2021' ou '1.234,56' (qualquer valor numérico antes do final)
-            r'(?P<valor>\d{1,3}(?:\.\d{3})*,\d{2})$' # Captura o ÚLTIMO valor monetário (vírgula + 2 decimais)
+            r'^(?P<codigo>[A-Za-z0-9\/]+)\s+.*' +  # Captura o código (flexível), seguido de espaço e QUALQUER COISA (guloso)
+            r'(?P<valor>\d{1,3}(?:\.\d{3})*,\d{2})$' # Captura o ÚLTIMO valor monetário antes do final da linha
         )
 
         for line in lines:
