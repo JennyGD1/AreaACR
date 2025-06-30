@@ -202,34 +202,27 @@ class ProcessadorContracheque:
         }
 
     def _extrair_secoes(self, texto):
-    """Extrai seções do texto por mês/ano"""
-    sections = defaultdict(str)
-    current_section = None
+        """Extrai seções do texto por mês/ano"""
+        sections = defaultdict(str)
+        current_section = None
     
-    # Padrão para identificar cabeçalhos de mês/ano
-    month_year_pattern = re.compile(
-        r'^(?:AVISO DE CRÉDITO\s+)?'  # Opcional: prefixo "AVISO DE CRÉDITO"
-        r'(Janeiro|Fevereiro|Março|Abril|Maio|Junho|Julho|Agosto|Setembro|Outubro|Novembro|Dezembro)'
-        r'\s*/\s*(\d{4})$'  # Mês/Ano
-    )
+        # Padrão para identificar "Mês/Ano" (ex: Janeiro/2023)
+        month_year_pattern = re.compile(r'^(Janeiro|Fevereiro|Março|Abril|Maio|Junho|Julho|Agosto|Setembro|Outubro|Novembro|Dezembro)\/\d{4}$')
     
-    lines = texto.split('\n')
+        lines = texto.split('\n')
     
-    for linha in lines:
-        linha = linha.strip()
-        if not linha:
-            continue
+        for i, linha in enumerate(lines):
+            linha = linha.strip()
+            if not linha:
+                continue
             
         # Verifica se é um cabeçalho de mês/ano
-        match = month_year_pattern.match(linha)
-        if match:
-            mes = match.group(1)
-            ano = match.group(2)
-            current_section = f"{mes}/{ano}"
-        elif current_section:
-            sections[current_section] += linha + '\n'
+            if month_year_pattern.match(linha):
+                current_section = linha
+            elif current_section:
+                sections[current_section] += linha + '\n'
     
-    return sections
+        return sections
 
     def _identificar_meses(self, sections):
         """Identifica os meses presentes no texto"""
