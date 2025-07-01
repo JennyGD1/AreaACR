@@ -153,4 +153,12 @@ class ProcessadorContracheque:
             for cod in dados_mes.get("rubricas_detalhadas", {}).keys()
         )
         codigos_descontos_relevantes = sorted(list(codigos_encontrados))
-        descricoes = {cod: descontos_de_origem.get(cod, {}).get('descricao', cod) for cod
+        descricoes = {cod: descontos_de_origem.get(cod, {}).get('descricao', cod) for cod in codigos_descontos_relevantes}
+        tabela = {"colunas": ["Mês/Ano"] + [descricoes[cod] for cod in codigos_descontos_relevantes], "dados": []}
+        for mes_ano in resultados.get("meses_para_processar", []):
+            linha = {"mes_ano": self.converter_data_para_numerico(mes_ano), "valores": []}
+            rubricas_detalhadas_mes = resultados.get("dados_mensais", {}).get(mes_ano, {}).get("rubricas_detalhadas", {})
+            for cod in codigos_descontos_relevantes:
+                linha["valores"].append(rubricas_detalhadas_mes.get(cod, 0.0))
+            tabela["dados"].append(linha)
+        return tabela
