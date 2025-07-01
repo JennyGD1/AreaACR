@@ -12,7 +12,6 @@ class ProcessadorContracheque:
     def __init__(self, rubricas=None):
         self.rubricas = rubricas if rubricas is not None else self._carregar_rubricas_default()
         self.meses = {"Janeiro":"01", "Fevereiro":"02", "Março":"03", "Abril":"04", "Maio":"05", "Junho":"06", "Julho":"07", "Agosto":"08", "Setembro":"09", "Outubro":"10", "Novembro":"11", "Dezembro":"12"}
-        self.meses_anos = self._gerar_meses_anos()
         self._processar_rubricas_internas()
 
     def _carregar_rubricas_default(self) -> Dict:
@@ -23,9 +22,6 @@ class ProcessadorContracheque:
         except (FileNotFoundError, json.JSONDecodeError) as e:
             logger.error(f"Erro ao carregar rubricas padrão: {str(e)}")
             return {"proventos": {}, "descontos": {}}
-
-    def _gerar_meses_anos(self) -> list[str]:
-        return [f"{mes}/{ano}" for ano in range(2019, 2026) for mes in self.meses.keys()]
 
     def _processar_rubricas_internas(self):
         self.codigos_proventos = list(self.rubricas.get('proventos', {}).keys())
@@ -60,7 +56,7 @@ class ProcessadorContracheque:
             month_year_match = re.search(month_year_pattern, texto_completo, re.IGNORECASE)
             if not month_year_match:
                 raise ValueError("Não foi possível encontrar o Mês/Ano no documento.")
-            
+
             mes_ano_str = month_year_match.group(0)
             partes = re.split(r'\s*/\s*', mes_ano_str)
             mes_ano = f"{partes[0].capitalize()}/{partes[1]}"
@@ -83,29 +79,34 @@ class ProcessadorContracheque:
         
         bloco_descontos_match = re.search(r'DESCONTOS(.*?)TOTAL DE DESCONTOS', texto_completo, re.DOTALL | re.IGNORECASE)
         texto_descontos = bloco_descontos_match.group(1) if bloco_descontos_match else ""
-
-        # Função interna para extrair códigos e valores de um bloco de texto
-        def extrair_rubricas(bloco_texto):
-            rubricas_encontradas = {}
-            # Padrão para encontrar um código (início da linha) e um valor (final da linha)
-            padrao = re.compile(r"^([0-9A-Z/]+)\s+.*?\s+([\d.,]+)$")
-            for linha in bloco_texto.strip().split('\n'):
-                match = padrao.match(linha.strip())
-                if match:
-                    codigo, valor_str = match.groups()
-                    rubricas_encontradas[codigo] = self.extrair_valor(valor_str)
-            return rubricas_encontradas
-
-        proventos_encontrados = extrair_rubricas(texto_vantagens)
-        descontos_encontrados = extrair_rubricas(texto_descontos)
         
-        # Adiciona os descontos que podem estar na coluna de vantagens (como IRRF)
-        # O código /401 para IRRF é um caso especial
-        irrf_match = re.search(r'IRRF\s*/401\s+.*?([\d.,]+)', texto_completo)
-        if irrf_match:
-             descontos_encontrados['/401'] = self.extrair_valor(irrf_match.group(1))
+        # Padrão genérico para descobrir qualquer coisa que se pareça com um código
+        padrao_codigo = re.compile(r'\b(\d{4}|[A-Z0-9]{1,4}P|[A-Z]\d{3}|/\d{3})\b')
+        padrao_valor = re.compile(r'\d{1,3}(?:[.,]\d{3})*,\d{2}')
 
-        # Classifica os itens encontrados
+        def associar_codigos_e_valores(bloco_texto):
+            pares = {}
+            codigos_encontrados = list(padrao_codigo.finditer(bloco_texto))
+            
+            for i, match_codigo in enumerate(codigos_encontrados):
+                codigo = match_codigo.group(1)
+                
+                # Define a área de busca pelo valor: do fim deste código até o início do próximo código (ou até o fim do bloco)
+                start_pos = match_codigo.end()
+                end_pos = codigos_encontrados[i + 1].start() if i + 1 < len(codigos_encontrados) else len(bloco_texto)
+                
+                area_de_busca = bloco_texto[start_pos:end_pos]
+                
+                valor_match = padrao_valor.search(area_de_busca)
+                if valor_match:
+                    valor = self.extrair_valor(valor_match.group(0))
+                    pares[codigo] = valor
+            return pares
+
+        proventos_encontrados = associar_codigos_e_valores(texto_vantagens)
+        descontos_encontrados = associar_codigos_e_valores(texto_descontos)
+
+        # Classifica os itens descobertos
         for codigo, valor in proventos_encontrados.items():
              if codigo in self.codigos_proventos:
                   resultados_mes["rubricas"][codigo] = valor
@@ -127,8 +128,7 @@ class ProcessadorContracheque:
         logger.debug(f"TOTAIS PARA {mes_ano}: Proventos (para soma)={total_proventos_calculado:.2f}, Descontos={sum(resultados_mes['rubricas_detalhadas'].values()):.2f}")
         
         return resultados_mes
-    
-    # O restante dos métodos para gerar as tabelas continuam os mesmos
+
     def gerar_tabela_proventos_resumida(self, resultados):
         tabela = {"colunas": ["Mês/Ano", "Total de Proventos"], "dados": []}
         for mes_ano in resultados.get("meses_para_processar", []):
