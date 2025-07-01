@@ -6,27 +6,59 @@ from processador_contracheque import ProcessadorContracheque
 logger = logging.getLogger(__name__)
 
 class AnalisadorPlanserv:
-    def __init__(self, processador: Optional[ProcessadorContracheque] = None):
-        """Inicializa o analisador com um processador existente ou cria um novo"""
+    def __init__(self, processador=None):
         self.processador = processador if processador else ProcessadorContracheque()
-        self._carregar_rubricas()
-    
-    def _carregar_rubricas(self):
-        """Carrega e valida as rubricas do processador"""
-        try:
-            self.rubricas_completas = self.processador.rubricas_completas
-            self.rubricas_de_origem = self.processador.rubricas
-            
-            if not self.rubricas_de_origem:
-                raise ValueError("Rubricas não foram carregadas corretamente")
-                
-            self.rubricas_planserv = {
-                'proventos': list(self.rubricas_de_origem.get('proventos', {}).keys()),
-                'descontos': list(self.rubricas_de_origem.get('descontos', {}).keys())
-            }
-        except Exception as e:
-            logger.error(f"Erro ao carregar rubricas: {str(e)}")
-            raise
+        self._carregar_rubricas_planserv()
+
+    def _carregar_rubricas_planserv(self):
+        """Carrega as rubricas específicas do Planserv"""
+        self.rubricas_planserv = {
+            'proventos': ['003P', '00P7', '04P6', '0J40', '0P42', '1J06'],
+            'descontos': ['7033', '7035', '7038', '7039', '7034']
+        }
+        
+        self.descricoes_planserv = {
+            '7033': 'Assistência a Saúde (Titular)',
+            '7035': 'Planserv / Cônjuge',
+            '7038': 'Planserv Agregado Jovem',
+            '7039': 'Planserv Agregado Maior',
+            '7034': 'Contribuição Planserv'
+        }
+
+    def analisar_resultados(self, resultados):
+        """Analisa especificamente os dados do Planserv"""
+        if not resultados or 'dados_mensais' not in resultados:
+            return {'erro': 'Nenhum dado válido encontrado'}
+
+        totais = {
+            'proventos': {'total': 0.0, 'detalhes': []},
+            'descontos': {'total': 0.0, 'detalhes': []}
+        }
+
+        for mes_ano, dados_mes in resultados['dados_mensais'].items():
+            # Proventos do Planserv
+            for codigo in self.rubricas_planserv['proventos']:
+                if codigo in dados_mes['rubricas']:
+                    valor = dados_mes['rubricas'][codigo]
+                    totais['proventos']['total'] += valor
+                    totais['proventos']['detalhes'].append({
+                        'codigo': codigo,
+                        'descricao': dados_mes['descricoes'].get(codigo, ''),
+                        'valor': valor
+                    })
+
+            # Descontos do Planserv
+            for codigo in self.rubricas_planserv['descontos']:
+                if codigo in dados_mes['rubricas_detalhadas']:
+                    valor = dados_mes['rubricas_detalhadas'][codigo]
+                    totais['descontos']['total'] += valor
+                    totais['descontos']['detalhes'].append({
+                        'codigo': codigo,
+                        'descricao': self.descricoes_planserv.get(codigo, ''),
+                        'valor': valor
+                    })
+
+        return totais
 
     def calcular_totais(self, resultados: Dict[str, Any]) -> Dict[str, Any]:
         """
