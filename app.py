@@ -140,6 +140,12 @@ def upload():
                 logger.info(f"Processando arquivo: {filename}")
                 
                 dados_contracheque = processador.processar_contracheque(filepath)
+                dados_contracheque['dados_mensais'] = {  # Garante a estrutura esperada
+                    list(dados_contracheque['dados_mensais'].keys())[0]: {
+                        **dados_contracheque['dados_mensais'][list(dados_contracheque['dados_mensais'].keys())[0]],
+                        'erro': None  # Adiciona campo esperado
+                    }
+                }
                 logger.info(f"Dados processados: {json.dumps(dados_contracheque, indent=2)}")
                 
                 # Aplica a análise do Planserv
