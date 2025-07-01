@@ -69,31 +69,65 @@ class ProcessadorContracheque:
         try:
             with open(filepath, 'rb') as f:
                 file_bytes = f.read()
-
+    
             doc = fitz.open(stream=file_bytes, filetype="pdf")
+            
+            # Extrai todas as seções de uma vez
             secoes = self._extrair_secoes_por_mes_ano(doc)
             
             resultados_finais = { "dados_mensais": {} }
-
+    
+            # Processa cada seção (mês) individualmente
             for mes_ano_chave, texto_secao in secoes.items():
                 mes_ano_real = mes_ano_chave.split('_')[0]
-                resultados_finais["dados_mensais"][mes_ano_real] = self._processar_mes_conteudo(texto_secao, mes_ano_real)
-
+                dados_mes_atual = self._processar_mes_conteudo(texto_secao, mes_ano_real)
+    
+                # --- LÓGICA DE MESCLAGEM ADICIONADA AQUI ---
+                # Se o mês ainda não foi processado, adiciona-o
+                if mes_ano_real not in resultados_finais["dados_mensais"]:
+                    resultados_finais["dados_mensais"][mes_ano_real] = dados_mes_atual
+                # Se o mês JÁ EXISTE, soma os valores em vez de sobrescrever
+                else:
+                    # Soma os proventos
+                    for codigo, valor in dados_mes_atual["rubricas"].items():
+                        resultados_finais["dados_mensais"][mes_ano_real]["rubricas"][codigo] += valor
+                    # Soma os descontos
+                    for codigo, valor in dados_mes_atual["rubricas_detalhadas"].items():
+                        resultados_finais["dados_mensais"][mes_ano_real]["rubricas_detalhadas"][codigo] += valor
+    
+            # Recalcula o total de proventos para cada mês após a mesclagem
+            for mes_ano, dados in resultados_finais["dados_mensais"].items():
+                total_proventos_calculado = sum(
+                    valor for codigo, valor in dados["rubricas"].items()
+                    if not self.rubricas.get('proventos', {}).get(codigo, {}).get('ignorar_na_soma', False)
+                )
+                resultados_finais["dados_mensais"][mes_ano]["total_proventos"] = total_proventos_calculado
+    
+    
+            # Determina o período completo dos meses processados
             meses_processados = sorted(
                 resultados_finais['dados_mensais'].keys(),
-                key=lambda m: (int(m.split('/')[1]), int(self.meses.get(m.split('/')[0], 0)))
+                key=lambda m: (int(m.split('/')[1]), int(self.meses.get(m.split('/')[0],0)))
             )
             
             if not meses_processados:
                 raise ValueError("Nenhum dado mensal foi processado.")
-
+    
             resultados_finais['primeiro_mes'] = meses_processados[0]
             resultados_finais['ultimo_mes'] = meses_processados[-1]
-            idx_primeiro = self.meses_anos.index(meses_processados[0])
-            idx_ultimo = self.meses_anos.index(meses_processados[-1])
-            resultados_finais['meses_para_processar'] = self.meses_anos[idx_primeiro:idx_ultimo + 1]
-
+            
+            # Garante que o período completo seja gerado
+            try:
+                idx_primeiro = self.meses_anos.index(meses_processados[0])
+                idx_ultimo = self.meses_anos.index(meses_processados[-1])
+                resultados_finais['meses_para_processar'] = self.meses_anos[idx_primeiro:idx_ultimo + 1]
+            except ValueError:
+                # Fallback caso os meses não estejam na lista padrão (anos muito antigos/futuros)
+                resultados_finais['meses_para_processar'] = meses_processados
+    
+    
             return resultados_finais
+    
         except Exception as e:
             logger.error(f"Erro ao processar contracheque: {str(e)}")
             raise
