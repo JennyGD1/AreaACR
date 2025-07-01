@@ -261,55 +261,63 @@ class ProcessadorContracheque:
             raise Exception(f"Erro ao extrair texto do PDF: {str(e)}")
 
     def processar_mes(self, data_texto, mes_ano):
-        """Processa os dados de um mês específico para contracheques da Bahia"""  # ← 4 espaços de indentação
-        lines = [line.strip() for line in data_texto.split('\n') if line.strip()]
-        
-        resultados_mes = {
-            "total_proventos": 0.0,
-            "rubricas": defaultdict(float),
-            "rubricas_detalhadas": defaultdict(float),
-            "descricoes": {}
-        }
+    """Processa contracheques da Bahia com padrão específico"""
+    lines = [line.strip() for line in data_texto.split('\n') if line.strip()]
     
-        # Padrão para rubricas de proventos e descontos
-        padrao_rubrica = re.compile(
-            r'^(?P<codigo>\d{1,4}[A-Za-z]?)\s+'  # Código (ex: 003P, 0J40)
-            r'(?P<descricao>.+?)\s+'  # Descrição
-            r'(?:[A-Z]{2}\s+)?'  # Opcional: sigla de estado (ex: BA)
-            r'(?P<valor>\d{1,3}(?:\.\d{3})*,\d{2})'  # Valor (1.185,54)
+    resultados_mes = {
+        "total_proventos": 0.0,
+        "rubricas": defaultdict(float),
+        "rubricas_detalhadas": defaultdict(float),
+        "descricoes": {}
+    }
+
+    # Padrão melhorado para rubricas (ex: 003P, 0J40, 7033)
+    padrao_rubrica = re.compile(
+        r'(?P<codigo>\d{1,4}[A-Za-z]{1,3})\s+'  # Código (ex: 003P, 0J40)
+        r'(?P<descricao>.+?)\s+'  # Descrição (até o próximo valor)
+        r'(?P<valor>\d{1,3}(?:\.\d{3})*,\d{2})'  # Valor (1.185,54)
+    )
+
+    # Modo de varredura
+    em_proventos = False
+    em_descontos = False
+
+    for line in lines:
+        # Identifica seções
+        if "VANTAGENS" in line:
+            em_proventos = True
+            em_descontos = False
+        elif "DESCONTOS" in line:
+            em_proventos = False
+            em_descontos = True
+
+        # Extrai rubricas
+        for match in padrao_rubrica.finditer(line):
+            codigo = match.group('codigo')
+            descricao = match.group('descricao').strip()
+            valor = float(match.group('valor').replace('.', '').replace(',', '.'))
+
+            if em_proventos:
+                resultados_mes["rubricas"][codigo] = valor
+                resultados_mes["descricoes"][codigo] = descricao
+                resultados_mes["total_proventos"] += valor
+            elif em_descontos:
+                resultados_mes["rubricas_detalhadas"][codigo] = valor
+                resultados_mes["descricoes"][codigo] = descricao
+
+        # Captura totais (ex: TOTAL DE PROVENTOS 8.547,83)
+        total_match = re.search(
+            r'TOTAL\s+DE\s+(PROVENTOS|DESCONTOS)\s+(\d{1,3}(?:\.\d{3})*,\d{2})', 
+            line, 
+            re.IGNORECASE
         )
-    
-        # Padrão para totais
-        padrao_total = re.compile(
-            r'TOTAL\s+DE\s+(?P<tipo>PROVENTOS|DESCONTOS)\s+(?P<valor>\d{1,3}(?:\.\d{3})*,\d{2})'
-        )
-    
-        for line in lines:
-            # Processa rubricas
-            match_rubrica = padrao_rubrica.search(line)
-            if match_rubrica:
-                codigo = match_rubrica.group('codigo')
-                descricao = match_rubrica.group('descricao')
-                valor = float(match_rubrica.group('valor').replace('.', '').replace(',', '.'))
-                
-                # Classifica como provento ou desconto
-                if 'VANTAGENS' in line or 'PROVENTOS' in line:
-                    resultados_mes["rubricas"][codigo] = valor
-                    resultados_mes["descricoes"][codigo] = descricao
-                    resultados_mes["total_proventos"] += valor
-                elif 'DESCONTOS' in line:
-                    resultados_mes["rubricas_detalhadas"][codigo] = valor
-                    resultados_mes["descricoes"][codigo] = descricao
-    
-            # Processa totais
-            match_total = padrao_total.search(line)
-            if match_total:
-                tipo = match_total.group('tipo').lower()
-                valor = float(match_total.group('valor').replace('.', '').replace(',', '.'))
-                if tipo == 'proventos':
-                    resultados_mes["total_proventos"] = valor
-    
-        return resultados_mes
+        if total_match:
+            tipo, valor = total_match.groups()
+            valor = float(valor.replace('.', '').replace(',', '.'))
+            if "PROVENTOS" in tipo.upper():
+                resultados_mes["total_proventos"] = valor
+
+    return resultados_mes
         
     def gerar_tabela_geral(self, resultados):
         """Gera tabela consolidada mantendo todas as rubricas que apareceram em algum mês"""
