@@ -7,7 +7,7 @@ import logging
 logger = logging.getLogger(__name__)
 
 class ProcessadorContracheque:
-    def __init__(self):
+    def __init__(self, rubricas=None):
         self.meses = {
             "Janeiro": "01", "Fevereiro": "02", "Março": "03", "Abril": "04",
             "Maio": "05", "Junho": "06", "Julho": "07", "Agosto": "08",
