@@ -142,8 +142,12 @@ def upload():
                 dados_contracheque = processador.processar_contracheque(filepath)
                 logger.info(f"Dados processados: {json.dumps(dados_contracheque, indent=2)}")
                 
-                # Aplica o analisador de Planserv
-                dados_contracheque = analisador.processar(dados_contracheque)
+                # Aplica a análise do Planserv
+                analise_planserv = analisador.analisar_resultados(dados_contracheque)
+                dados_contracheque.update({
+                    'proventos_totais_planserv': analise_planserv['proventos'],
+                    'descontos_totais_planserv': analise_planserv['descontos']
+                })
                 
                 resultados_globais['dados_mensais'].update(dados_contracheque.get('dados_mensais', {}))
                 resultados_globais['quantidade_arquivos'] += 1
@@ -164,6 +168,11 @@ def upload():
         
         session['resultados'] = json.dumps(converter_para_dict_serializavel(resultados_finais))
         return redirect(url_for('analise_detalhada'))
+        
+    except Exception as e:
+        logger.error(f"Erro no processamento: {str(e)}")
+        flash(f'Erro ao processar arquivos: {str(e)}', 'error')
+        return redirect(url_for('calculadora'))
         
     except Exception as e:
         logger.error(f"Erro no processamento: {str(e)}")
