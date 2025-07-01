@@ -312,65 +312,65 @@ class ProcessadorContracheque:
         return resultados_mes
         
     def gerar_tabela_geral(self, resultados):
-    """Gera tabela consolidada mantendo todas as rubricas que apareceram em algum mês"""
-    tabela = {
-        "colunas": ["MÊS/ANO"],
-        "dados": []
-    }
-
-    if not resultados or "meses_para_processar" not in resultados:
-        return tabela
-
-    # Identifica TODAS as rubricas que aparecem em pelo menos um mês
-    todas_rubricas = set()
-    for dados_mes in resultados["dados_mensais"].values():
-        todas_rubricas.update(dados_mes.get("rubricas", {}).keys())
-        todas_rubricas.update(dados_mes.get("rubricas_detalhadas", {}).keys())
-
-    # Ordena as rubricas
-    rubricas_ordenadas = sorted(list(todas_rubricas))
-
-    # Adiciona colunas para cada rubrica
-    for cod in rubricas_ordenadas:
-        descricao = ""
-        # Tenta encontrar a descrição em algum mês
-        for dados_mes in resultados["dados_mensais"].values():
-            if cod in dados_mes.get("descricoes", {}):
-                descricao = dados_mes["descricoes"][cod]
-                break
-        tabela["colunas"].append(f"{descricao} ({cod})")
-
-    # Adiciona colunas de totais
-    tabela["colunas"].append("TOTAL PROVENTOS")
-    tabela["colunas"].append("TOTAL DESCONTOS")
-    tabela["colunas"].append("TOTAL LÍQUIDO")
-
-    # Preenche os dados para cada mês
-    for mes_ano in resultados["meses_para_processar"]:
-        dados_mes = resultados["dados_mensais"].get(mes_ano, {})
-        linha_dados = {
-            "mes_ano": self.converter_data_para_numerico(mes_ano),
-            "valores": []
+        """Gera tabela consolidada mantendo todas as rubricas que apareceram em algum mês"""
+        tabela = {
+            "colunas": ["MÊS/ANO"],
+            "dados": []
         }
-
-        total_proventos = dados_mes.get("total_proventos", 0.0)
-        total_descontos = 0.0
-
-        # Preenche valores para cada rubrica (mesmo que zero)
+    
+        if not resultados or "meses_para_processar" not in resultados:
+            return tabela
+    
+        # Identifica TODAS as rubricas que aparecem em pelo menos um mês
+        todas_rubricas = set()
+        for dados_mes in resultados["dados_mensais"].values():
+            todas_rubricas.update(dados_mes.get("rubricas", {}).keys())
+            todas_rubricas.update(dados_mes.get("rubricas_detalhadas", {}).keys())
+    
+        # Ordena as rubricas
+        rubricas_ordenadas = sorted(list(todas_rubricas))
+    
+        # Adiciona colunas para cada rubrica
         for cod in rubricas_ordenadas:
-            # Verifica se é provento ou desconto
-            if cod in self.rubricas.get('proventos', {}):
-                valor = dados_mes.get("rubricas", {}).get(cod, 0.0)
-                linha_dados["valores"].append(valor)
-            else:
-                valor = dados_mes.get("rubricas_detalhadas", {}).get(cod, 0.0)
-                linha_dados["valores"].append(valor)
-                total_descontos += valor
-
-        linha_dados["valores"].append(total_proventos)
-        linha_dados["valores"].append(total_descontos)
-        linha_dados["valores"].append(total_proventos - total_descontos)
-        
-        tabela["dados"].append(linha_dados)
-        
-    return tabela
+            descricao = ""
+            # Tenta encontrar a descrição em algum mês
+            for dados_mes in resultados["dados_mensais"].values():
+                if cod in dados_mes.get("descricoes", {}):
+                    descricao = dados_mes["descricoes"][cod]
+                    break
+            tabela["colunas"].append(f"{descricao} ({cod})")
+    
+        # Adiciona colunas de totais
+        tabela["colunas"].append("TOTAL PROVENTOS")
+        tabela["colunas"].append("TOTAL DESCONTOS")
+        tabela["colunas"].append("TOTAL LÍQUIDO")
+    
+        # Preenche os dados para cada mês
+        for mes_ano in resultados["meses_para_processar"]:
+            dados_mes = resultados["dados_mensais"].get(mes_ano, {})
+            linha_dados = {
+                "mes_ano": self.converter_data_para_numerico(mes_ano),
+                "valores": []
+            }
+    
+            total_proventos = dados_mes.get("total_proventos", 0.0)
+            total_descontos = 0.0
+    
+            # Preenche valores para cada rubrica (mesmo que zero)
+            for cod in rubricas_ordenadas:
+                # Verifica se é provento ou desconto
+                if cod in self.rubricas.get('proventos', {}):
+                    valor = dados_mes.get("rubricas", {}).get(cod, 0.0)
+                    linha_dados["valores"].append(valor)
+                else:
+                    valor = dados_mes.get("rubricas_detalhadas", {}).get(cod, 0.0)
+                    linha_dados["valores"].append(valor)
+                    total_descontos += valor
+    
+            linha_dados["valores"].append(total_proventos)
+            linha_dados["valores"].append(total_descontos)
+            linha_dados["valores"].append(total_proventos - total_descontos)
+            
+            tabela["dados"].append(linha_dados)
+            
+        return tabela
