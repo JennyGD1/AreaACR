@@ -75,22 +75,50 @@ class ProcessadorContracheque:
             with open(filepath, 'rb') as f:
                 file_bytes = f.read()
             
-            # Chama o novo extrator
+            # Chama o novo extrator que lê em colunas
             texto_vantagens, texto_descontos = self._extrair_dados_pdf_por_colunas(file_bytes)
             
             # Usa o texto combinado para encontrar o mês/ano
             texto_combinado = texto_vantagens + texto_descontos
-            month_year_match = re.search(r'(Janeiro|Fevereiro|Março|Abril|Maio|Junho|Julho|Agosto|Setembro|Outubro|Novembro|Dezembro)/\d{4}', texto_combinado, re.IGNORECASE)
-            if not month_year_match: raise ValueError("Não foi possível encontrar o Mês/Ano no documento.")
             
-            mes_ano = month_year_match.group(0).capitalize()
+            ### --- MUDANÇA PRINCIPAL AQUI --- ###
+            # A regex foi atualizada com `\s*` para permitir espaços antes e depois da barra "/"
+            month_year_match = re.search(
+                r'(Janeiro|Fevereiro|Março|Abril|Maio|Junho|Julho|Agosto|Setembro|Outubro|Novembro|Dezembro)\s*/\s*\d{4}', 
+                texto_combinado, 
+                re.IGNORECASE
+            )
+            
+            if not month_year_match:
+                # Tenta um fallback se o padrão acima falhar
+                match_fallback = re.search(r'\b(Jan|Fev|Mar|Abr|Mai|Jun|Jul|Ago|Set|Out|Nov|Dez)\b/\d{4}', texto_combinado, re.IGNORECASE)
+                if not match_fallback:
+                    raise ValueError("Não foi possível encontrar o Mês/Ano no documento.")
+                
+                # Se o fallback funcionar, continua com a execução
+                mes_ano_str = match_fallback.group(0)
+                # Converte abreviação para nome completo se necessário (lógica simplificada)
+                # Esta parte pode ser expandida se houver muitos formatos diferentes
+                mes_nome = next((mes for mes, abrev in {"Janeiro":"Jan", "Fevereiro":"Fev"}.items() if abrev == mes_ano_str[:3]), mes_ano_str.split('/')[0])
+                ano = re.search(r'\d{4}', mes_ano_str).group(0)
+                mes_ano = f"{mes_nome.capitalize()}/{ano}"
+    
+            else:
+                 mes_ano = month_year_match.group(0).split('/')
+                 mes_ano = f"{mes_ano[0].strip().capitalize()}/{mes_ano[1].strip()}"
+    
             
             dados_mes = self._processar_mes_conteudo(texto_vantagens, texto_descontos, mes_ano)
             
+            # A lógica para determinar o período de análise precisa ser ajustada
+            # para lidar com múltiplos arquivos no futuro, mas para um único arquivo está ok.
+            meses_encontrados = [mes_ano]
+            primeiro_mes, ultimo_mes = meses_encontrados[0], meses_encontrados[-1]
+    
             return {
-                "primeiro_mes": mes_ano,
-                "ultimo_mes": mes_ano,
-                "meses_para_processar": [mes_ano],
+                "primeiro_mes": primeiro_mes,
+                "ultimo_mes": ultimo_mes,
+                "meses_para_processar": meses_encontrados,
                 "dados_mensais": {mes_ano: dados_mes}
             }
         except Exception as e:
