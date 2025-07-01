@@ -261,37 +261,37 @@ class ProcessadorContracheque:
             raise Exception(f"Erro ao extrair texto do PDF: {str(e)}")
 
     def processar_mes(self, data_texto, mes_ano):
-    """Processa os dados de um mês específico"""
-    lines = [line.strip() for line in data_texto.split('\n') if line.strip()]
-    
-    resultados_mes = {
-        "total_proventos": 0.0,
-        "rubricas": defaultdict(float),
-        "rubricas_detalhadas": defaultdict(float),
-        "descricoes": {}
-    }
+        """Processa os dados de um mês específico"""
+        lines = [line.strip() for line in data_texto.split('\n') if line.strip()]
+        
+        resultados_mes = {
+            "total_proventos": 0.0,
+            "rubricas": defaultdict(float),
+            "rubricas_detalhadas": defaultdict(float),
+            "descricoes": {}
+        }
 
-    # Padrão para o formato da Bahia
-    padrao_rubrica = re.compile(
-        r'^(?P<codigo>\d{1,4}[A-Za-z]?)\s+'  # Código
-        r'.*?'  # Descrição
-        r'(?P<valor>\d{1,3}(?:\.\d{3})*,\d{2})'  # Valor
-    )
+        # Padrão para o formato da Bahia
+        padrao_rubrica = re.compile(
+            r'^(?P<codigo>\d{1,4}[A-Za-z]?)\s+'  # Código
+            r'.*?'  # Descrição
+            r'(?P<valor>\d{1,3}(?:\.\d{3})*,\d{2})'  # Valor
+        )
 
-    for line in lines:
-        match = padrao_rubrica.search(line)
-        if match:
-            codigo = match.group('codigo')
-            valor = self.extrair_valor(match.group('valor'))
-            
-            # Classifica como provento ou desconto
-            if codigo in self.codigos_proventos:
-                resultados_mes["rubricas"][codigo] += valor
-                resultados_mes["total_proventos"] += valor
-            elif codigo in self.rubricas_detalhadas:
-                resultados_mes["rubricas_detalhadas"][codigo] += valor
-    
-    return resultados_mes
+        for line in lines:
+            match = padrao_rubrica.search(line)
+            if match:
+                codigo = match.group('codigo')
+                valor = self.extrair_valor(match.group('valor'))
+                
+                # Classifica como provento ou desconto
+                if codigo in self.codigos_proventos:
+                    resultados_mes["rubricas"][codigo] += valor
+                    resultados_mes["total_proventos"] += valor
+                elif codigo in self.rubricas_detalhadas:
+                    resultados_mes["rubricas_detalhadas"][codigo] += valor
+        
+        return resultados_mes
         
     def gerar_tabela_geral(self, resultados):
         """Gera uma tabela consolidada com os resultados"""
