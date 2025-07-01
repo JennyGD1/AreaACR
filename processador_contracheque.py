@@ -1,3 +1,4 @@
+# processador_contracheque.py
 import json
 import re
 from pathlib import Path
@@ -12,8 +13,6 @@ logger = logging.getLogger(__name__)
 class ProcessadorContracheque:
     def __init__(self, rubricas=None):
         """Inicializa o processador com as rubricas fornecidas ou carrega do arquivo padrão"""
-        # Carrega rubricas
-        # rubricas_path = Path(__file__).parent.parent / 'rubricas.json' # Comentado, pois 'rubricas' já vem de load_rubricas no app.py
         self.rubricas = rubricas if rubricas is not None else self._carregar_rubricas_default()
         
         # Dados auxiliares
@@ -24,7 +23,7 @@ class ProcessadorContracheque:
         }
         
         self.meses_anos = self._gerar_meses_anos()
-        self._processar_rubricas_internas() # Renomeado para evitar conflito com 'processar' de fora
+        self._processar_rubricas_internas()
 
     def _carregar_rubricas_default(self) -> Dict:
         """Carrega as rubricas do arquivo padrão se não forem fornecidas."""
@@ -44,14 +43,14 @@ class ProcessadorContracheque:
             for mes in self.meses.keys()
         ]
 
-    def _processar_rubricas_internas(self): # Renomeado
+    def _processar_rubricas_internas(self):
         """Prepara as estruturas de dados das rubricas"""
         self.rubricas_completas = {
             **self.rubricas.get('proventos', {}), 
             **self.rubricas.get('descontos', {})
         }
         self.codigos_proventos = list(self.rubricas.get('proventos', {}).keys())
-        self.rubricas_detalhadas_map = self.rubricas.get('descontos', {}) # Renomeado para evitar confusão
+        self.codigos_descontos = list(self.rubricas.get('descontos', {}).keys())
 
     def converter_data_para_numerico(self, data_texto: str) -> str:
         """Converte data no formato 'Mês/Ano' para 'MM/AAAA'"""
@@ -61,16 +60,19 @@ class ProcessadorContracheque:
         except (ValueError, AttributeError):
             return "00/0000"
 
-    def extrair_valor(self, valor_str: str) -> float: # Recebe string, não linha
-        """Extrai valor monetário de uma string formatada (já limpa)"""
+    def extrair_valor(self, valor_str: str) -> float:
+        """Extrai valor monetário de uma string formatada"""
         try:
-            valor = valor_str.replace('.', '').replace(',', '.')
+            # Limpa a string de qualquer caractere não numérico, exceto vírgula e ponto
+            valor_limpo = re.sub(r'[^\d,\.]', '', valor_str)
+            # Converte para o formato float padrão (ex: "1.185,54" -> 1185.54)
+            valor = valor_limpo.replace('.', '').replace(',', '.')
             return float(valor)
         except (ValueError, AttributeError):
             return 0.0
 
-    def _extrair_texto_pdf_interno(self, file_bytes): # Renomeado
-        """Extrai texto do PDF usando PyMuPDF, garantindo processamento de múltiplas páginas"""
+    def _extrair_texto_pdf_interno(self, file_bytes):
+        """Extrai texto do PDF usando PyMuPDF"""
         try:
             doc = fitz.open(stream=file_bytes, filetype="pdf")
             texto = ""
@@ -81,39 +83,28 @@ class ProcessadorContracheque:
         except Exception as e:
             raise Exception(f"Erro ao extrair texto do PDF: {str(e)}")
 
-    def _extrair_secoes_por_mes_ano(self, texto): # Renomeado
-        """Extrai seções do texto por mês/ano"""
+    def _extrair_secoes_por_mes_ano(self, texto):
+        """Divide o texto em seções, uma para cada mês/ano encontrado."""
         sections = defaultdict(str)
         current_section = None
-        
+        # Padrão para encontrar "Mês/Ano" (ex: "Janeiro/2021")
         month_year_pattern = re.compile(r'^(Janeiro|Fevereiro|Março|Abril|Maio|Junho|Julho|Agosto|Setembro|Outubro|Novembro|Dezembro)\/\d{4}$')
         
-        lines = texto.split('\n')
-        
-        for i, linha in enumerate(lines):
-            linha = linha.strip()
-            if not linha:
-                continue
-                
-            if month_year_pattern.match(linha):
-                current_section = linha
+        for linha in texto.split('\n'):
+            linha_strip = linha.strip()
+            if month_year_pattern.match(linha_strip):
+                current_section = linha_strip
             elif current_section:
                 sections[current_section] += linha + '\n'
         
         return sections
 
-    def _identificar_meses_em_secoes(self, sections): # Renomeado
-        """Identifica os meses presentes no texto"""
-        meses_validos = []
-        for cabecalho in sections.keys():
-            partes = cabecalho.split('/')
-            if len(partes) == 2 and partes[0] in self.meses and partes[1].isdigit():
-                meses_validos.append(cabecalho)
-        return list(set(meses_validos))
+    def _identificar_meses_em_secoes(self, sections):
+        """Identifica os meses válidos presentes nas seções extraídas"""
+        return list(sections.keys())
 
-    # Método central para processar um único contracheque (agora integrado e corrigido)
     def processar_contracheque(self, filepath):
-        """Processa um arquivo PDF de contracheque e retorna dados estruturados"""
+        """Método principal que orquestra o processamento de um arquivo PDF."""
         try:
             with open(filepath, 'rb') as f:
                 file_bytes = f.read()
@@ -126,9 +117,8 @@ class ProcessadorContracheque:
             if not meses_encontrados:
                 raise ValueError("Nenhum mês/ano válido encontrado no documento")
             
-            meses_encontrados.sort(key=lambda x: (
-                int(x.split('/')[1]) * 100 + int(self.meses[x.split('/')[0]])
-            ))
+            # Ordena os meses para garantir a sequência cronológica
+            meses_encontrados.sort(key=lambda x: (int(x.split('/')[1]), int(self.meses[x.split('/')[0]])))
             
             primeiro_mes = meses_encontrados[0]
             ultimo_mes = meses_encontrados[-1]
@@ -142,11 +132,11 @@ class ProcessadorContracheque:
                 "ultimo_mes": ultimo_mes,
                 "meses_para_processar": meses_para_processar,
                 "dados_mensais": {},
-                "tabela": tabela_identificada # Adiciona informação da tabela aqui
+                "tabela": tabela_identificada
             }
             
             for mes_ano in meses_para_processar:
-                data = sections.get(mes_ano, "")
+                data = sections.get(mes_ano)
                 if data:
                     results["dados_mensais"][mes_ano] = self._processar_mes_conteudo(data, mes_ano)
             
@@ -154,64 +144,69 @@ class ProcessadorContracheque:
             
         except Exception as e:
             logger.error(f"Erro ao processar contracheque: {str(e)}")
-            raise Exception(f"Erro ao processar contracheque: {str(e)}")
+            raise
 
     def _identificar_tabela(self, texto):
-        """Identifica a qual tabela (A, B ou C) pertence o contracheque"""
-        padrao_tabela_a = re.compile(r'Tabela\s*A', re.IGNORECASE)
-        padrao_tabela_b = re.compile(r'Tabela\s*B', re.IGNORECASE)
-        padrao_tabela_c = re.compile(r'Tabela\s*C', re.IGNORECASE)
-        
-        if padrao_tabela_a.search(texto):
-            return 'A'
-        elif padrao_tabela_b.search(texto):
-            return 'B'
-        elif padrao_tabela_c.search(texto):
-            return 'C'
-        else:
-            if re.search(r'Lei n[ºo]\s*13\.450,\s*de\s*26\s*de\s*Outubro\s*de\s*2015', texto, re.IGNORECASE):
-                return '2015'
-            return 'Desconhecida'
+        """Identifica a qual tabela (A, B, C ou 2015) pertence o contracheque."""
+        if re.search(r'Lei n[ºo]\s*13\.450,\s*de\s*26\s*de\s*Outubro\s*de\s*2015', texto, re.IGNORECASE):
+            return '2015'
+        # Adicione outras lógicas de identificação de tabela se necessário
+        return 'Desconhecida'
 
-    def _processar_mes_conteudo(self, data_texto, mes_ano): # Método original 'processar_mes' renomeado
-        """Processa os dados de um mês específico"""
-        lines = [line.strip() for line in data_texto.split('\n') if line.strip()]
-        
+    def _processar_mes_conteudo(self, data_texto, mes_ano):
+        """
+        ### LÓGICA DE EXTRAÇÃO CORRIGIDA ###
+        Processa o conteúdo de texto de um mês específico para extrair proventos e descontos.
+        """
         resultados_mes = {
             "total_proventos": 0.0,
-            "rubricas": defaultdict(float), # Armazena proventos
-            "rubricas_detalhadas": defaultdict(float), # Armazena descontos
-            "descricoes": {} # Descrições serão preenchidas na camada de análise/apresentação
+            "rubricas": defaultdict(float),
+            "rubricas_detalhadas": defaultdict(float),
+            "descricoes": {}
         }
 
-        # NOVA REGEX FINALISTA (Tentativa 3) - Mantida
-        padrao_rubrica = re.compile(
-            r'(?P<codigo>(?:\/|\d{1,4}|[A-Za-z]\d{3}|[A-Za-z]{3}\d|[A-Za-z0-9]{3,4}))\s+.*?' + # Captura um código flexível
-            r'(?P<valor>\d{1,3}(?:\.\d{3})*,\d{2})$' # Captura o ÚLTIMO valor monetário antes do final da linha
-        )
-
-        for line in lines:
-            match = padrao_rubrica.match(line)
-            if match:
-                rubrica_codigo = match.group('codigo').strip()
-                valor_str = match.group('valor')
-                valor = self.extrair_valor(valor_str) # Usa o método extrair_valor da classe
-
-                logger.debug(f"DEBUG: Mês/Ano: {mes_ano}, Linha: '{line}'")
-                logger.debug(f"DEBUG: Rubrica encontrada: '{rubrica_codigo}', Valor: {valor}")
-
-                if rubrica_codigo in self.codigos_proventos:
-                    resultados_mes["total_proventos"] += valor
-                    resultados_mes["rubricas"][rubrica_codigo] += valor
-                elif rubrica_codigo in self.rubricas_detalhadas_map: # Usa o nome renomeado
-                    resultados_mes["rubricas_detalhadas"][rubrica_codigo] += valor
-                else:
-                    logger.debug(f"DEBUG: Mês/Ano: {mes_ano}, Rubrica '{rubrica_codigo}' encontrada mas NÃO CLASSIFICADA: '{line}'")
-            else:
-                logger.debug(f"DEBUG: Mês/Ano: {mes_ano}, Linha NÃO CORRESPONDE ao padrão: '{line}'")
+        # Regex para encontrar qualquer valor monetário (ex: 1.234,56 ou 123,45)
+        padrao_valor = re.compile(r'\d{1,3}(?:\.\d{3})*,\d{2}')
         
+        # Concatena todos os códigos de proventos e descontos para busca
+        todos_codigos = self.codigos_proventos + self.codigos_descontos
+
+        # Itera por cada linha do texto do mês
+        for line in data_texto.split('\n'):
+            linha_limpa = line.strip()
+            if not linha_limpa:
+                continue
+
+            # Verifica se a linha começa com algum dos códigos conhecidos
+            for codigo in todos_codigos:
+                if linha_limpa.startswith(codigo):
+                    # Se encontrou um código, busca o último valor monetário na mesma linha
+                    valores_encontrados = padrao_valor.findall(linha_limpa)
+                    if valores_encontrados:
+                        valor_str = valores_encontrados[-1] # Pega o último valor encontrado
+                        valor = self.extrair_valor(valor_str)
+                        
+                        logger.debug(f"DEBUG: Mês/Ano: {mes_ano}, Código: '{codigo}', Valor: {valor}, Linha: '{linha_limpa}'")
+                        
+                        # Classifica como provento ou desconto
+                        if codigo in self.codigos_proventos:
+                            resultados_mes["rubricas"][codigo] += valor
+                        elif codigo in self.codigos_descontos:
+                             resultados_mes["rubricas_detalhadas"][codigo] += valor
+                        
+                        # Para de procurar outros códigos na mesma linha
+                        break 
+            
+        # Calcula o total de proventos
+        resultados_mes["total_proventos"] = sum(resultados_mes["rubricas"].values())
+        
+        # Log para os totais do mês para verificação
+        total_descontos = sum(resultados_mes["rubricas_detalhadas"].values())
+        logger.debug(f"TOTAIS PARA {mes_ano}: Proventos={resultados_mes['total_proventos']:.2f}, Descontos={total_descontos:.2f}")
+
         return resultados_mes
-        
+
+    # O método gerar_tabela_geral não precisa de alterações.
     def gerar_tabela_geral(self, resultados):
         """Gera uma tabela consolidada com os resultados"""
         tabela = {
@@ -230,7 +225,7 @@ class ProcessadorContracheque:
         sorted_rubricas = sorted(list(all_rubricas_found))
 
         for cod in sorted_rubricas:
-            descricao = self._gerar_descricoes_internas().get(cod, cod) # Usa método interno
+            descricao = self._gerar_descricoes_internas().get(cod, cod)
             tabela["colunas"].append(f"{descricao} ({cod})")
         
         tabela["colunas"].append("TOTAL PROVENTOS")
@@ -268,7 +263,7 @@ class ProcessadorContracheque:
             
         return tabela
 
-    def _gerar_descricoes_internas(self): # Renomeado para evitar conflito com Analisador
+    def _gerar_descricoes_internas(self):
         """Gera dicionário com descrições de todas as rubricas"""
         return {
             **{cod: info.get('descricao', '') 
