@@ -1,4 +1,3 @@
-# processador_contracheque.py
 import json
 import re
 from pathlib import Path
@@ -46,24 +45,27 @@ class ProcessadorContracheque:
             return float(valor)
         except (ValueError, AttributeError):
             return 0.0
+    
+    # Este método agora lê o texto completo, ideal para achar a data
+    def _extrair_texto_completo_pdf(self, file_bytes):
+        try:
+            doc = fitz.open(stream=file_bytes, filetype="pdf")
+            texto_completo = ""
+            for page in doc:
+                texto_completo += page.get_text("text", sort=True) + "\n"
+            return texto_completo
+        except Exception as e:
+            raise Exception(f"Erro ao extrair texto completo do PDF: {str(e)}")
 
+    # Este método lê o PDF em colunas, ideal para achar os valores da tabela
     def _extrair_dados_pdf_por_colunas(self, file_bytes):
-        """
-        --- NOVA LÓGICA DE EXTRAÇÃO ---
-        Extrai texto do PDF separando as colunas de Vantagens e Descontos.
-        """
         texto_vantagens = ""
         texto_descontos = ""
         try:
             doc = fitz.open(stream=file_bytes, filetype="pdf")
             for page in doc:
-                # Define os retângulos (coordenadas x0, y0, x1, y1) para cada coluna
-                # Essas coordenadas são para uma página A4 em pé (595x842 pontos)
-                # Coluna da Esquerda (Vantagens)
                 rect_vantagens = fitz.Rect(0, 0, page.rect.width / 2, page.rect.height)
-                # Coluna da Direita (Descontos)
                 rect_descontos = fitz.Rect(page.rect.width / 2, 0, page.rect.width, page.rect.height)
-                
                 texto_vantagens += page.get_text(clip=rect_vantagens, sort=True) + "\n"
                 texto_descontos += page.get_text(clip=rect_descontos, sort=True) + "\n"
             return texto_vantagens, texto_descontos
@@ -74,51 +76,27 @@ class ProcessadorContracheque:
         try:
             with open(filepath, 'rb') as f:
                 file_bytes = f.read()
-            
-            # Chama o novo extrator que lê em colunas
-            texto_vantagens, texto_descontos = self._extrair_dados_pdf_por_colunas(file_bytes)
-            
-            # Usa o texto combinado para encontrar o mês/ano
-            texto_combinado = texto_vantagens + texto_descontos
-            
-            ### --- MUDANÇA PRINCIPAL AQUI --- ###
-            # A regex foi atualizada com `\s*` para permitir espaços antes e depois da barra "/"
-            month_year_match = re.search(
-                r'(Janeiro|Fevereiro|Março|Abril|Maio|Junho|Julho|Agosto|Setembro|Outubro|Novembro|Dezembro)\s*/\s*\d{4}', 
-                texto_combinado, 
-                re.IGNORECASE
-            )
-            
+
+            # --- LÓGICA HÍBRIDA ---
+            # 1. Lê o texto completo SÓ para encontrar a data de forma confiável
+            texto_completo = self._extrair_texto_completo_pdf(file_bytes)
+            month_year_pattern = r'(Janeiro|Fevereiro|Março|Abril|Maio|Junho|Julho|Agosto|Setembro|Outubro|Novembro|Dezembro)\s*/\s*\d{4}'
+            month_year_match = re.search(month_year_pattern, texto_completo, re.IGNORECASE)
+
             if not month_year_match:
-                # Tenta um fallback se o padrão acima falhar
-                match_fallback = re.search(r'\b(Jan|Fev|Mar|Abr|Mai|Jun|Jul|Ago|Set|Out|Nov|Dez)\b/\d{4}', texto_combinado, re.IGNORECASE)
-                if not match_fallback:
-                    raise ValueError("Não foi possível encontrar o Mês/Ano no documento.")
-                
-                # Se o fallback funcionar, continua com a execução
-                mes_ano_str = match_fallback.group(0)
-                # Converte abreviação para nome completo se necessário (lógica simplificada)
-                # Esta parte pode ser expandida se houver muitos formatos diferentes
-                mes_nome = next((mes for mes, abrev in {"Janeiro":"Jan", "Fevereiro":"Fev"}.items() if abrev == mes_ano_str[:3]), mes_ano_str.split('/')[0])
-                ano = re.search(r'\d{4}', mes_ano_str).group(0)
-                mes_ano = f"{mes_nome.capitalize()}/{ano}"
-    
-            else:
-                 mes_ano = month_year_match.group(0).split('/')
-                 mes_ano = f"{mes_ano[0].strip().capitalize()}/{mes_ano[1].strip()}"
-    
+                raise ValueError("Não foi possível encontrar o Mês/Ano no documento.")
             
+            # Extrai e formata o Mês/Ano encontrado
+            mes_ano_str = month_year_match.group(0)
+            partes = re.split(r'\s*/\s*', mes_ano_str)
+            mes_ano = f"{partes[0].capitalize()}/{partes[1]}"
+
+            # 2. Agora que temos a data, faz a leitura por colunas para extrair os valores sem erros
+            texto_vantagens, texto_descontos = self._extrair_dados_pdf_por_colunas(file_bytes)
             dados_mes = self._processar_mes_conteudo(texto_vantagens, texto_descontos, mes_ano)
-            
-            # A lógica para determinar o período de análise precisa ser ajustada
-            # para lidar com múltiplos arquivos no futuro, mas para um único arquivo está ok.
-            meses_encontrados = [mes_ano]
-            primeiro_mes, ultimo_mes = meses_encontrados[0], meses_encontrados[-1]
-    
+
             return {
-                "primeiro_mes": primeiro_mes,
-                "ultimo_mes": ultimo_mes,
-                "meses_para_processar": meses_encontrados,
+                "primeiro_mes": mes_ano, "ultimo_mes": mes_ano, "meses_para_processar": [mes_ano],
                 "dados_mensais": {mes_ano: dados_mes}
             }
         except Exception as e:
@@ -128,10 +106,8 @@ class ProcessadorContracheque:
     def _processar_mes_conteudo(self, texto_vantagens, texto_descontos, mes_ano):
         resultados_mes = {"rubricas": defaultdict(float), "rubricas_detalhadas": defaultdict(float)}
 
-        # Padrão genérico para encontrar um código e o valor na mesma linha
-        padrao_rubrica = re.compile(r'^(?P<code>[0-9A-Z/]+)\s+.*?(?P<valor>\d{1,3}(?:[.,]\d{3})*,\d{2})\s*$', re.MULTILINE)
+        padrao_rubrica = re.compile(r'^(?P<code>\d{4}|[A-Z0-9]{1,4}P|[A-Z]\d{3}|\d[A-Z]\d{2}|/\d{3})\s+.*?(?P<valor>\d{1,3}(?:[.,]\d{3})*,\d{2})\s*$', re.MULTILINE)
 
-        # Processa o bloco de VANTAGENS (agora sem risco de contaminação)
         for match in padrao_rubrica.finditer(texto_vantagens):
             codigo = match.group('code')
             valor = self.extrair_valor(match.group('valor'))
@@ -139,18 +115,13 @@ class ProcessadorContracheque:
                 resultados_mes["rubricas"][codigo] = valor
                 logger.debug(f"DEBUG: Provento Identificado - Mês/Ano: {mes_ano}, Código: '{codigo}', Valor: {valor}")
 
-        # Processa o bloco de DESCONTOS
         for match in padrao_rubrica.finditer(texto_descontos):
             codigo = match.group('code')
-            # Alguns códigos de desconto podem não ter o padrão, como /401
-            if not codigo and "IRRF" in match.string: codigo = "/401"
-            
             valor = self.extrair_valor(match.group('valor'))
             if codigo in self.codigos_descontos:
                 resultados_mes["rubricas_detalhadas"][codigo] = valor
                 logger.debug(f"DEBUG: Desconto Identificado - Mês/Ano: {mes_ano}, Código: '{codigo}', Valor: {valor}")
 
-        # Lógica para calcular o total de proventos, respeitando a flag "ignorar_na_soma"
         total_proventos_calculado = 0
         for codigo, valor in resultados_mes["rubricas"].items():
             info_rubrica = self.rubricas.get('proventos', {}).get(codigo, {})
@@ -161,8 +132,7 @@ class ProcessadorContracheque:
         logger.debug(f"TOTAIS PARA {mes_ano}: Proventos (para soma)={total_proventos_calculado:.2f}, Descontos={sum(resultados_mes['rubricas_detalhadas'].values()):.2f}")
         
         return resultados_mes
-    
-    # O restante dos métodos para gerar as tabelas continuam os mesmos
+
     def gerar_tabela_proventos_resumida(self, resultados):
         tabela = {"colunas": ["Mês/Ano", "Total de Proventos"], "dados": []}
         for mes_ano in resultados.get("meses_para_processar", []):
