@@ -1,103 +1,102 @@
 /* static/css/pages/analise.css */
 
-/* 1. Corpo da Página de Análise */
-/* Aplica o fundo azul e centraliza o conteúdo verticalmente e horizontalmente */
 body.page-analise {
-    background-color: var(--maida-azul);
+    background-color: #f4f7fa; /* Um fundo cinza muito claro, mais suave que o azul */
     display: flex;
     flex-direction: column;
-    justify-content: center;
     align-items: center;
     min-height: 100vh;
     padding: 40px 20px;
     box-sizing: border-box;
 }
 
-/* 2. Container Principal da Análise */
-/* O "card" branco que conterá todo o nosso conteúdo */
-.analysis-container {
-    background-color: var(--branco);
+.content-wrapper {
     width: 100%;
-    max-width: 900px; /* Um pouco mais largo para acomodar bem as tabelas */
-    padding: 40px;
-    border-radius: 15px;
-    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
-    text-align: center;
+    max-width: 1200px;
 }
 
-/* 3. Títulos e Textos */
-.analysis-container h1 {
-    color: var(--maida-azul);
-    font-size: 2.2rem;
-    margin-bottom: 10px;
-}
-
-.analysis-container .periodo {
-    color: var(--maida-rosa);
-    font-size: 1.1rem;
+.table-container {
+    background-color: var(--branco);
+    border-radius: 8px;
+    border: 1px solid #e2e8f0;
+    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -1px rgba(0, 0, 0, 0.04);
+    padding: 24px;
     margin-bottom: 40px;
-    font-weight: 500;
+    overflow-x: auto; /* Permite rolagem horizontal em telas pequenas */
 }
 
-.analysis-container h2 {
+.table-header {
+    margin-bottom: 20px;
+}
+
+.table-header h2 {
+    font-size: 1.25rem;
+    font-weight: 600;
+    color: #2d3748;
+    display: flex;
+    align-items: center;
+}
+
+.table-header i {
     color: var(--maida-azul);
-    text-align: left;
+    margin-right: 12px;
     font-size: 1.5rem;
-    margin-top: 30px;
-    margin-bottom: 15px;
-    padding-bottom: 10px;
-    border-bottom: 2px solid #eee;
 }
 
-/* 4. Estilo das Tabelas de Resultados */
+.table-header p {
+    color: #718096;
+    margin-top: 4px;
+}
+
 .results-table {
     width: 100%;
     border-collapse: collapse;
-    text-align: left;
-    margin-bottom: 30px; /* Espaço após a tabela */
-}
-
-.results-table th,
-.results-table td {
-    padding: 12px 15px;
-    border-bottom: 1px solid #e0e0e0;
+    font-size: 0.875rem;
 }
 
 .results-table thead th {
-    background-color: #f8f9fa; /* Um cinza bem claro para o cabeçalho */
+    background-color: #f9fafb;
+    color: #4a5568;
     font-weight: 600;
-    color: #333;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    text-align: left;
+    padding: 12px 16px;
+    border-bottom: 2px solid #e2e8f0;
 }
 
-/* Alinhamento da coluna de valor à direita */
-.results-table .col-valor {
+.results-table tbody td {
+    color: #2d3748;
+    padding: 12px 16px;
+    border-bottom: 1px solid #edf2f7;
+}
+
+.results-table tbody tr:last-child td {
+    border-bottom: none;
+}
+
+.results-table td:first-child, .results-table th:first-child {
+    font-weight: 600; /* Deixa a primeira coluna em negrito */
+}
+
+.col-valor {
     text-align: right;
-    font-family: 'Courier New', Courier, monospace; /* Fonte monoespaçada para números */
-    font-weight: 500;
 }
 
-/* Linha de Total */
-.results-table .total-row td {
-    font-weight: bold;
-    font-size: 1.1rem;
-    color: var(--maida-azul);
-    border-top: 2px solid var(--maida-azul);
-}
-
-/* 5. Botão de Ação */
 .action-button {
-    display: inline-block;
+    display: block;
+    width: fit-content;
+    margin: 20px auto 0 auto;
     background-color: var(--maida-amarelo);
     color: var(--maida-azul);
     padding: 12px 30px;
     border-radius: 50px;
     text-decoration: none;
     font-weight: bold;
-    margin-top: 20px;
-    transition: var(--transicao-padrao);
+    transition: all 0.3s ease;
 }
 
 .action-button:hover {
-    transform: translateY(-3px);
-    box-shadow: 0 5px 15px rgba(0,0,0,0.15);
+    transform: translateY(-2px);
+    box-shadow: 0 5px 15px rgba(0,0,0,0.1);
 }
