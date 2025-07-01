@@ -93,7 +93,6 @@ def index():
 def calculadora():
     return render_template('indexcalculadora.html') 
 
-
 @app.route('/upload', methods=['POST'])
 def upload():
     if 'files[]' not in request.files:
@@ -105,7 +104,6 @@ def upload():
         flash('Nenhum arquivo selecionado', 'error')
         return redirect(url_for('calculadora'))
 
-    # Esta estrutura irá consolidar dados de múltiplos PDFs, se houver
     resultados_globais = {
         'dados_mensais': {},
         'erros': [],
@@ -117,7 +115,6 @@ def upload():
     }
 
     try:
-        # Loop para processar cada arquivo enviado
         for file in files:
             if file and allowed_file(file.filename):
                 filename = secure_filename(file.filename)
@@ -127,20 +124,20 @@ def upload():
                 logger.info(f"Processando arquivo: {filename}")
                 dados_arquivo_atual = processador.processar_contracheque(filepath)
                 
-                # Mescla os dados do arquivo atual com os dados globais
                 for mes_ano, dados_mes in dados_arquivo_atual.get('dados_mensais', {}).items():
                     if mes_ano not in resultados_globais['dados_mensais']:
                         resultados_globais['dados_mensais'][mes_ano] = dados_mes
                     else:
-                        # Lógica de mesclagem (soma) se o mesmo mês aparecer em múltiplos arquivos
                         for k, v in dados_mes.items():
                             if isinstance(v, dict):
                                 for sub_k, sub_v in v.items():
+                                    # A linha com o erro de digitação foi aqui.
+                                    # Forma correta é [mes_ano] e não [mes_ano']
                                     resultados_globais['dados_mensais'][mes_ano][k][sub_k] += sub_v
                             elif isinstance(v, (int, float)):
-                                resultados_globais['dados_mensais'][mes_ano'][k] += v
+                                # E aqui também.
+                                resultados_globais['dados_mensais'][mes_ano][k] += v
 
-                # Atualiza o período geral
                 if dados_arquivo_atual.get('primeiro_mes'):
                     if not resultados_globais['primeiro_mes'] or processador.meses_anos.index(dados_arquivo_atual['primeiro_mes']) < processador.meses_anos.index(resultados_globais['primeiro_mes']):
                         resultados_globais['primeiro_mes'] = dados_arquivo_atual['primeiro_mes']
@@ -152,18 +149,14 @@ def upload():
                 resultados_globais['quantidade_arquivos'] += 1
                 os.remove(filepath)
 
-        # Recalcula a lista de meses com base no período global
         if resultados_globais['primeiro_mes'] and resultados_globais['ultimo_mes']:
             idx_primeiro = processador.meses_anos.index(resultados_globais['primeiro_mes'])
             idx_ultimo = processador.meses_anos.index(resultados_globais['ultimo_mes'])
             resultados_globais['meses_para_processar'] = processador.meses_anos[idx_primeiro:idx_ultimo + 1]
 
-        ### --- CHAMANDO OS NOVOS MÉTODOS --- ###
-        # Gera as duas tabelas separadamente
         tabela_proventos = processador.gerar_tabela_proventos_resumida(resultados_globais)
         tabela_descontos = processador.gerar_tabela_descontos_detalhada(resultados_globais)
 
-        # Prepara os dados finais para a sessão
         final_results_for_session = {
             'tabela_proventos_resumida': tabela_proventos,
             'tabela_descontos_detalhada': tabela_descontos,
