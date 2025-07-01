@@ -261,7 +261,7 @@ class ProcessadorContracheque:
             raise Exception(f"Erro ao extrair texto do PDF: {str(e)}")
 
     def processar_mes(self, data_texto, mes_ano):
-        """Processa os dados de um mês específico para contracheques da Bahia"""
+        """Processa os dados de um mês específico para contracheques da Bahia"""  # ← 4 espaços de indentação
         lines = [line.strip() for line in data_texto.split('\n') if line.strip()]
         
         resultados_mes = {
