@@ -5,6 +5,7 @@ from typing import Dict, List
 from collections import defaultdict
 import fitz  # PyMuPDF
 import logging
+import traceback
 
 logger = logging.getLogger(__name__)
 
@@ -76,46 +77,82 @@ class ProcessadorContracheque:
         return 0.0
 
     def processar_pdf(self, file_bytes):
-        """Processa o conteúdo PDF e retorna os resultados formatados"""
+        """Processa o conteúdo PDF de contracheques da Bahia e retorna os resultados formatados"""
         try:
-            if not hasattr(self, 'rubricas_completas'):
-                raise ValueError("Rubricas não foram carregadas corretamente")
-            
+            # Etapa 1: Extração robusta do texto
             texto = self._extrair_texto_pdf(file_bytes)
+            
+            # Validações críticas do conteúdo
+            if not texto:
+                raise ValueError("O PDF está vazio ou não contém texto legível")
+                
+            if "GOVERNO DO ESTADO DA BAHIA" not in texto:
+                raise ValueError("Documento não identificado como contracheque da Bahia")
+                
+            if not any(sec in texto for sec in ["VANTAGENS", "DESCONTOS"]):
+                raise ValueError("Estrutura básica do contracheque não encontrada")
+
+            # Etapa 2: Identificação de seções e meses
             sections = self._extrair_secoes(texto)
             meses_encontrados = self._identificar_meses(sections)
             
             if not meses_encontrados:
                 raise ValueError("Nenhum mês/ano válido encontrado no documento")
-            
-            # Ordena os meses encontrados
+
+            # Ordena os meses cronologicamente
             meses_encontrados.sort(key=lambda x: (
-                int(x.split('/')[1]) * 100 + int(self.meses[x.split('/')[0]])
+                int(x.split('/')[1]),  # Ano
+                list(self.meses.keys()).index(x.split('/')[0])  # Mês
             ))
-            
+
+            # Determina o período completo para processamento
             primeiro_mes = meses_encontrados[0]
             ultimo_mes = meses_encontrados[-1]
             
-            index_primeiro = self.meses_anos.index(primeiro_mes)
-            index_ultimo = self.meses_anos.index(ultimo_mes)
-            meses_para_processar = self.meses_anos[index_primeiro:index_ultimo + 1]
-            
-            results = {
+            try:
+                index_primeiro = self.meses_anos.index(primeiro_mes)
+                index_ultimo = self.meses_anos.index(ultimo_mes)
+                meses_para_processar = self.meses_anos[index_primeiro:index_ultimo + 1]
+            except ValueError as e:
+                raise ValueError(f"Período inválido no documento: {str(e)}")
+
+            # Etapa 3: Processamento dos dados mensais
+            resultados = {
                 "primeiro_mes": primeiro_mes,
                 "ultimo_mes": ultimo_mes,
                 "meses_para_processar": meses_para_processar,
-                "dados_mensais": {}
+                "dados_mensais": {},
+                "tabela": self._identificar_tabela(texto)
             }
-            
+
             for mes_ano in meses_para_processar:
-                data = sections.get(mes_ano, "")
-                if data:
-                    results["dados_mensais"][mes_ano] = self.processar_mes(data, mes_ano)
-            
-            return results
-            
+                dados_mes = sections.get(mes_ano, "")
+                if dados_mes:
+                    try:
+                        resultados["dados_mensais"][mes_ano] = self.processar_mes(dados_mes, mes_ano)
+                    except Exception as e:
+                        logger.error(f"Erro ao processar {mes_ano}: {str(e)}")
+                        resultados["dados_mensais"][mes_ano] = {
+                            "total_proventos": 0.0,
+                            "rubricas": {},
+                            "rubricas_detalhadas": {},
+                            "descricoes": {},
+                            "erro": str(e)
+                        }
+
+            # Validação final dos resultados
+            if not any(data.get("rubricas") for data in resultados["dados_mensais"].values()):
+                raise ValueError("Nenhuma rubrica foi identificada - verifique o formato do documento")
+
+            return resultados
+
         except Exception as e:
-            raise Exception(f"Erro ao processar PDF: {str(e)}")
+            logger.error(f"Falha no processamento: {str(e)}")
+            return {
+                "erro": str(e),
+                "traceback": traceback.format_exc(),
+                "texto_extraido": texto[:1000] + "..." if texto else None
+            }
 
     def processar_contracheque(self, filepath):
         """Processa um arquivo PDF de contracheque e retorna dados estruturados"""
@@ -272,55 +309,60 @@ class ProcessadorContracheque:
             raise
 
     def processar_mes(self, data_texto, mes_ano):
-        """Processa contracheques da Bahia com tratamento especial"""
-        resultados_mes = {
+        """Parser otimizado para contracheques do Governo da Bahia"""
+        resultados = {
             "total_proventos": 0.0,
             "rubricas": defaultdict(float),
             "rubricas_detalhadas": defaultdict(float),
             "descricoes": {}
         }
     
-        # Padrão otimizado para o formato da Bahia
+        # Padrão para linhas de rubricas (ex: "003P Soldo Inc 30.00 01.2021 1.185,54")
         padrao_rubrica = re.compile(
-            r'(?P<codigo>\d{1,4}[A-Za-z]{1,3})\s+'  # Código (003P, 0J40)
-            r'(?P<descricao>.+?)\s+'  # Descrição
-            r'(?:\d{2}\.\d{4}\s+)?'  # Ignora datas (01.2021)
-            r'(?P<valor>\d{1,3}(?:\.\d{3})*,\d{2})'  # Valor (1.185,54)
+            r'(?P<codigo>\d{1,4}[A-Za-z]{1,3})\s+'
+            r'(?P<descricao>[^\d]+?)\s+'
+            r'(?:\d+\.\d+\s+)?'  # Ignora campos intermediários
+            r'(?P<valor>\d{1,3}(?:\.\d{3})*,\d{2})'
         )
     
-        # Processa por blocos (VANTAGENS/DESCONTOS)
-        blocos = re.split(r'(VANTAGENS|DESCONTOS)', data_texto)
+        # Processa por seções
         em_proventos = False
-        
-        for bloco in blocos:
-            if "VANTAGENS" in bloco:
+        em_descontos = False
+    
+        for linha in data_texto.split('\n'):
+            linha = linha.strip()
+            
+            # Detecta seções
+            if "VANTAGENS" in linha:
                 em_proventos = True
+                em_descontos = False
                 continue
-            elif "DESCONTOS" in bloco:
+            elif "DESCONTOS" in linha:
                 em_proventos = False
+                em_descontos = True
                 continue
     
-            # Extrai todas as rubricas do bloco
-            for match in padrao_rubrica.finditer(bloco):
-                codigo = match.group('codigo')
-                descricao = match.group('descricao').strip()
-                valor = float(match.group('valor').replace('.', '').replace(',', '.'))
-    
+            # Extrai rubricas
+            for match in padrao_rubrica.finditer(linha):
+                dados = match.groupdict()
+                valor = float(dados['valor'].replace('.', '').replace(',', '.'))
+                
                 if em_proventos:
-                    resultados_mes["rubricas"][codigo] = valor
-                    resultados_mes["descricoes"][codigo] = descricao
-                    resultados_mes["total_proventos"] += valor
-                else:
-                    resultados_mes["rubricas_detalhadas"][codigo] = valor
-                    resultados_mes["descricoes"][codigo] = descricao
+                    resultados["rubricas"][dados['codigo']] = valor
+                    resultados["descricoes"][dados['codigo']] = dados['descricao'].strip()
+                    resultados["total_proventos"] += valor
+                elif em_descontos:
+                    resultados["rubricas_detalhadas"][dados['codigo']] = valor
+                    resultados["descricoes"][dados['codigo']] = dados['descricao'].strip()
     
-        # Captura totais explicitamente
-        total_prov = re.search(r'TOTAL\s+DE\s+PROVENTOS\s+(\d[\d\.]*,\d{2})', data_texto)
-        if total_prov:
-            resultados_mes["total_proventos"] = float(total_prov.group(1).replace('.','').replace(',','.'))
+        # Força captura do total se o parser falhar
+        if resultados["total_proventos"] == 0:
+            total_match = re.search(r'TOTAL\s+DE\s+PROVENTOS\s+([\d\.,]+)', data_texto)
+            if total_match:
+                resultados["total_proventos"] = float(total_match.group(1).replace('.', '').replace(',', '.'))
     
-        return resultados_mes
-        
+        return resultados
+            
     def gerar_tabela_geral(self, resultados):
         """Gera tabela consolidada mantendo todas as rubricas que apareceram em algum mês"""
         tabela = {
