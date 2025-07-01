@@ -246,22 +246,30 @@ class ProcessadorContracheque:
     def _extrair_texto_pdf(self, file_bytes):
         try:
             doc = fitz.open(stream=file_bytes, filetype="pdf")
-            texto = ""
-            for page in doc:
-                # Extrai texto preservando layouts complexos
-                texto += page.get_text("text", flags=
-                    fitz.TEXT_PRESERVE_LIGATURES | 
-                    fitz.TEXT_PRESERVE_WHITESPACE |
-                    fitz.TEXT_MEDIABOX_CLIP |
-                    fitz.TEXT_DEHYPHENATE)
+            full_text = []
             
-            # DEBUG - Salva o texto extraído para análise
-            with open("debug_pdf_text.txt", "w", encoding="utf-8") as f:
-                f.write(texto)
+            for page_num, page in enumerate(doc):
+                # Extrai texto com diferentes métodos para comparação
+                text_raw = page.get_text("text")
+                text_preserve = page.get_text("text", flags=
+                    fitz.TEXT_PRESERVE_LIGATURES | 
+                    fitz.TEXT_PRESERVE_WHITESPACE)
                 
-            return texto
+                full_text.append(f"\n=== Página {page_num+1} ===\n")
+                full_text.append("=== Modo RAW ===\n")
+                full_text.append(text_raw)
+                full_text.append("\n=== Modo PRESERVE ===\n")
+                full_text.append(text_preserve)
+            
+            debug_content = "".join(full_text)
+            
+            with open("debug_pdf_completo.txt", "w", encoding="utf-8") as f:
+                f.write(debug_content)
+                
+            return debug_content  # Retorna todos os formatos para análise
         except Exception as e:
-            raise Exception(f"Erro ao extrair texto do PDF: {str(e)}")
+            logger.error(f"Falha crítica na extração: {str(e)}")
+            raise
 
     def processar_mes(self, data_texto, mes_ano):
         """Processa contracheques da Bahia com tratamento especial"""
