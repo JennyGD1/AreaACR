@@ -179,21 +179,27 @@ def analise_detalhada():
         return redirect(url_for('calculadora'))
     
     try:
-        resultados = json.loads(session['resultados'])
+        # Carrega os resultados da sessão para uma variável local
+        resultados_json = session['resultados']
         
-        # O logger aqui mostrará a estrutura de dados DESERIALIZADA que o template vai usar.
+        ### --- MUDANÇA PRINCIPAL AQUI --- ###
+        # Depois de carregar os dados, nós os removemos da sessão.
+        # Assim, se o usuário atualizar a página ou voltar, a sessão estará limpa.
+        session.pop('resultados', None)
+        
+        resultados = json.loads(resultados_json)
+        
         logger.info(f"Resultados desserializados para template: {json.dumps(resultados, indent=2)}")
         
         return render_template('analise_detalhada.html', resultados=resultados)
         
-    except json.JSONDecodeError:
-        logger.error("Erro ao decodificar resultados da sessão: JSON inválido")
+    except (json.JSONDecodeError, KeyError) as e:
+        logger.error(f"Erro ao carregar dados da sessão: {str(e)}")
         flash('Erro ao carregar dados da sessão. Por favor, tente novamente.', 'error')
+        # Limpa a sessão em caso de erro também
+        session.pop('resultados', None)
         return redirect(url_for('calculadora'))
-    except Exception as e:
-        logger.error(f"Erro ao carregar análise para template: {str(e)}")
-        flash('Erro ao exibir resultados', 'error')
-        return redirect(url_for('calculadora'))
+
 
 if __name__ == '__main__':
     app.run(debug=os.getenv('FLASK_DEBUG', 'False') == 'True')
