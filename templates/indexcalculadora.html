@@ -15,14 +15,6 @@
             <p>Anexe um ou mais contracheques em formato PDF para análise.</p>
 
             <div id="upload-feedback" class="feedback-message" style="display: none;"></div>
-            {% with messages = get_flashed_messages(with_categories=true) %}
-                {% if messages %}
-                    {% for category, message in messages %}
-                        <div class="alert alert-{{ category }}">{{ message }}</div>
-                    {% endfor %}
-                {% endif %}
-            {% endwith %}
-
             <div class="upload-container">
                 <form id="upload-form" method="POST" enctype="multipart/form-data" action="{{ url_for('upload') }}">
                     <input type="file" name="files[]" id="file-upload" accept=".pdf" multiple required style="display: none;">
