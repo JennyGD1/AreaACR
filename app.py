@@ -93,6 +93,7 @@ def index():
 def calculadora():
     return render_template('indexcalculadora.html') 
 
+
 @app.route('/upload', methods=['POST'])
 def upload():
     if 'files[]' not in request.files:
@@ -104,7 +105,7 @@ def upload():
         flash('Nenhum arquivo selecionado', 'error')
         return redirect(url_for('calculadora'))
 
-    # Inicializa resultados_globais para consolidar dados de múltiplos PDFs
+    # Esta estrutura irá consolidar dados de múltiplos PDFs, se houver
     resultados_globais = {
         'dados_mensais': {},
         'erros': [],
@@ -116,6 +117,7 @@ def upload():
     }
 
     try:
+        # Loop para processar cada arquivo enviado
         for file in files:
             if file and allowed_file(file.filename):
                 filename = secure_filename(file.filename)
@@ -123,68 +125,51 @@ def upload():
                 file.save(filepath)
                 
                 logger.info(f"Processando arquivo: {filename}")
+                dados_arquivo_atual = processador.processar_contracheque(filepath)
                 
-                # Processa cada arquivo PDF usando o método processar_contracheque
-                dados_contracheque_atual = processador.processar_contracheque(filepath)
-                
-                # Adiciona dados do arquivo atual aos resultados globais
-                if 'dados_mensais' in dados_contracheque_atual:
-                    for mes_ano, dados_mes in dados_contracheque_atual['dados_mensais'].items():
-                        if mes_ano not in resultados_globais['dados_mensais']:
-                            resultados_globais['dados_mensais'][mes_ano] = dados_mes
-                        else:
-                            # Se o mês já existe (pode acontecer com múltiplos PDFs), mesclar dados
-                            # Esta lógica de mesclagem é simplificada; pode precisar ser mais robusta
-                            # se houver rubricas diferentes no mesmo mês em PDFs distintos.
-                            for rub_type in ['rubricas', 'rubricas_detalhadas']:
-                                for cod, val in dados_mes.get(rub_type, {}).items():
-                                    resultados_globais['dados_mensais'][mes_ano][rub_type][cod] += val
-                            resultados_globais['dados_mensais'][mes_ano]['total_proventos'] += dados_mes.get('total_proventos', 0.0)
+                # Mescla os dados do arquivo atual com os dados globais
+                for mes_ano, dados_mes in dados_arquivo_atual.get('dados_mensais', {}).items():
+                    if mes_ano not in resultados_globais['dados_mensais']:
+                        resultados_globais['dados_mensais'][mes_ano] = dados_mes
+                    else:
+                        # Lógica de mesclagem (soma) se o mesmo mês aparecer em múltiplos arquivos
+                        for k, v in dados_mes.items():
+                            if isinstance(v, dict):
+                                for sub_k, sub_v in v.items():
+                                    resultados_globais['dados_mensais'][mes_ano][k][sub_k] += sub_v
+                            elif isinstance(v, (int, float)):
+                                resultados_globais['dados_mensais'][mes_ano'][k] += v
 
-                # Atualiza os limites de meses para o período global
-                if dados_contracheque_atual.get('primeiro_mes'):
-                    if not resultados_globais['primeiro_mes'] or \
-                       processador.meses_anos.index(dados_contracheque_atual['primeiro_mes']) < \
-                       processador.meses_anos.index(resultados_globais['primeiro_mes']):
-                        resultados_globais['primeiro_mes'] = dados_contracheque_atual['primeiro_mes']
+                # Atualiza o período geral
+                if dados_arquivo_atual.get('primeiro_mes'):
+                    if not resultados_globais['primeiro_mes'] or processador.meses_anos.index(dados_arquivo_atual['primeiro_mes']) < processador.meses_anos.index(resultados_globais['primeiro_mes']):
+                        resultados_globais['primeiro_mes'] = dados_arquivo_atual['primeiro_mes']
                 
-                if dados_contracheque_atual.get('ultimo_mes'):
-                    if not resultados_globais['ultimo_mes'] or \
-                       processador.meses_anos.index(dados_contracheque_atual['ultimo_mes']) > \
-                       processador.meses_anos.index(resultados_globais['ultimo_mes']):
-                        resultados_globais['ultimo_mes'] = dados_contracheque_atual['ultimo_mes']
-
-                if dados_contracheque_atual.get('tabela') and resultados_globais['tabela'] == 'Desconhecida':
-                    resultados_globais['tabela'] = dados_contracheque_atual['tabela']
+                if dados_arquivo_atual.get('ultimo_mes'):
+                    if not resultados_globais['ultimo_mes'] or processador.meses_anos.index(dados_arquivo_atual['ultimo_mes']) > processador.meses_anos.index(resultados_globais['ultimo_mes']):
+                        resultados_globais['ultimo_mes'] = dados_arquivo_atual['ultimo_mes']
 
                 resultados_globais['quantidade_arquivos'] += 1
                 os.remove(filepath)
-            else:
-                flash(f'Arquivo {file.filename} não é um PDF válido', 'error')
 
-        # Recalcula a lista completa de meses a processar com base nos limites globais
+        # Recalcula a lista de meses com base no período global
         if resultados_globais['primeiro_mes'] and resultados_globais['ultimo_mes']:
-            index_primeiro = processador.meses_anos.index(resultados_globais['primeiro_mes'])
-            index_ultimo = processador.meses_anos.index(resultados_globais['ultimo_mes'])
-            resultados_globais['meses_para_processar'] = processador.meses_anos[index_primeiro:index_ultimo + 1]
+            idx_primeiro = processador.meses_anos.index(resultados_globais['primeiro_mes'])
+            idx_ultimo = processador.meses_anos.index(resultados_globais['ultimo_mes'])
+            resultados_globais['meses_para_processar'] = processador.meses_anos[idx_primeiro:idx_ultimo + 1]
 
-        # Agora, chame o analisador e o gerador de tabela geral com os resultados consolidados
-        analise_planserv = analisador.analisar_resultados(resultados_globais)
-        resultados_globais['proventos_totais_planserv'] = analise_planserv['proventos']
-        resultados_globais['descontos_totais_planserv'] = analise_planserv['descontos']
+        ### --- CHAMANDO OS NOVOS MÉTODOS --- ###
+        # Gera as duas tabelas separadamente
+        tabela_proventos = processador.gerar_tabela_proventos_resumida(resultados_globais)
+        tabela_descontos = processador.gerar_tabela_descontos_detalhada(resultados_globais)
 
-        tabela_geral = processador.gerar_tabela_geral(resultados_globais)
-        
-        # Combine os resultados para a sessão (use uma nova variável para evitar sobrescrever)
+        # Prepara os dados finais para a sessão
         final_results_for_session = {
-            **resultados_globais, 
-            'tabela_geral': tabela_geral,
+            'tabela_proventos_resumida': tabela_proventos,
+            'tabela_descontos_detalhada': tabela_descontos,
         }
 
-        # Converte para um dicionário serializável antes de salvar na sessão
         session['resultados'] = json.dumps(converter_para_dict_serializavel(final_results_for_session))
-        
-        logger.info(f"Resultados consolidados e serializados para sessão: {json.dumps(final_results_for_session, indent=2)}")
         
         flash('Arquivos processados com sucesso!', 'success')
         return redirect(url_for('analise_detalhada'))
