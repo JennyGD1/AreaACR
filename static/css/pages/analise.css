@@ -50,9 +50,20 @@ body.page-analise {
 
 .results-table {
     width: 100%;
-    border-collapse: collapse;
+    border-collapse: collapse; /* Essencial para que as bordas se unam em uma só */
     font-size: 0.875rem;
 }
+
+/* --- MUDANÇA PRINCIPAL AQUI --- */
+/* Adicionamos uma borda em todos os lados das células e do cabeçalho */
+.results-table th,
+.results-table td {
+    color: #2d3748;
+    padding: 12px 16px;
+    border: 1px solid #e2e8f0; /* Borda cinza claro em todos os lados */
+    text-align: left; /* Garante alinhamento padrão à esquerda */
+}
+
 
 .results-table thead th {
     background-color: #f9fafb;
@@ -60,23 +71,21 @@ body.page-analise {
     font-weight: 600;
     text-transform: uppercase;
     letter-spacing: 0.05em;
-    text-align: left;
-    padding: 12px 16px;
-    border-bottom: 2px solid #e2e8f0;
+    border-top: none; /* Remove a borda de cima do cabeçalho para um visual mais limpo */
 }
 
-.results-table tbody td {
-    color: #2d3748;
-    padding: 12px 16px;
-    border-bottom: 1px solid #edf2f7;
+/* Removemos a borda da direita da última célula do cabeçalho */
+.results-table th:last-child, .results-table td:last-child {
+    border-right: none;
+}
+/* Removemos a borda da esquerda da primeira célula do cabeçalho */
+.results-table th:first-child, .results-table td:first-child {
+    border-left: none;
 }
 
-.results-table tbody tr:last-child td {
-    border-bottom: none;
-}
 
 .results-table td:first-child, .results-table th:first-child {
-    font-weight: 600; /* Deixa a primeira coluna em negrito */
+    font-weight: 600; 
 }
 
 .col-valor {
