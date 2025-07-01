@@ -1,3 +1,4 @@
+# app.py
 from flask import Flask, render_template, request, redirect, url_for, flash, session
 from flask_session import Session
 from werkzeug.utils import secure_filename
@@ -6,21 +7,23 @@ import re
 import fitz # PyMuPDF
 from collections import defaultdict
 import logging
-import json # Importar json aqui para usar em logs
-from pathlib import Path # Importar Path para carregar rubricas
+import json 
+from pathlib import Path 
+from typing import Dict, Any # <--- ESSA LINHA É CRUCIAL E PRECISA ESTAR AQUI!
 
 # Importa as classes ProcessadorContracheque e AnalisadorPlanserv
 from processador_contracheque import ProcessadorContracheque
 from analisador import AnalisadorPlanserv
 
-# Configuração de logging (melhorar o nível para DEBUG para ver as saídas do print)
+# Configuração de logging
 logging.basicConfig(level=logging.DEBUG) # Alterado para DEBUG
 logger = logging.getLogger(__name__)
 
 # Função para carregar rubricas (centralizada aqui para garantir que todos a usem)
-def load_rubricas() -> Dict[str, Any]:
+def load_rubricas() -> Dict[str, Any]: # Corrigido para Dict[str, Any]
     try:
-        rubricas_path = Path(__file__).parent / 'rubricas.json'
+        # Caminho corrigido para rubricas.json (assumindo que rubricas.json está na raiz do projeto)
+        rubricas_path = Path(__file__).parent / 'rubricas.json' 
         with open(rubricas_path, 'r', encoding='utf-8') as f:
             return json.load(f).get('rubricas', {"proventos": {}, "descontos": {}})
     except (FileNotFoundError, json.JSONDecodeError) as e:
@@ -33,7 +36,7 @@ rubricas_globais = load_rubricas()
 
 # Inicializa os módulos com as rubricas carregadas
 processador = ProcessadorContracheque(rubricas=rubricas_globais)
-analisador = AnalisadorPlanserv(processador=processador) # Passa a mesma instância do processador
+analisador = AnalisadorPlanserv(processador=processador) 
 
 
 try:
@@ -64,7 +67,7 @@ Session(app)
 def allowed_file(filename):
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in app.config['ALLOWED_EXTENSIONS']
 
-def converter_para_dict_serializavel(resultados: Dict) -> Dict:
+def converter_para_dict_serializavel(resultados: Dict[str, Any]) -> Dict[str, Any]:
     """Converte defaultdicts e outros objetos não serializáveis para dicts/listas regulares."""
     if not isinstance(resultados, dict):
         return resultados # Já é serializável ou um tipo inesperado
@@ -88,7 +91,7 @@ def index():
 
 @app.route('/calculadora')
 def calculadora():
-    return render_template('indexcalculadora.html') # Removido 'json=json' pois não é mais necessário aqui
+    return render_template('indexcalculadora.html') 
 
 @app.route('/upload', methods=['POST'])
 def upload():
@@ -174,9 +177,8 @@ def upload():
         
         # Combine os resultados para a sessão (use uma nova variável para evitar sobrescrever)
         final_results_for_session = {
-            **resultados_globais, # Isso deve incluir dados_mensais, etc.
+            **resultados_globais, 
             'tabela_geral': tabela_geral,
-            # 'proventos_totais_planserv' e 'descontos_totais_planserv' já estão em resultados_globais
         }
 
         # Converte para um dicionário serializável antes de salvar na sessão
@@ -212,7 +214,7 @@ def analise_detalhada():
         return redirect(url_for('calculadora'))
     except Exception as e:
         logger.error(f"Erro ao carregar análise para template: {str(e)}")
-        flash('Erro ao exibir resultados. Por favor, tente novamente.', 'error')
+        flash('Erro ao exibir resultados', 'error')
         return redirect(url_for('calculadora'))
 
 if __name__ == '__main__':
