@@ -1,277 +1,144 @@
-{% extends "base.html" %}
-
-{% block extra_css %}
-<link rel="stylesheet" href="{{ url_for('static', filename='css/pages/analise.css') }}?v=1.0">
-{% endblock %}
-
-{% block content %}
-<div class="container">
-    <h1>Análise Detalhada</h1>
-    
-    {% if resultados %}
-    <div class="filtros-container mb-4">
-        <div class="btn-group" role="group">
-            <button type="button" class="btn btn-primary active" data-tipo="tabela-detalhada">Detalhes Completos</button>
-            <button type="button" class="btn btn-secondary" data-tipo="tabela-proventos">Proventos por Mês</button>
-            <button type="button" class="btn btn-secondary" data-tipo="tabela-planserv">Totais Planserv</button>
-        </div>
-    </div>
-
-    <!-- Mensagem de alerta se não houver dados -->
-    {% if not resultados.dados_mensais or resultados.dados_mensais|length == 0 %}
-    <div class="alert alert-danger">
-        <i class="fas fa-exclamation-circle"></i> 
-        Nenhum dado foi extraído dos arquivos. Verifique:
-        <ul>
-            <li>Se os arquivos são contracheques válidos do Estado da Bahia</li>
-            <li>Se o formato do PDF é compatível</li>
-            <li>Se há texto legível no PDF (não é uma imagem)</li>
-        </ul>
-    </div>
-    {% endif %}
-
-    <!-- Tabela Detalhada (Proventos e Descontos) -->
-    <div id="tabela-detalhada" class="tabela-container">
-        <h3>Detalhamento Completo por Mês</h3>
-        {% if resultados.tabela_geral and resultados.tabela_geral.dados|length > 0 %}
-        <div class="table-responsive">
-            <table class="table table-striped table-bordered">
-                <thead class="thead-dark">
-                    <tr>
-                        {% for coluna in resultados.tabela_geral.colunas %}
-                        <th>{{ coluna }}</th>
-                        {% endfor %}
-                    </tr>
-                </thead>
-                <tbody>
-                    {% for linha in resultados.tabela_geral.dados %}
-                    <tr>
-                        <td>{{ linha.mes_ano }}</td>
-                        {% for valor in linha.valores %}
-                        <td class="{% if valor == 0 %}text-muted{% elif valor < 0 %}text-danger{% else %}text-success{% endif %}">
-                            {% if valor == 0 %}
-                            -
-                            {% else %}
-                            R$ {{ "%.2f"|format(valor)|replace(".", ",") }}
-                            {% endif %}
-                        </td>
-                        {% endfor %}
-                    </tr>
-                    {% endfor %}
-                </tbody>
-            </table>
-        </div>
-        
-        <!-- Botão para exportar para Excel -->
-        <div class="mt-3">
-            <button class="btn btn-primary" onclick="exportarParaExcel()">
-                <i class="fas fa-file-excel"></i> Exportar para Excel
-            </button>
-        </div>
-        {% else %}
-        <div class="alert alert-info">
-            Não foi possível gerar a tabela detalhada de rubricas. O arquivo pode estar em formato não suportado.
-        </div>
-        {% endif %}
-    </div>
-
-    <!-- Tabela Simplificada de Proventos -->
-    <div id="tabela-proventos" class="tabela-container" style="display: none;">
-        <h3>Resumo de Proventos Mensais</h3>
-        {% if resultados.dados_mensais and resultados.dados_mensais|length > 0 %}
-        <table class="table table-striped">
-            <thead>
-                <tr>
-                    <th>MÊS/ANO</th>
-                    <th>Total de Proventos</th>
-                </tr>
-            </thead>
-            <tbody>
-                {% for mes_ano, dados in resultados.dados_mensais.items() %}
-                <tr>
-                    <td>{{ mes_ano }}</td>
-                    <td class="text-success">R$ {{ "%.2f"|format(dados.total_proventos)|replace(".", ",") }}</td>
-                </tr>
-                {% endfor %}
-            </tbody>
-        </table>
-        {% else %}
-        <div class="alert alert-info">
-            Nenhum dado de proventos disponível para exibição.
-        </div>
-        {% endif %}
-    </div>
-
-    <!-- Seção de Totais Planserv -->
-    <div id="tabela-planserv" class="tabela-container" style="display: none;">
-        <div class="row">
-            <!-- Proventos Planserv -->
-            <div class="col-md-6">
-                <div class="card mb-4">
-                    <div class="card-header bg-success text-white">
-                        <h4 class="mb-0">Proventos Planserv</h4>
-                    </div>
-                    <div class="card-body">
-                        {% if resultados.proventos_totais_planserv and resultados.proventos_totais_planserv.total > 0 %}
-                        <h5>Total: R$ {{ "%.2f"|format(resultados.proventos_totais_planserv.total)|replace(".", ",") }}</h5>
-                        
-                        {% if resultados.proventos_totais_planserv.detalhes and resultados.proventos_totais_planserv.detalhes|length > 0 %}
-                        <div class="mt-3">
-                            <h6>Detalhamento:</h6>
-                            <ul class="list-group">
-                                {% for detalhe in resultados.proventos_totais_planserv.detalhes %}
-                                <li class="list-group-item d-flex justify-content-between align-items-center">
-                                    {{ detalhe.descricao }} ({{ detalhe.codigo }})
-                                    <span class="badge bg-success rounded-pill">
-                                        R$ {{ "%.2f"|format(detalhe.valor)|replace(".", ",") }}
-                                    </span>
-                                </li>
-                                {% endfor %}
-                            </ul>
-                        </div>
-                        {% else %}
-                        <p class="text-muted">Nenhuma rubrica de provento do Planserv encontrada.</p>
-                        {% endif %}
-                        
-                        {% else %}
-                        <p class="text-muted">Nenhum valor de proventos do Planserv disponível.</p>
-                        {% endif %}
-                    </div>
-                </div>
-            </div>
-
-            <!-- Descontos Planserv -->
-            <div class="col-md-6">
-                <div class="card mb-4">
-                    <div class="card-header bg-danger text-white">
-                        <h4 class="mb-0">Descontos Planserv</h4>
-                    </div>
-                    <div class="card-body">
-                        {% if resultados.descontos_totais_planserv and resultados.descontos_totais_planserv.total > 0 %}
-                        <h5>Total: R$ {{ "%.2f"|format(resultados.descontos_totais_planserv.total)|replace(".", ",") }}</h5>
-                        
-                        {% if resultados.descontos_totais_planserv.detalhes and resultados.descontos_totais_planserv.detalhes|length > 0 %}
-                        <div class="mt-3">
-                            <h6>Detalhamento:</h6>
-                            <ul class="list-group">
-                                {% for detalhe in resultados.descontos_totais_planserv.detalhes %}
-                                <li class="list-group-item d-flex justify-content-between align-items-center">
-                                    {{ detalhe.descricao }} ({{ detalhe.codigo }})
-                                    <span class="badge bg-danger rounded-pill">
-                                        R$ {{ "%.2f"|format(detalhe.valor)|replace(".", ",") }}
-                                    </span>
-                                </li>
-                                {% endfor %}
-                            </ul>
-                        </div>
-                        {% else %}
-                        <p class="text-muted">Nenhuma rubrica de desconto do Planserv encontrada.</p>
-                        {% endif %}
-                        
-                        {% else %}
-                        <p class="text-muted">Nenhum valor de descontos do Planserv disponível.</p>
-                        {% endif %}
-                    </div>
-                </div>
-            </div>
-        </div>
-        
-        <!-- Informações adicionais sobre o Planserv -->
-        <div class="alert alert-info mt-3">
-            <h5><i class="fas fa-info-circle"></i> Sobre o Planserv</h5>
-            <p>O Planserv é o plano de saúde dos servidores do Estado da Bahia. Os valores mostrados aqui representam:</p>
-            <ul>
-                <li><strong>Descontos:</strong> Mensalidades e contribuições para o plano de saúde</li>
-                <li><strong>Proventos:</strong> Valores relacionados a benefícios de saúde</li>
-            </ul>
-        </div>
-    </div>
-
-    {% else %}
-    <div class="alert alert-warning">
-        <i class="fas fa-exclamation-triangle"></i> Nenhum resultado disponível para exibição. Por favor, envie um arquivo primeiro.
-    </div>
-    {% endif %}
-</div>
-{% endblock %}
-
-{% block extra_js %}
-<script>
-document.addEventListener('DOMContentLoaded', function() {
-    // Função para alternar entre as visualizações
-    const alternarVisualizacao = (tipo) => {
-        // Atualiza os botões
-        document.querySelectorAll('[data-tipo]').forEach(btn => {
-            btn.classList.remove('active', 'btn-primary');
-            btn.classList.add('btn-secondary');
-            
-            if (btn.dataset.tipo === tipo) {
-                btn.classList.add('active', 'btn-primary');
-                btn.classList.remove('btn-secondary');
-            }
-        });
-        
-        // Oculta todas as tabelas
-        document.querySelectorAll('.tabela-container').forEach(tabela => {
-            tabela.style.display = 'none';
-        });
-        
-        // Exibe apenas a tabela selecionada
-        const tabelaSelecionada = document.getElementById(tipo);
-        if (tabelaSelecionada) {
-            tabelaSelecionada.style.display = 'block';
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Análise Detalhada</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/base.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/pages/analise.css') }}?v=1.1">
+    <style>
+        /* Estilos para a seção sanfona (accordion) */
+        .accordion details {
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            margin-bottom: 1rem;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+            transition: background-color 0.3s;
         }
-    };
+        .accordion details[open] {
+            background-color: #f9f9f9;
+        }
+        .accordion summary {
+            font-size: 1.5rem;
+            font-weight: 600;
+            padding: 1rem;
+            cursor: pointer;
+            outline: none;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .accordion summary::after {
+            content: '▼'; /* Seta para baixo */
+            font-size: 1rem;
+            transition: transform 0.3s;
+        }
+        .accordion details[open] summary::after {
+            transform: rotate(180deg); /* Gira a seta */
+        }
+        .content {
+            padding: 0 1rem 1rem 1rem;
+        }
+        .results-table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+        .results-table th, .results-table td {
+            text-align: left;
+            padding: 12px;
+            border-bottom: 1px solid #eee;
+        }
+        .results-table th {
+            background-color: #f2f2f2;
+        }
+        .total-row td {
+            font-weight: bold;
+            border-top: 2px solid #333;
+        }
+    </style>
+</head>
+<body>
+    <header>
+        </header>
 
-    // Adiciona os event listeners aos botões
-    document.querySelectorAll('[data-tipo]').forEach(btn => {
-        btn.addEventListener('click', function() {
-            alternarVisualizacao(this.dataset.tipo);
-        });
-    });
+    <main class="container">
+        <h1>Análise do Contracheque</h1>
+        <p>Período analisado: <strong>{{ resultados.primeiro_mes }}</strong> a <strong>{{ resultados.ultimo_mes }}</strong></p>
+        
+        <div class="accordion">
+            <details open>
+                <summary>Descontos Relevantes (Total: R$ {{ "%.2f"|format(resultados.descontos_totais_planserv.total)|replace('.', ',') }})</summary>
+                <div class="content">
+                    {% if resultados.descontos_totais_planserv and resultados.descontos_totais_planserv.detalhes %}
+                        <table class="results-table">
+                            <thead>
+                                <tr>
+                                    <th>Descrição</th>
+                                    <th>Código</th>
+                                    <th style="text-align: right;">Valor (R$)</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for item in resultados.descontos_totais_planserv.detalhes %}
+                                <tr>
+                                    <td>{{ item.descricao }}</td>
+                                    <td>{{ item.codigo }}</td>
+                                    <td style="text-align: right;">{{ "%.2f"|format(item.valor)|replace('.', ',') }}</td>
+                                </tr>
+                                {% endfor %}
+                                <tr class="total-row">
+                                    <td colspan="2">TOTAL DESCONTOS</td>
+                                    <td style="text-align: right;">R$ {{ "%.2f"|format(resultados.descontos_totais_planserv.total)|replace('.', ',') }}</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    {% else %}
+                        <p>Nenhum desconto relevante encontrado.</p>
+                    {% endif %}
+                </div>
+            </details>
 
-    // Ativa a primeira visualização por padrão
-    alternarVisualizacao('tabela-detalhada');
-    
-    // Adiciona tooltips para melhorar a experiência do usuário
-    const tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
-    tooltipTriggerList.map(function (tooltipTriggerEl) {
-        return new bootstrap.Tooltip(tooltipTriggerEl);
-    });
-});
+            <details>
+                <summary>Ver Proventos (Total: R$ {{ "%.2f"|format(resultados.proventos_totais_planserv.total)|replace('.', ',') }})</summary>
+                <div class="content">
+                    {% if resultados.proventos_totais_planserv and resultados.proventos_totais_planserv.detalhes %}
+                        <table class="results-table">
+                            <thead>
+                                <tr>
+                                    <th>Descrição</th>
+                                    <th>Código</th>
+                                    <th style="text-align: right;">Valor (R$)</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for item in resultados.proventos_totais_planserv.detalhes %}
+                                <tr>
+                                    <td>{{ item.descricao }}</td>
+                                    <td>{{ item.codigo }}</td>
+                                    <td style="text-align: right;">{{ "%.2f"|format(item.valor)|replace('.', ',') }}</td>
+                                </tr>
+                                {% endfor %}
+                                <tr class="total-row">
+                                    <td colspan="2">TOTAL PROVENTOS</td>
+                                    <td style="text-align: right;">R$ {{ "%.2f"|format(resultados.proventos_totais_planserv.total)|replace('.', ',') }}</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    {% else %}
+                        <p>Nenhum provento encontrado.</p>
+                    {% endif %}
+                </div>
+            </details>
+        </div>
+        
+        <div style="margin-top: 2rem; text-align: center;">
+            <a href="{{ url_for('calculadora') }}" class="btn">Fazer Nova Análise</a>
+        </div>
 
-function exportarParaExcel() {
-    // Cria uma tabela HTML temporária
-    let html = '<table>';
+    </main>
     
-    // Cabeçalho
-    html += '<tr>';
-    {% for coluna in resultados.tabela_geral.colunas %}
-    html += `<th>${"{{ coluna }}"}</th>`;
-    {% endfor %}
-    html += '</tr>';
-    
-    // Dados
-    {% for linha in resultados.tabela_geral.dados %}
-    html += '<tr>';
-    html += `<td>${"{{ linha.mes_ano }}"}</td>`;
-    {% for valor in linha.valores %}
-    html += `<td>${"{% if valor != 0 %}{{ '%.2f'|format(valor)|replace('.', ',') }}{% else %}0,00{% endif %}"}</td>`;
-    {% endfor %}
-    html += '</tr>';
-    {% endfor %}
-    
-    html += '</table>';
-    
-    // Cria um link de download
-    const uri = 'data:application/vnd.ms-excel;base64,'
-        + btoa(unescape(encodeURIComponent(html)));
-    const link = document.createElement('a');
-    link.href = uri;
-    link.download = 'contracheques.xls';
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-}
-</script>
-{% endblock %}
+    <footer>
+        </footer>
+    <script src="{{ url_for('static', filename='js/main.js') }}"></script>
+</body>
+</html>
