@@ -244,26 +244,27 @@ class ProcessadorContracheque:
         return list(set(meses_validos))
 
     def _extrair_texto_pdf(self, file_bytes):
-        """Extrai texto do PDF usando PyMuPDF, garantindo processamento de múltiplas páginas"""
         try:
             doc = fitz.open(stream=file_bytes, filetype="pdf")
             texto = ""
             for page in doc:
-                # Extrai texto com layout preservado e flags adicionais
+                # Extrai texto preservando layouts complexos
                 texto += page.get_text("text", flags=
                     fitz.TEXT_PRESERVE_LIGATURES | 
                     fitz.TEXT_PRESERVE_WHITESPACE |
                     fitz.TEXT_MEDIABOX_CLIP |
                     fitz.TEXT_DEHYPHENATE)
-                texto += "\n--- PAGE BREAK ---\n"
+            
+            # DEBUG - Salva o texto extraído para análise
+            with open("debug_pdf_text.txt", "w", encoding="utf-8") as f:
+                f.write(texto)
+                
             return texto
-        except Exception as e:
-            raise Exception(f"Erro ao extrair texto do PDF: {str(e)}")
+    except Exception as e:
+        raise Exception(f"Erro ao extrair texto do PDF: {str(e)}")
 
     def processar_mes(self, data_texto, mes_ano):
-        """Processa contracheques da Bahia com padrão específico"""
-        lines = [line.strip() for line in data_texto.split('\n') if line.strip()]
-        
+        """Processa contracheques da Bahia com tratamento especial"""
         resultados_mes = {
             "total_proventos": 0.0,
             "rubricas": defaultdict(float),
@@ -271,28 +272,28 @@ class ProcessadorContracheque:
             "descricoes": {}
         }
     
-        # Padrão melhorado para rubricas (ex: 003P, 0J40, 7033)
+        # Padrão otimizado para o formato da Bahia
         padrao_rubrica = re.compile(
-            r'(?P<codigo>\d{1,4}[A-Za-z]{1,3})\s+'  # Código (ex: 003P, 0J40)
-            r'(?P<descricao>.+?)\s+'  # Descrição (até o próximo valor)
+            r'(?P<codigo>\d{1,4}[A-Za-z]{1,3})\s+'  # Código (003P, 0J40)
+            r'(?P<descricao>.+?)\s+'  # Descrição
+            r'(?:\d{2}\.\d{4}\s+)?'  # Ignora datas (01.2021)
             r'(?P<valor>\d{1,3}(?:\.\d{3})*,\d{2})'  # Valor (1.185,54)
         )
     
-        # Modo de varredura
+        # Processa por blocos (VANTAGENS/DESCONTOS)
+        blocos = re.split(r'(VANTAGENS|DESCONTOS)', data_texto)
         em_proventos = False
-        em_descontos = False
-    
-        for line in lines:
-            # Identifica seções
-            if "VANTAGENS" in line:
+        
+        for bloco in blocos:
+            if "VANTAGENS" in bloco:
                 em_proventos = True
-                em_descontos = False
-            elif "DESCONTOS" in line:
+                continue
+            elif "DESCONTOS" in bloco:
                 em_proventos = False
-                em_descontos = True
+                continue
     
-            # Extrai rubricas
-            for match in padrao_rubrica.finditer(line):
+            # Extrai todas as rubricas do bloco
+            for match in padrao_rubrica.finditer(bloco):
                 codigo = match.group('codigo')
                 descricao = match.group('descricao').strip()
                 valor = float(match.group('valor').replace('.', '').replace(',', '.'))
@@ -301,21 +302,14 @@ class ProcessadorContracheque:
                     resultados_mes["rubricas"][codigo] = valor
                     resultados_mes["descricoes"][codigo] = descricao
                     resultados_mes["total_proventos"] += valor
-                elif em_descontos:
+                else:
                     resultados_mes["rubricas_detalhadas"][codigo] = valor
                     resultados_mes["descricoes"][codigo] = descricao
     
-            # Captura totais (ex: TOTAL DE PROVENTOS 8.547,83)
-            total_match = re.search(
-                r'TOTAL\s+DE\s+(PROVENTOS|DESCONTOS)\s+(\d{1,3}(?:\.\d{3})*,\d{2})', 
-                line, 
-                re.IGNORECASE
-            )
-            if total_match:
-                tipo, valor = total_match.groups()
-                valor = float(valor.replace('.', '').replace(',', '.'))
-                if "PROVENTOS" in tipo.upper():
-                    resultados_mes["total_proventos"] = valor
+        # Captura totais explicitamente
+        total_prov = re.search(r'TOTAL\s+DE\s+PROVENTOS\s+(\d[\d\.]*,\d{2})', data_texto)
+        if total_prov:
+            resultados_mes["total_proventos"] = float(total_prov.group(1).replace('.','').replace(',','.'))
     
         return resultados_mes
         
