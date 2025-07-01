@@ -9,14 +9,14 @@ from collections import defaultdict
 import logging
 import json
 from processador_contracheque import ProcessadorContracheque
-from analisador import AnalisadorPlanserv  # Alterado: AnalisadorDescontos para AnalisadorPlanserv
+from analisador import AnalisadorPlanserv
 
 # Carrega as rubricas uma vez no início da aplicação
 rubricas = load_rubricas()
 
 # Inicializa os módulos com as rubricas
 processador = ProcessadorContracheque(rubricas)
-analisador = AnalisadorPlanserv()  # Alterado: Instancia AnalisadorPlanserv
+analisador = AnalisadorPlanserv()
 
 try:
     from dotenv import load_dotenv
@@ -64,7 +64,7 @@ def converter_para_dict_serializavel(resultados):
             'total_proventos': dados['total_proventos'],
             'rubricas': dict(dados['rubricas']),
             'rubricas_detalhadas': dict(dados['rubricas_detalhadas']),
-            'descricoes': dados.get('descricoes', {})  # Descrições podem estar aqui ou serem geradas dinamicamente
+            'descricoes': dados.get('descricoes', {})
         }
     
     # Cria novo dicionário serializável
@@ -74,13 +74,11 @@ def converter_para_dict_serializavel(resultados):
         'meses_para_processar': resultados.get('meses_para_processar', []),
         'dados_mensais': dados_mensais,
         'erros': resultados.get('erros', []),
-        'tabela': resultados.get('tabela', 'Desconhecida'),  # Adiciona a tabela
-        # Adiciona os totais calculados pelo analisador aqui para serem serializados
+        'tabela': resultados.get('tabela', 'Desconhecida'),
         'proventos_totais_planserv': resultados.get('proventos_totais_planserv'),
         'descontos_totais_planserv': resultados.get('descontos_totais_planserv')
     }
 
-    # Se 'totais' foi adicionado pelo `processador.gerar_totais`, garantir que também seja serializável
     if 'totais' in resultados:
         serializable_results['totais'] = {
             'mensais': {k: dict(v) for k, v in resultados['totais']['mensais'].items()},
@@ -88,9 +86,8 @@ def converter_para_dict_serializavel(resultados):
             'geral': dict(resultados['totais']['geral'])
         }
     if 'descricoes' in resultados:
-        serializable_results['descricoes_tabela_geral'] = resultados['descricoes']  # Renomeado para evitar conflito
+        serializable_results['descricoes_tabela_geral'] = resultados['descricoes']
 
-    # Para 'tabela_geral' que é gerada no /analise, ela já deve ser um dict normal, mas vamos garantir
     if 'tabela_geral' in resultados:
         serializable_results['tabela_geral'] = resultados['tabela_geral']
     
@@ -127,7 +124,6 @@ def upload():
                 filepath = os.path.join(app.config['UPLOAD_FOLDER'], filename)
                 file.save(filepath)
                 
-                # Adicione logs para depuração
                 app.logger.info(f"Processando arquivo: {filename}")
                 
                 dados_contracheque = processador.processar_contracheque(filepath)
@@ -137,7 +133,6 @@ def upload():
                 resultados_globais['quantidade_arquivos'] += 1
                 os.remove(filepath)
 
-        # Gera a tabela geral
         tabela_geral = processador.gerar_tabela_geral(resultados_globais)
         app.logger.info(f"Tabela geral gerada: {json.dumps(tabela_geral, indent=2)}")
         
@@ -159,7 +154,6 @@ def analise_detalhada():
     try:
         resultados = json.loads(session['resultados'])
         
-        # Verifica a estrutura dos dados
         if not isinstance(resultados, dict):
             flash('Dados formatados incorretamente', 'error')
             return redirect(url_for('calculadora'))
@@ -168,11 +162,6 @@ def analise_detalhada():
         
     except Exception as e:
         logger.error(f"Erro ao carregar análise: {str(e)}")
-        flash('Erro ao exibir resultados', 'error')
-        return redirect(url_for('calculadora'))
-        
-    except Exception as e:
-        app.logger.error(f"Erro ao carregar análise: {str(e)}")
         flash('Erro ao exibir resultados', 'error')
         return redirect(url_for('calculadora'))
 
