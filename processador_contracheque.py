@@ -12,7 +12,6 @@ class ProcessadorContracheque:
     def __init__(self, rubricas=None):
         self.rubricas = rubricas if rubricas is not None else self._carregar_rubricas_default()
         self.meses = {"Janeiro":"01", "Fevereiro":"02", "Março":"03", "Abril":"04", "Maio":"05", "Junho":"06", "Julho":"07", "Agosto":"08", "Setembro":"09", "Outubro":"10", "Novembro":"11", "Dezembro":"12"}
-        # A lista 'meses_anos' foi restaurada aqui para compatibilidade com o app.py
         self.meses_anos = self._gerar_meses_anos()
         self._processar_rubricas_internas()
 
@@ -31,13 +30,6 @@ class ProcessadorContracheque:
     def _processar_rubricas_internas(self):
         self.codigos_proventos = list(self.rubricas.get('proventos', {}).keys())
         self.codigos_descontos = list(self.rubricas.get('descontos', {}).keys())
-
-    def converter_data_para_numerico(self, data_texto: str) -> str:
-        try:
-            mes, ano = data_texto.split('/')
-            return f"{self.meses.get(mes, '00')}/{ano}"
-        except (ValueError, AttributeError):
-            return "00/0000"
 
     def extrair_valor(self, valor_str: str) -> float:
         try:
@@ -79,26 +71,44 @@ class ProcessadorContracheque:
     def _processar_mes_conteudo(self, texto_completo, mes_ano):
         resultados_mes = {"rubricas": defaultdict(float), "rubricas_detalhadas": defaultdict(float)}
 
-        bloco_vantagens_match = re.search(r'VANTAGENS(.*?)TOTAL DE VANTAGENS', texto_completo, re.DOTALL | re.IGNORECASE)
-        texto_vantagens = bloco_vantagens_match.group(1) if bloco_vantagens_match else ""
-        
-        bloco_descontos_match = re.search(r'DESCONTOS(.*?)TOTAL DE DESCONTOS', texto_completo, re.DOTALL | re.IGNORECASE)
-        texto_descontos = bloco_descontos_match.group(1) if bloco_descontos_match else ""
+        # Isola o bloco de texto que contém a tabela de Vantagens e Descontos
+        tabela_match = re.search(r'VANTAGENS(.*?)TOTAL DE VANTAGENS', texto_completo, re.DOTALL | re.IGNORECASE)
+        if not tabela_match: return resultados_mes
+        bloco_tabela = tabela_match.group(1)
 
-        # Padrão genérico para descobrir QUALQUER rubrica que comece com um código e termine com um valor
-        padrao_geral = re.compile(r"^\s*([A-Z0-9/]+)\s+.*?\s+([\d.,]+)\s*$", re.MULTILINE)
+        padrao_codigo = re.compile(r'\b([0-9A-Z/]{2,5})\b')
+        padrao_valor = re.compile(r'\d{1,3}(?:[.,]\d{3})*,\d{2}')
 
-        for match in padrao_geral.finditer(texto_vantagens):
-            codigo, valor_str = match.groups()
-            if codigo in self.codigos_proventos:
-                resultados_mes["rubricas"][codigo] = self.extrair_valor(valor_str)
-                logger.debug(f"DEBUG: Provento Identificado - Mês/Ano: {mes_ano}, Código: '{codigo}', Valor: {self.extrair_valor(valor_str)}")
+        for linha in bloco_tabela.strip().split('\n'):
+            codigos_na_linha = [m.group(0) for m in padrao_codigo.finditer(linha)]
+            valores_na_linha = [m.group(0) for m in padrao_valor.finditer(linha)]
 
-        for match in padrao_geral.finditer(texto_descontos):
-            codigo, valor_str = match.groups()
-            if codigo in self.codigos_descontos:
-                resultados_mes["rubricas_detalhadas"][codigo] = self.extrair_valor(valor_str)
-                logger.debug(f"DEBUG: Desconto Identificado - Mês/Ano: {mes_ano}, Código: '{codigo}', Valor: {self.extrair_valor(valor_str)}")
+            # Se a linha tem 1 código e 1 valor, é um par simples
+            if len(codigos_na_linha) == 1 and len(valores_na_linha) == 1:
+                codigo = codigos_na_linha[0]
+                valor = self.extrair_valor(valores_na_linha[0])
+                if codigo in self.codigos_proventos:
+                    resultados_mes["rubricas"][codigo] = valor
+                    logger.debug(f"DEBUG: Provento Linha Simples - Mês/Ano: {mes_ano}, Código: '{codigo}', Valor: {valor}")
+                elif codigo in self.codigos_descontos:
+                    resultados_mes["rubricas_detalhadas"][codigo] = valor
+                    logger.debug(f"DEBUG: Desconto Linha Simples - Mês/Ano: {mes_ano}, Código: '{codigo}', Valor: {valor}")
+
+            # Se a linha tem 2 códigos e 2 valores, associa pela ordem (1º com 1º, 2º com 2º)
+            elif len(codigos_na_linha) >= 2 and len(valores_na_linha) >= 2:
+                # Provento (1º par)
+                cod_prov = codigos_na_linha[0]
+                val_prov = self.extrair_valor(valores_na_linha[0])
+                if cod_prov in self.codigos_proventos:
+                    resultados_mes["rubricas"][cod_prov] = val_prov
+                    logger.debug(f"DEBUG: Provento Linha Dupla - Mês/Ano: {mes_ano}, Código: '{cod_prov}', Valor: {val_prov}")
+
+                # Desconto (2º par)
+                cod_desc = codigos_na_linha[1]
+                val_desc = self.extrair_valor(valores_na_linha[1])
+                if cod_desc in self.codigos_descontos:
+                    resultados_mes["rubricas_detalhadas"][cod_desc] = val_desc
+                    logger.debug(f"DEBUG: Desconto Linha Dupla - Mês/Ano: {mes_ano}, Código: '{cod_desc}', Valor: {val_desc}")
 
         total_proventos_calculado = sum(
             valor for codigo, valor in resultados_mes["rubricas"].items()
@@ -106,10 +116,15 @@ class ProcessadorContracheque:
         )
         
         resultados_mes["total_proventos"] = total_proventos_calculado
-        logger.debug(f"TOTAIS PARA {mes_ano}: Proventos (para soma)={total_proventos_calculado:.2f}, Descontos={sum(resultados_mes['rubricas_detalhadas'].values()):.2f}")
+        logger.debug(f"TOTAIS FINAIS PARA {mes_ano}: Proventos (para soma)={total_proventos_calculado:.2f}, Descontos={sum(resultados_mes['rubricas_detalhadas'].values()):.2f}")
         
         return resultados_mes
 
+    # O restante dos métodos para gerar as tabelas não precisa de alteração
+    def converter_data_para_numerico(self, data_texto: str) -> str:
+        try: mes, ano = data_texto.split('/'); return f"{self.meses.get(mes, '00')}/{ano}"
+        except (ValueError, AttributeError): return "00/0000"
+        
     def gerar_tabela_proventos_resumida(self, resultados):
         tabela = {"colunas": ["Mês/Ano", "Total de Proventos"], "dados": []}
         for mes_ano in resultados.get("meses_para_processar", []):
