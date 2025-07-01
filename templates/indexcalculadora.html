@@ -195,7 +195,6 @@
         {% if session.get('resultados') %}
             {% set resultados = session['resultados'] %}
             {% if resultados is string %}
-                {% set resultados = json.loads(resultados) %}
             {% endif %}
             
             <div class="resultados-container">
