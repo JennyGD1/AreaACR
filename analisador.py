@@ -1,154 +1,112 @@
 import json
 import logging
 from typing import Dict, Any, Optional
-from processador_contracheque import ProcessadorContracheque
+from processador_contracheque import ProcessadorContracheque # Importa a classe ProcessadorContracheque
 
 logger = logging.getLogger(__name__)
 
 class AnalisadorPlanserv:
     def __init__(self, processador=None):
-        self.processador = processador if processador else ProcessadorContracheque()
-        self._carregar_rubricas_planserv()
-
-    def _carregar_rubricas_planserv(self):
-        """Carrega as rubricas específicas do Planserv"""
-        self.rubricas_planserv = {
-            'proventos': ['003P', '00P7', '04P6', '0J40', '0P42', '1J06'],
-            'descontos': ['7033', '7035', '7038', '7039', '7034']
-        }
+        # O analisador DEVE receber o processador já inicializado com as rubricas.
+        self.processador = processador 
+        if self.processador is None:
+            # Se por algum motivo o processador não for passado (o que não deve acontecer no fluxo do app.py),
+            # ele inicializa um, mas o ideal é que seja o mesmo que o app.py usa.
+            self.processador = ProcessadorContracheque() 
         
-        self.descricoes_planserv = {
-            '7033': 'Assistência a Saúde (Titular)',
-            '7035': 'Planserv / Cônjuge',
-            '7038': 'Planserv Agregado Jovem',
-            '7039': 'Planserv Agregado Maior',
-            '7034': 'Contribuição Planserv'
-        }
-
-    def analisar_resultados(self, resultados):
-        """Analisa especificamente os dados do Planserv"""
-        if not resultados or 'dados_mensais' not in resultados:
-            return {'erro': 'Nenhum dado válido encontrado'}
-
-        totais = {
-            'proventos': {'total': 0.0, 'detalhes': []},
-            'descontos': {'total': 0.0, 'detalhes': []}
-        }
-
-        for mes_ano, dados_mes in resultados['dados_mensais'].items():
-            # Proventos do Planserv
-            for codigo in self.rubricas_planserv['proventos']:
-                if codigo in dados_mes['rubricas']:
-                    valor = dados_mes['rubricas'][codigo]
-                    totais['proventos']['total'] += valor
-                    totais['proventos']['detalhes'].append({
-                        'codigo': codigo,
-                        'descricao': dados_mes['descricoes'].get(codigo, ''),
-                        'valor': valor
-                    })
-
-            # Descontos do Planserv
-            for codigo in self.rubricas_planserv['descontos']:
-                if codigo in dados_mes['rubricas_detalhadas']:
-                    valor = dados_mes['rubricas_detalhadas'][codigo]
-                    totais['descontos']['total'] += valor
-                    totais['descontos']['detalhes'].append({
-                        'codigo': codigo,
-                        'descricao': self.descricoes_planserv.get(codigo, ''),
-                        'valor': valor
-                    })
-
-        return totais
-
-    def calcular_totais(self, resultados: Dict[str, Any]) -> Dict[str, Any]:
-        """
-        Calcula totais de proventos e descontos Planserv com tratamento robusto
+        # As rubricas de proventos e descontos vêm do ProcessadorContracheque, que as carrega do rubricas.json
+        self.rubricas_de_origem = self.processador.rubricas 
         
-        Args:
-            resultados: Dicionário com os dados processados do contracheque
-            
-        Returns:
-            Dicionário com totais de proventos e descontos formatados
-        """
-        totais = {
-            'proventos': {'total': 0.0, 'rubricas': {}},
-            'descontos': {'total': 0.0, 'rubricas': {}}
+        # As rubricas do Planserv são as rubricas de DESCONTO que são do Planserv no rubricas.json.
+        # As rubricas de PROVENTOS Planserv são aquelas que compõem a "base de cálculo" do Planserv.
+        # Assumimos que todas as rubricas em 'proventos' no rubricas.json são parte da base de cálculo.
+        self.rubricas_planserv_para_analise = {
+            'proventos_base': list(self.rubricas_de_origem.get('proventos', {}).keys()),
+            'descontos_planserv': [
+                cod for cod, info in self.rubricas_de_origem.get('descontos', {}).items() 
+                if 'planserv' in info.get('descricao', '').lower() # Exemplo: filtra por palavra "planserv" na descrição
+                # Ou adicione aqui os códigos fixos que você sabe que são do Planserv:
+                # if cod in ['7033', '7034', '7035', '7038', '7039']
+            ]
         }
+        # Se você quer APENAS os códigos que você listou anteriormente, use:
+        # self.rubricas_planserv_para_analise['proventos_base'] = ['003P', '00P7', '04P6', '0J40', '0P42', '1J06']
+        # self.rubricas_planserv_para_analise['descontos_planserv'] = ['7033', '7035', '7038', '7039', '7034']
 
-        if not resultados or not isinstance(resultados.get('dados_mensais'), dict):
-            return totais
-
-        try:
-            # Inicializa rubricas
-            for cod in self.rubricas_planserv['proventos']:
-                totais['proventos']['rubricas'][cod] = 0.0
-            for cod in self.rubricas_planserv['descontos']:
-                totais['descontos']['rubricas'][cod] = 0.0
-
-            # Processa cada mês
-            for dados_mes in resultados['dados_mensais'].values():
-                self._processar_mes(dados_mes, totais)
-                
-        except Exception as e:
-            logger.error(f"Erro ao calcular totais: {str(e)}")
-            
-        return totais
-
-    def _processar_mes(self, dados_mes: Dict[str, Any], totais: Dict[str, Any]):
-        """Processa os dados de um mês específico"""
-        # Processa proventos
-        if isinstance(dados_mes.get('rubricas'), dict):
-            for cod, valor in dados_mes['rubricas'].items():
-                if cod in self.rubricas_planserv['proventos'] and isinstance(valor, (int, float)):
-                    totais['proventos']['rubricas'][cod] += valor
-                    totais['proventos']['total'] += valor
-        
-        # Processa descontos
-        if isinstance(dados_mes.get('rubricas_detalhadas'), dict):
-            for cod, valor in dados_mes['rubricas_detalhadas'].items():
-                if cod in self.rubricas_planserv['descontos'] and isinstance(valor, (int, float)):
-                    totais['descontos']['rubricas'][cod] += valor
-                    totais['descontos']['total'] += valor
 
     def analisar_resultados(self, resultados: Dict[str, Any]) -> Dict[str, Any]:
         """
-        Analisa os resultados e retorna um relatório consolidado do Planserv
+        Analisa os dados processados e retorna totais e detalhes do Planserv.
         
         Args:
-            resultados: Dicionário com os dados processados do contracheque
+            resultados: Dicionário com os dados processados do contracheque (consolidados de múltiplos meses).
             
         Returns:
-            Dicionário formatado com totais e detalhes para o front-end
+            Dicionário formatado com totais e detalhes para o front-end.
         """
-        if not resultados or not isinstance(resultados.get('dados_mensais'), dict):
-            return {'erro': 'Nenhum dado válido encontrado', 'tabela': resultados.get('tabela', 'Desconhecida')}
+        totais = {
+            'proventos_base': {'total': 0.0, 'detalhes': []},
+            'descontos_planserv': {'total': 0.0, 'detalhes': []}
+        }
 
-        try:
-            totais = self.calcular_totais(resultados)
-            
+        if not resultados or 'dados_mensais' not in resultados:
             return {
-                'proventos': self._formatar_detalhes(totais['proventos'], 'proventos'),
-                'descontos': self._formatar_detalhes(totais['descontos'], 'descontos'),
+                'proventos': {'total': 0.0, 'detalhes': []},
+                'descontos': {'total': 0.0, 'detalhes': []},
                 'tabela': resultados.get('tabela', 'Desconhecida')
             }
-        except Exception as e:
-            logger.error(f"Erro na análise: {str(e)}")
-            return {'erro': str(e), 'tabela': resultados.get('tabela', 'Desconhecida')}
 
-    def _formatar_detalhes(self, dados: Dict[str, Any], tipo: str) -> Dict[str, Any]:
-        """Formata os detalhes para exibição"""
-        detalhes = []
-        
-        for cod, valor in dados.get('rubricas', {}).items():
-            if valor > 0:
-                descricao = self.rubricas_de_origem.get(tipo, {}).get(cod, {}).get('descricao', 'Desconhecido')
-                detalhes.append({
-                    'codigo': cod,
-                    'descricao': descricao,
-                    'valor': round(valor, 2)
-                })
-        
+        # Processa cada mês dentro dos dados consolidados
+        for mes_ano, dados_mes in resultados['dados_mensais'].items():
+            # Soma proventos que formam a base do Planserv
+            if isinstance(dados_mes.get('rubricas'), dict):
+                for codigo, valor in dados_mes['rubricas'].items():
+                    if codigo in self.rubricas_planserv_para_analise['proventos_base'] and isinstance(valor, (int, float)):
+                        # Verifica se a rubrica já foi detalhada para evitar duplicidade em resultados de múltiplos meses
+                        # ou apenas acumula se a intenção é a soma total
+                        if not any(d['codigo'] == codigo for d in totais['proventos_base']['detalhes']):
+                            detalhes_existentes = {d['codigo']: d for d in totais['proventos_base']['detalhes']}
+                            detalhes_existentes[codigo] = {
+                                'codigo': codigo,
+                                'descricao': self.rubricas_de_origem.get('proventos', {}).get(codigo, {}).get('descricao', 'Desconhecido'),
+                                'valor': detalhes_existentes.get(codigo, {'valor': 0.0})['valor'] + valor
+                            }
+                            totais['proventos_base']['detalhes'] = list(detalhes_existentes.values())
+                        else:
+                            # Se já existe, atualiza o valor
+                            for item in totais['proventos_base']['detalhes']:
+                                if item['codigo'] == codigo:
+                                    item['valor'] += valor
+                                    break
+                        totais['proventos_base']['total'] += valor
+            
+            # Soma descontos específicos do Planserv
+            if isinstance(dados_mes.get('rubricas_detalhadas'), dict):
+                for codigo, valor in dados_mes['rubricas_detalhadas'].items():
+                    if codigo in self.rubricas_planserv_para_analise['descontos_planserv'] and isinstance(valor, (int, float)):
+                        if not any(d['codigo'] == codigo for d in totais['descontos_planserv']['detalhes']):
+                            detalhes_existentes = {d['codigo']: d for d in totais['descontos_planserv']['detalhes']}
+                            detalhes_existentes[codigo] = {
+                                'codigo': codigo,
+                                'descricao': self.rubricas_de_origem.get('descontos', {}).get(codigo, {}).get('descricao', 'Desconhecido'),
+                                'valor': detalhes_existentes.get(codigo, {'valor': 0.0})['valor'] + valor
+                            }
+                            totais['descontos_planserv']['detalhes'] = list(detalhes_existentes.values())
+                        else:
+                             for item in totais['descontos_planserv']['detalhes']:
+                                if item['codigo'] == codigo:
+                                    item['valor'] += valor
+                                    break
+                        totais['descontos_planserv']['total'] += valor
+
         return {
-            'total': round(dados.get('total', 0), 2),
-            'detalhes': sorted(detalhes, key=lambda x: x['valor'], reverse=True)
+            'proventos': {
+                'total': round(totais['proventos_base']['total'], 2),
+                'detalhes': sorted([d for d in totais['proventos_base']['detalhes'] if d['valor'] > 0], key=lambda x: x['valor'], reverse=True)
+            },
+            'descontos': {
+                'total': round(totais['descontos_planserv']['total'], 2),
+                'detalhes': sorted([d for d in totais['descontos_planserv']['detalhes'] if d['valor'] > 0], key=lambda x: x['valor'], reverse=True)
+            },
+            'tabela': resultados.get('tabela', 'Desconhecida')
         }
