@@ -186,7 +186,7 @@ class ProcessadorContracheque:
 
         # NOVA REGEX FINALISTA (Tentativa 3) - Mantida
         padrao_rubrica = re.compile(
-            r'^(?P<codigo>[A-Za-z0-9\/]+)\s+.*' +  # Captura o código (flexível), seguido de espaço e QUALQUER COISA (guloso)
+            r'(?P<codigo>(?:\/|\d{1,4}|[A-Za-z]\d{3}|[A-Za-z]{3}\d|[A-Za-z0-9]{3,4}))\s+.*?' + # Captura um código flexível
             r'(?P<valor>\d{1,3}(?:\.\d{3})*,\d{2})$' # Captura o ÚLTIMO valor monetário antes do final da linha
         )
 
