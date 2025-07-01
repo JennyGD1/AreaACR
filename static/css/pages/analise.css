@@ -1,141 +1,103 @@
 /* static/css/pages/analise.css */
 
-.page-analise .container {
-    max-width: 95%;
-    margin: 20px auto;
-    background-color: white;
-    padding: 30px;
-    border-radius: 15px;
-    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
-}
-
-.page-analise h1 {
-    color: var(--maida-azul);
-    text-align: center;
-    margin-bottom: 30px;
-    padding-bottom: 15px;
-    border-bottom: 2px solid var(--maida-rosa);
-}
-
-#painelControle {
-    background-color: #f8f9fa;
-    border-radius: 10px;
-    padding: 20px;
-    margin-bottom: 30px;
-    border: 1px solid #e0e0e0;
-}
-
-.filtros-container {
-    display: flex;
-    justify-content: center;
-    gap: 30px;
-    flex-wrap: wrap;
-}
-
-.filtro-item {
+/* 1. Corpo da Página de Análise */
+/* Aplica o fundo azul e centraliza o conteúdo verticalmente e horizontalmente */
+body.page-analise {
+    background-color: var(--maida-azul);
     display: flex;
     flex-direction: column;
-    min-width: 250px;
+    justify-content: center;
+    align-items: center;
+    min-height: 100vh;
+    padding: 40px 20px;
+    box-sizing: border-box;
 }
 
-.filtro-item label {
-    font-weight: bold;
-    margin-bottom: 8px;
-    color: var(--maida-azul);
-}
-
-.filtro-item select {
-    padding: 10px 15px;
-    border-radius: 8px;
-    border: 1px solid #ddd;
-    background-color: white;
-    font-size: 16px;
-}
-
-.tabela-container {
+/* 2. Container Principal da Análise */
+/* O "card" branco que conterá todo o nosso conteúdo */
+.analysis-container {
+    background-color: var(--branco);
     width: 100%;
-    overflow-x: auto;
-    margin: 30px 0;
-    border-radius: 10px;
-    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+    max-width: 900px; /* Um pouco mais largo para acomodar bem as tabelas */
+    padding: 40px;
+    border-radius: 15px;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+    text-align: center;
 }
 
-.tabela-analise {
+/* 3. Títulos e Textos */
+.analysis-container h1 {
+    color: var(--maida-azul);
+    font-size: 2.2rem;
+    margin-bottom: 10px;
+}
+
+.analysis-container .periodo {
+    color: var(--maida-rosa);
+    font-size: 1.1rem;
+    margin-bottom: 40px;
+    font-weight: 500;
+}
+
+.analysis-container h2 {
+    color: var(--maida-azul);
+    text-align: left;
+    font-size: 1.5rem;
+    margin-top: 30px;
+    margin-bottom: 15px;
+    padding-bottom: 10px;
+    border-bottom: 2px solid #eee;
+}
+
+/* 4. Estilo das Tabelas de Resultados */
+.results-table {
     width: 100%;
     border-collapse: collapse;
+    text-align: left;
+    margin-bottom: 30px; /* Espaço após a tabela */
 }
 
-.tabela-analise th, 
-.tabela-analise td {
+.results-table th,
+.results-table td {
     padding: 12px 15px;
+    border-bottom: 1px solid #e0e0e0;
+}
+
+.results-table thead th {
+    background-color: #f8f9fa; /* Um cinza bem claro para o cabeçalho */
+    font-weight: 600;
+    color: #333;
+}
+
+/* Alinhamento da coluna de valor à direita */
+.results-table .col-valor {
     text-align: right;
-    border: 1px solid #e0e0e0;
+    font-family: 'Courier New', Courier, monospace; /* Fonte monoespaçada para números */
+    font-weight: 500;
 }
 
-.tabela-analise th {
-    background-color: var(--maida-azul);
-    color: white;
+/* Linha de Total */
+.results-table .total-row td {
     font-weight: bold;
-    position: sticky;
-    top: 0;
+    font-size: 1.1rem;
+    color: var(--maida-azul);
+    border-top: 2px solid var(--maida-azul);
 }
 
-.tabela-analise td:first-child {
-    font-weight: bold;
-    text-align: center;
-    background-color: #f5f5f5;
-}
-
-.tabela-analise tr:nth-child(even) {
-    background-color: #f9f9f9;
-}
-
-.tabela-analise tr:hover {
-    background-color: #f0f7ff;
-}
-
-.btn-container {
-    display: flex;
-    justify-content: center;
-    gap: 20px;
-    margin-top: 30px;
-}
-
-.btn {
-    padding: 12px 25px;
-    border-radius: 8px;
-    font-weight: bold;
-    text-decoration: none;
-    display: inline-flex;
-    align-items: center;
-    gap: 10px;
-    transition: all 0.3s ease;
-}
-
-.btn-primary {
+/* 5. Botão de Ação */
+.action-button {
+    display: inline-block;
     background-color: var(--maida-amarelo);
     color: var(--maida-azul);
+    padding: 12px 30px;
+    border-radius: 50px;
+    text-decoration: none;
+    font-weight: bold;
+    margin-top: 20px;
+    transition: var(--transicao-padrao);
 }
 
-.btn-success {
-    background-color: #28a745;
-    color: white;
-}
-
-.btn:hover {
+.action-button:hover {
     transform: translateY(-3px);
-    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
-}
-
-@media (max-width: 768px) {
-    .filtros-container {
-        flex-direction: column;
-        gap: 15px;
-    }
-    
-    .tabela-analise th, 
-    .tabela-analise td {
-        padding: 8px 10px;
-        font-size: 14px;
-    }
+    box-shadow: 0 5px 15px rgba(0,0,0,0.15);
 }
