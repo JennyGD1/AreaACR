@@ -18,7 +18,7 @@ logging.basicConfig(level=logging.DEBUG) # Alterado para DEBUG
 logger = logging.getLogger(__name__)
 
 # Função para carregar rubricas (centralizada aqui para garantir que todos a usem)
-def load_rubricas() -> Dict:
+def load_rubricas() -> Dict[str, Any]:
     try:
         rubricas_path = Path(__file__).parent / 'rubricas.json'
         with open(rubricas_path, 'r', encoding='utf-8') as f:
