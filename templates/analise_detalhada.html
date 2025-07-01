@@ -198,4 +198,80 @@
 {% block extra_js %}
 <script>
 document.addEventListener('DOMContentLoaded', function() {
-    // Função para alternar entre as
+    // Função para alternar entre as visualizações
+    const alternarVisualizacao = (tipo) => {
+        // Atualiza os botões
+        document.querySelectorAll('[data-tipo]').forEach(btn => {
+            btn.classList.remove('active', 'btn-primary');
+            btn.classList.add('btn-secondary');
+            
+            if (btn.dataset.tipo === tipo) {
+                btn.classList.add('active', 'btn-primary');
+                btn.classList.remove('btn-secondary');
+            }
+        });
+        
+        // Oculta todas as tabelas
+        document.querySelectorAll('.tabela-container').forEach(tabela => {
+            tabela.style.display = 'none';
+        });
+        
+        // Exibe apenas a tabela selecionada
+        const tabelaSelecionada = document.getElementById(tipo);
+        if (tabelaSelecionada) {
+            tabelaSelecionada.style.display = 'block';
+        }
+    };
+
+    // Adiciona os event listeners aos botões
+    document.querySelectorAll('[data-tipo]').forEach(btn => {
+        btn.addEventListener('click', function() {
+            alternarVisualizacao(this.dataset.tipo);
+        });
+    });
+
+    // Ativa a primeira visualização por padrão
+    alternarVisualizacao('tabela-detalhada');
+    
+    // Adiciona tooltips para melhorar a experiência do usuário
+    const tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
+    tooltipTriggerList.map(function (tooltipTriggerEl) {
+        return new bootstrap.Tooltip(tooltipTriggerEl);
+    });
+});
+
+function exportarParaExcel() {
+    // Cria uma tabela HTML temporária
+    let html = '<table>';
+    
+    // Cabeçalho
+    html += '<tr>';
+    {% for coluna in resultados.tabela_geral.colunas %}
+    html += `<th>${"{{ coluna }}"}</th>`;
+    {% endfor %}
+    html += '</tr>';
+    
+    // Dados
+    {% for linha in resultados.tabela_geral.dados %}
+    html += '<tr>';
+    html += `<td>${"{{ linha.mes_ano }}"}</td>`;
+    {% for valor in linha.valores %}
+    html += `<td>${"{% if valor != 0 %}{{ '%.2f'|format(valor)|replace('.', ',') }}{% else %}0,00{% endif %}"}</td>`;
+    {% endfor %}
+    html += '</tr>';
+    {% endfor %}
+    
+    html += '</table>';
+    
+    // Cria um link de download
+    const uri = 'data:application/vnd.ms-excel;base64,'
+        + btoa(unescape(encodeURIComponent(html)));
+    const link = document.createElement('a');
+    link.href = uri;
+    link.download = 'contracheques.xls';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+}
+</script>
+{% endblock %}
