@@ -1,7 +1,7 @@
 import json
 import re
 from pathlib import Path
-from typing import Dict, List, Any
+from typing import Dict, Any
 from collections import defaultdict
 import fitz  # PyMuPDF
 import logging
@@ -24,7 +24,7 @@ class ProcessadorContracheque:
             logger.error(f"Erro ao carregar rubricas padrão: {str(e)}")
             return {"proventos": {}, "descontos": {}}
 
-    def _gerar_meses_anos(self) -> List[str]:
+    def _gerar_meses_anos(self) -> list[str]:
         return [f"{mes}/{ano}" for ano in range(2019, 2026) for mes in self.meses.keys()]
 
     def _processar_rubricas_internas(self):
@@ -45,55 +45,27 @@ class ProcessadorContracheque:
             return float(valor)
         except (ValueError, AttributeError):
             return 0.0
-    
-    # Este método agora lê o texto completo, ideal para achar a data
-    def _extrair_texto_completo_pdf(self, file_bytes):
-        try:
-            doc = fitz.open(stream=file_bytes, filetype="pdf")
-            texto_completo = ""
-            for page in doc:
-                texto_completo += page.get_text("text", sort=True) + "\n"
-            return texto_completo
-        except Exception as e:
-            raise Exception(f"Erro ao extrair texto completo do PDF: {str(e)}")
-
-    # Este método lê o PDF em colunas, ideal para achar os valores da tabela
-    def _extrair_dados_pdf_por_colunas(self, file_bytes):
-        texto_vantagens = ""
-        texto_descontos = ""
-        try:
-            doc = fitz.open(stream=file_bytes, filetype="pdf")
-            for page in doc:
-                rect_vantagens = fitz.Rect(0, 0, page.rect.width / 2, page.rect.height)
-                rect_descontos = fitz.Rect(page.rect.width / 2, 0, page.rect.width, page.rect.height)
-                texto_vantagens += page.get_text(clip=rect_vantagens, sort=True) + "\n"
-                texto_descontos += page.get_text(clip=rect_descontos, sort=True) + "\n"
-            return texto_vantagens, texto_descontos
-        except Exception as e:
-            raise Exception(f"Erro ao extrair texto das colunas do PDF: {str(e)}")
 
     def processar_contracheque(self, filepath):
         try:
             with open(filepath, 'rb') as f:
                 file_bytes = f.read()
 
-            # --- LÓGICA HÍBRIDA ---
-            # 1. Lê o texto completo SÓ para encontrar a data de forma confiável
-            texto_completo = self._extrair_texto_completo_pdf(file_bytes)
+            doc = fitz.open(stream=file_bytes, filetype="pdf")
+            texto_completo = ""
+            for page in doc:
+                texto_completo += page.get_text("text", sort=True) + "\n"
+
             month_year_pattern = r'(Janeiro|Fevereiro|Março|Abril|Maio|Junho|Julho|Agosto|Setembro|Outubro|Novembro|Dezembro)\s*/\s*\d{4}'
             month_year_match = re.search(month_year_pattern, texto_completo, re.IGNORECASE)
-
             if not month_year_match:
                 raise ValueError("Não foi possível encontrar o Mês/Ano no documento.")
             
-            # Extrai e formata o Mês/Ano encontrado
             mes_ano_str = month_year_match.group(0)
             partes = re.split(r'\s*/\s*', mes_ano_str)
             mes_ano = f"{partes[0].capitalize()}/{partes[1]}"
 
-            # 2. Agora que temos a data, faz a leitura por colunas para extrair os valores sem erros
-            texto_vantagens, texto_descontos = self._extrair_dados_pdf_por_colunas(file_bytes)
-            dados_mes = self._processar_mes_conteudo(texto_vantagens, texto_descontos, mes_ano)
+            dados_mes = self._processar_mes_conteudo(texto_completo, mes_ano)
 
             return {
                 "primeiro_mes": mes_ano, "ultimo_mes": mes_ano, "meses_para_processar": [mes_ano],
@@ -103,25 +75,48 @@ class ProcessadorContracheque:
             logger.error(f"Erro ao processar contracheque: {str(e)}")
             raise
 
-    def _processar_mes_conteudo(self, texto_vantagens, texto_descontos, mes_ano):
+    def _processar_mes_conteudo(self, texto_completo, mes_ano):
         resultados_mes = {"rubricas": defaultdict(float), "rubricas_detalhadas": defaultdict(float)}
 
-        padrao_rubrica = re.compile(r'^(?P<code>\d{4}|[A-Z0-9]{1,4}P|[A-Z]\d{3}|\d[A-Z]\d{2}|/\d{3})\s+.*?(?P<valor>\d{1,3}(?:[.,]\d{3})*,\d{2})\s*$', re.MULTILINE)
+        bloco_vantagens_match = re.search(r'VANTAGENS(.*?)TOTAL DE VANTAGENS', texto_completo, re.DOTALL | re.IGNORECASE)
+        texto_vantagens = bloco_vantagens_match.group(1) if bloco_vantagens_match else ""
+        
+        bloco_descontos_match = re.search(r'DESCONTOS(.*?)TOTAL DE DESCONTOS', texto_completo, re.DOTALL | re.IGNORECASE)
+        texto_descontos = bloco_descontos_match.group(1) if bloco_descontos_match else ""
 
-        for match in padrao_rubrica.finditer(texto_vantagens):
-            codigo = match.group('code')
-            valor = self.extrair_valor(match.group('valor'))
-            if codigo in self.codigos_proventos:
-                resultados_mes["rubricas"][codigo] = valor
-                logger.debug(f"DEBUG: Provento Identificado - Mês/Ano: {mes_ano}, Código: '{codigo}', Valor: {valor}")
+        # Função interna para extrair códigos e valores de um bloco de texto
+        def extrair_rubricas(bloco_texto):
+            rubricas_encontradas = {}
+            # Padrão para encontrar um código (início da linha) e um valor (final da linha)
+            padrao = re.compile(r"^([0-9A-Z/]+)\s+.*?\s+([\d.,]+)$")
+            for linha in bloco_texto.strip().split('\n'):
+                match = padrao.match(linha.strip())
+                if match:
+                    codigo, valor_str = match.groups()
+                    rubricas_encontradas[codigo] = self.extrair_valor(valor_str)
+            return rubricas_encontradas
 
-        for match in padrao_rubrica.finditer(texto_descontos):
-            codigo = match.group('code')
-            valor = self.extrair_valor(match.group('valor'))
+        proventos_encontrados = extrair_rubricas(texto_vantagens)
+        descontos_encontrados = extrair_rubricas(texto_descontos)
+        
+        # Adiciona os descontos que podem estar na coluna de vantagens (como IRRF)
+        # O código /401 para IRRF é um caso especial
+        irrf_match = re.search(r'IRRF\s*/401\s+.*?([\d.,]+)', texto_completo)
+        if irrf_match:
+             descontos_encontrados['/401'] = self.extrair_valor(irrf_match.group(1))
+
+        # Classifica os itens encontrados
+        for codigo, valor in proventos_encontrados.items():
+             if codigo in self.codigos_proventos:
+                  resultados_mes["rubricas"][codigo] = valor
+                  logger.debug(f"DEBUG: Provento Identificado - Mês/Ano: {mes_ano}, Código: '{codigo}', Valor: {valor}")
+
+        for codigo, valor in descontos_encontrados.items():
             if codigo in self.codigos_descontos:
                 resultados_mes["rubricas_detalhadas"][codigo] = valor
                 logger.debug(f"DEBUG: Desconto Identificado - Mês/Ano: {mes_ano}, Código: '{codigo}', Valor: {valor}")
 
+        # Calcula o total de proventos, respeitando a flag "ignorar_na_soma"
         total_proventos_calculado = 0
         for codigo, valor in resultados_mes["rubricas"].items():
             info_rubrica = self.rubricas.get('proventos', {}).get(codigo, {})
@@ -132,7 +127,8 @@ class ProcessadorContracheque:
         logger.debug(f"TOTAIS PARA {mes_ano}: Proventos (para soma)={total_proventos_calculado:.2f}, Descontos={sum(resultados_mes['rubricas_detalhadas'].values()):.2f}")
         
         return resultados_mes
-
+    
+    # O restante dos métodos para gerar as tabelas continuam os mesmos
     def gerar_tabela_proventos_resumida(self, resultados):
         tabela = {"colunas": ["Mês/Ano", "Total de Proventos"], "dados": []}
         for mes_ano in resultados.get("meses_para_processar", []):
