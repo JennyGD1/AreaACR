@@ -5,81 +5,70 @@
 {% block body_class %}page-analise{% endblock %}
 
 {% block extra_css %}
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/pages/analise.css') }}">
 {% endblock %}
 
 {% block content %}
-<div class="analysis-container">
-    <h1>Análise do Contracheque</h1>
-    {% if resultados.primeiro_mes %}
-        <p class="periodo">Período analisado de {{ resultados.primeiro_mes }} a {{ resultados.ultimo_mes }}</p>
-    {% endif %}
+<div class="content-wrapper">
 
-    <section class="proventos-section">
-        <h2>Tabela de Proventos</h2>
-        {% if resultados.proventos_totais_planserv and resultados.proventos_totais_planserv.detalhes %}
+    <div class="table-container">
+        <div class="table-header">
+            <h2><i class="fas fa-arrow-circle-up"></i>Tabela Resumida de Proventos</h2>
+            <p>Total de proventos recebidos por competência.</p>
+        </div>
+        {% if resultados.tabela_proventos_resumida and resultados.tabela_proventos_resumida.dados %}
             <table class="results-table">
                 <thead>
                     <tr>
-                        <th>Descrição</th>
-                        <th>Código</th>
-                        <th class="col-valor">Valor (R$)</th>
+                        <th>{{ resultados.tabela_proventos_resumida.colunas[0] }}</th>
+                        <th class="col-valor">{{ resultados.tabela_proventos_resumida.colunas[1] }}</th>
                     </tr>
                 </thead>
                 <tbody>
-                    {% for item in resultados.proventos_totais_planserv.detalhes %}
+                    {% for linha in resultados.tabela_proventos_resumida.dados %}
                     <tr>
-                        <td>{{ item.descricao }}</td>
-                        <td>{{ item.codigo }}</td>
-                        <td class="col-valor">{{ "%.2f"|format(item.valor)|replace('.', ',') }}</td>
+                        <td>{{ linha.mes_ano }}</td>
+                        <td class="col-valor">R$ {{ "%.2f"|format(linha.total)|replace('.', ',') }}</td>
                     </tr>
                     {% endfor %}
                 </tbody>
-                <tfoot>
-                    <tr class="total-row">
-                        <td colspan="2">TOTAL PROVENTOS</td>
-                        <td class="col-valor">R$ {{ "%.2f"|format(resultados.proventos_totais_planserv.total)|replace('.', ',') }}</td>
-                    </tr>
-                </tfoot>
             </table>
         {% else %}
-            <p>Nenhum provento encontrado para análise.</p>
+            <p>Nenhum provento encontrado.</p>
         {% endif %}
-    </section>
+    </div>
 
-    <section class="descontos-section">
-        <h2>Tabela de Descontos</h2>
-        {% if resultados.descontos_totais_planserv and resultados.descontos_totais_planserv.detalhes %}
+    <div class="table-container">
+        <div class="table-header">
+            <h2><i class="fas fa-arrow-circle-down"></i>Tabela Geral de Descontos</h2>
+            <p>Tabela detalhada de descontos por competência, com base nos arquivos enviados.</p>
+        </div>
+        {% if resultados.tabela_descontos_detalhada and resultados.tabela_descontos_detalhada.dados %}
             <table class="results-table">
                 <thead>
                     <tr>
-                        <th>Descrição</th>
-                        <th>Código</th>
-                        <th class="col-valor">Valor (R$)</th>
+                        {% for coluna in resultados.tabela_descontos_detalhada.colunas %}
+                            <th>{{ coluna }}</th>
+                        {% endfor %}
                     </tr>
                 </thead>
                 <tbody>
-                    {% for item in resultados.descontos_totais_planserv.detalhes %}
+                    {% for linha in resultados.tabela_descontos_detalhada.dados %}
                     <tr>
-                        <td>{{ item.descricao }}</td>
-                        <td>{{ item.codigo }}</td>
-                        <td class="col-valor">{{ "%.2f"|format(item.valor)|replace('.', ',') }}</td>
+                        <td>{{ linha.mes_ano }}</td>
+                        {% for valor in linha.valores %}
+                            <td>R$ {{ "%.2f"|format(valor)|replace('.', ',') }}</td>
+                        {% endfor %}
                     </tr>
                     {% endfor %}
                 </tbody>
-                <tfoot>
-                    <tr class="total-row">
-                        <td colspan="2">TOTAL DESCONTOS</td>
-                        <td class="col-valor">R$ {{ "%.2f"|format(resultados.descontos_totais_planserv.total)|replace('.', ',') }}</td>
-                    </tr>
-                </tfoot>
             </table>
         {% else %}
-            <p>Nenhum desconto relevante encontrado.</p>
+            <p>Nenhum desconto encontrado.</p>
         {% endif %}
-    </section>
+    </div>
 
     <a href="{{ url_for('calculadora') }}" class="action-button">Fazer Nova Análise</a>
-
 </div>
 {% endblock %}
