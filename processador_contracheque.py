@@ -150,27 +150,40 @@ class ProcessadorContracheque:
         return tabela
 
     def gerar_tabela_descontos_detalhada(self, resultados):
-        """Gera uma tabela detalhada com cada desconto em uma coluna."""
+        """
+        Gera uma tabela detalhada com cada desconto em uma coluna.
+        --- VERSÃO CORRIGIDA ---
+        Esta versão identifica os descontos dinamicamente a partir dos dados lidos.
+        """
         descontos_de_origem = self.rubricas.get('descontos', {})
-        codigos_descontos_relevantes = [
-            cod for cod, info in descontos_de_origem.items() 
-            if 'planserv' in info.get('tipo', '') or 'spsm' in info.get('tipo', '')
-        ]
-
-        descricoes = {cod: descontos_de_origem[cod]['descricao'] for cod in codigos_descontos_relevantes}
+        
+        # 1. Encontra todos os códigos de desconto únicos que foram lidos dos arquivos
+        codigos_encontrados = set()
+        for dados_mes in resultados.get("dados_mensais", {}).values():
+            codigos_encontrados.update(dados_mes.get("rubricas_detalhadas", {}).keys())
+        
+        # 2. Ordena os códigos para garantir que as colunas apareçam sempre na mesma ordem
+        codigos_descontos_relevantes = sorted(list(codigos_encontrados))
+    
+        # 3. Pega as descrições dos códigos encontrados para usar como cabeçalho da tabela
+        descricoes = {
+            cod: descontos_de_origem.get(cod, {}).get('descricao', cod) 
+            for cod in codigos_descontos_relevantes
+        }
         
         tabela = {
             "colunas": ["Mês/Ano"] + [descricoes[cod] for cod in codigos_descontos_relevantes],
             "dados": []
         }
-
+    
+        # 4. Preenche a tabela com os valores, mês a mês
         for mes_ano in resultados.get("meses_para_processar", []):
             linha = {"mes_ano": self.converter_data_para_numerico(mes_ano), "valores": []}
             dados_mes = resultados.get("dados_mensais", {}).get(mes_ano, {})
-            rubricas_detalhadas = dados_mes.get("rubricas_detalhadas", {})
+            rubricas_detalhadas_mes = dados_mes.get("rubricas_detalhadas", {})
             
             for cod in codigos_descontos_relevantes:
-                linha["valores"].append(rubricas_detalhadas.get(cod, 0.0))
+                linha["valores"].append(rubricas_detalhadas_mes.get(cod, 0.0))
             
             tabela["dados"].append(linha)
             
