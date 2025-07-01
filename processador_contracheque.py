@@ -260,8 +260,8 @@ class ProcessadorContracheque:
                 f.write(texto)
                 
             return texto
-    except Exception as e:
-        raise Exception(f"Erro ao extrair texto do PDF: {str(e)}")
+        except Exception as e:
+            raise Exception(f"Erro ao extrair texto do PDF: {str(e)}")
 
     def processar_mes(self, data_texto, mes_ano):
         """Processa contracheques da Bahia com tratamento especial"""
