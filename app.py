@@ -91,10 +91,14 @@ def index():
 
 @app.route('/calculadora')
 def calculadora():
-    return render_template('indexcalculadora.html') 
+    # --- MUDANÇA 1: Limpa quaisquer resultados antigos ao carregar a página da calculadora ---
+    # Isso garante que a página esteja sempre pronta para um novo upload.
+    session.pop('resultados', None)
+    return render_template('indexcalculadora.html')
 
 @app.route('/upload', methods=['POST'])
 def upload():
+    # ... (a sua função upload continua exatamente igual, não precisa mexer aqui) ...
     if 'files[]' not in request.files:
         flash('Nenhum arquivo selecionado', 'error')
         return redirect(url_for('calculadora'))
@@ -105,13 +109,8 @@ def upload():
         return redirect(url_for('calculadora'))
 
     resultados_globais = {
-        'dados_mensais': {},
-        'erros': [],
-        'quantidade_arquivos': 0,
-        'primeiro_mes': None,
-        'ultimo_mes': None,
-        'meses_para_processar': [],
-        'tabela': 'Desconhecida'
+        'dados_mensais': {}, 'erros': [], 'quantidade_arquivos': 0, 'primeiro_mes': None,
+        'ultimo_mes': None, 'meses_para_processar': [], 'tabela': 'Desconhecida'
     }
 
     try:
@@ -131,11 +130,8 @@ def upload():
                         for k, v in dados_mes.items():
                             if isinstance(v, dict):
                                 for sub_k, sub_v in v.items():
-                                    # A linha com o erro de digitação foi aqui.
-                                    # Forma correta é [mes_ano] e não [mes_ano']
                                     resultados_globais['dados_mensais'][mes_ano][k][sub_k] += sub_v
                             elif isinstance(v, (int, float)):
-                                # E aqui também.
                                 resultados_globais['dados_mensais'][mes_ano][k] += v
 
                 if dados_arquivo_atual.get('primeiro_mes'):
@@ -172,20 +168,18 @@ def upload():
         flash(f'Ocorreu um erro ao processar os arquivos: {str(e)}', 'error')
         return redirect(url_for('calculadora'))
 
+
 @app.route('/analise')
 def analise_detalhada():
+    # --- MUDANÇA 2: Removemos a limpeza da sessão daqui ---
+    # Agora a página de análise pode ser recarregada sem problemas.
     if 'resultados' not in session:
         flash('Nenhum dado de análise disponível. Por favor, envie um arquivo primeiro.', 'error')
         return redirect(url_for('calculadora'))
     
     try:
-        # Carrega os resultados da sessão para uma variável local
         resultados_json = session['resultados']
-        
-        ### --- MUDANÇA PRINCIPAL AQUI --- ###
-        # Depois de carregar os dados, nós os removemos da sessão.
-        # Assim, se o usuário atualizar a página ou voltar, a sessão estará limpa.
-        session.pop('resultados', None)
+        # A linha "session.pop('resultados', None)" foi REMOVIDA daqui.
         
         resultados = json.loads(resultados_json)
         
@@ -196,8 +190,6 @@ def analise_detalhada():
     except (json.JSONDecodeError, KeyError) as e:
         logger.error(f"Erro ao carregar dados da sessão: {str(e)}")
         flash('Erro ao carregar dados da sessão. Por favor, tente novamente.', 'error')
-        # Limpa a sessão em caso de erro também
-        session.pop('resultados', None)
         return redirect(url_for('calculadora'))
 
 
