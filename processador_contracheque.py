@@ -47,20 +47,17 @@ class ProcessadorContracheque:
             return 0.0
 
     def _extrair_secoes_por_mes_ano(self, doc):
-        """
-        --- NOVA FUNÇÃO DE EXTRAÇÃO ---
-        Lê o documento e divide o texto em seções, uma para cada mês/ano encontrado.
-        """
         sections = defaultdict(str)
         month_year_pattern = re.compile(r'(Janeiro|Fevereiro|Março|Abril|Maio|Junho|Julho|Agosto|Setembro|Outubro|Novembro|Dezembro)\s*/\s*(\d{4})')
         
-        for page in doc:
+        for page_num, page in enumerate(doc):
             texto_pagina = page.get_text("text", sort=True)
             match = month_year_pattern.search(texto_pagina)
             if match:
                 mes = match.group(1).capitalize()
                 ano = match.group(2)
-                mes_ano_chave = f"{mes}/{ano}"
+                # Usamos o número da página para garantir uma chave única para cada contracheque
+                mes_ano_chave = f"{mes}/{ano}_{page_num}"
                 sections[mes_ano_chave] = texto_pagina
         
         if not sections:
@@ -74,20 +71,17 @@ class ProcessadorContracheque:
                 file_bytes = f.read()
 
             doc = fitz.open(stream=file_bytes, filetype="pdf")
-            
-            # 1. Extrai todas as seções de uma vez
             secoes = self._extrair_secoes_por_mes_ano(doc)
             
             resultados_finais = { "dados_mensais": {} }
 
-            # 2. Processa cada seção (mês) individualmente
-            for mes_ano, texto_secao in secoes.items():
-                resultados_finais["dados_mensais"][mes_ano] = self._processar_mes_conteudo(texto_secao, mes_ano)
+            for mes_ano_chave, texto_secao in secoes.items():
+                mes_ano_real = mes_ano_chave.split('_')[0]
+                resultados_finais["dados_mensais"][mes_ano_real] = self._processar_mes_conteudo(texto_secao, mes_ano_real)
 
-            # 3. Determina o período completo dos meses processados
             meses_processados = sorted(
                 resultados_finais['dados_mensais'].keys(),
-                key=lambda m: (int(m.split('/')[1]), int(self.meses[m.split('/')[0]]))
+                key=lambda m: (int(m.split('/')[1]), int(self.meses.get(m.split('/')[0], 0)))
             )
             
             if not meses_processados:
@@ -100,13 +94,11 @@ class ProcessadorContracheque:
             resultados_finais['meses_para_processar'] = self.meses_anos[idx_primeiro:idx_ultimo + 1]
 
             return resultados_finais
-
         except Exception as e:
             logger.error(f"Erro ao processar contracheque: {str(e)}")
             raise
 
     def _processar_mes_conteudo(self, texto_secao, mes_ano):
-        # Esta função agora recebe o texto de APENAS UM MÊS e funciona como antes
         resultados_mes = {"rubricas": defaultdict(float), "rubricas_detalhadas": defaultdict(float)}
 
         bloco_vantagens_match = re.search(r'VANTAGENS(.*?)TOTAL DE VANTAGENS', texto_secao, re.DOTALL | re.IGNORECASE)
@@ -115,17 +107,36 @@ class ProcessadorContracheque:
         bloco_descontos_match = re.search(r'DESCONTOS(.*?)TOTAL DE DESCONTOS', texto_secao, re.DOTALL | re.IGNORECASE)
         texto_descontos = bloco_descontos_match.group(1) if bloco_descontos_match else ""
 
-        padrao_geral = re.compile(r"^\s*([A-Z0-9/]+)\s+.*?\s+([\d.,]+)\s*$", re.MULTILINE)
+        padrao_valor = re.compile(r'\d{1,3}(?:[.,]\d{3})*,\d{2}')
 
-        for match in padrao_geral.finditer(texto_vantagens):
-            codigo, valor_str = match.groups()
-            if codigo in self.codigos_proventos:
-                resultados_mes["rubricas"][codigo] = self.extrair_valor(valor_str)
+        def associar_codigos_e_valores(bloco_texto, lista_de_codigos):
+            pares = {}
+            # Encontra todos os códigos conhecidos e suas posições
+            matches = sorted(
+                [m for codigo in lista_de_codigos for m in re.finditer(re.escape(codigo), bloco_texto)],
+                key=lambda m: m.start()
+            )
+            
+            for i, match_codigo in enumerate(matches):
+                codigo = match_codigo.group(0)
+                
+                start_pos = match_codigo.end()
+                end_pos = matches[i + 1].start() if i + 1 < len(matches) else len(bloco_texto)
+                
+                area_de_busca = bloco_texto[start_pos:end_pos]
+                
+                valor_match = padrao_valor.search(area_de_busca)
+                if valor_match:
+                    pares[codigo] = self.extrair_valor(valor_match.group(0))
+            return pares
 
-        for match in padrao_geral.finditer(texto_descontos):
-            codigo, valor_str = match.groups()
-            if codigo in self.codigos_descontos:
-                resultados_mes["rubricas_detalhadas"][codigo] = self.extrair_valor(valor_str)
+        proventos_encontrados = associar_codigos_e_valores(texto_vantagens, self.codigos_proventos)
+        descontos_encontrados = associar_codigos_e_valores(texto_descontos, self.codigos_descontos)
+        
+        for codigo, valor in proventos_encontrados.items():
+            resultados_mes["rubricas"][codigo] = valor
+        for codigo, valor in descontos_encontrados.items():
+            resultados_mes["rubricas_detalhadas"][codigo] = valor
 
         total_proventos_calculado = sum(
             valor for codigo, valor in resultados_mes["rubricas"].items()
@@ -137,7 +148,6 @@ class ProcessadorContracheque:
         
         return resultados_mes
     
-    # O restante dos métodos para gerar as tabelas não precisa de alteração
     def gerar_tabela_proventos_resumida(self, resultados):
         tabela = {"colunas": ["Mês/Ano", "Total de Proventos"], "dados": []}
         for mes_ano in resultados.get("meses_para_processar", []):
