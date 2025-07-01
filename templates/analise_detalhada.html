@@ -1,144 +1,85 @@
-<!DOCTYPE html>
-<html lang="pt-br">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Análise Detalhada</title>
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/base.css') }}">
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/pages/analise.css') }}?v=1.1">
-    <style>
-        /* Estilos para a seção sanfona (accordion) */
-        .accordion details {
-            border: 1px solid #ddd;
-            border-radius: 8px;
-            margin-bottom: 1rem;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.05);
-            transition: background-color 0.3s;
-        }
-        .accordion details[open] {
-            background-color: #f9f9f9;
-        }
-        .accordion summary {
-            font-size: 1.5rem;
-            font-weight: 600;
-            padding: 1rem;
-            cursor: pointer;
-            outline: none;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-        }
-        .accordion summary::after {
-            content: '▼'; /* Seta para baixo */
-            font-size: 1rem;
-            transition: transform 0.3s;
-        }
-        .accordion details[open] summary::after {
-            transform: rotate(180deg); /* Gira a seta */
-        }
-        .content {
-            padding: 0 1rem 1rem 1rem;
-        }
-        .results-table {
-            width: 100%;
-            border-collapse: collapse;
-        }
-        .results-table th, .results-table td {
-            text-align: left;
-            padding: 12px;
-            border-bottom: 1px solid #eee;
-        }
-        .results-table th {
-            background-color: #f2f2f2;
-        }
-        .total-row td {
-            font-weight: bold;
-            border-top: 2px solid #333;
-        }
-    </style>
-</head>
-<body>
-    <header>
-        </header>
+{% extends "base.html" %}
 
-    <main class="container">
-        <h1>Análise do Contracheque</h1>
-        <p>Período analisado: <strong>{{ resultados.primeiro_mes }}</strong> a <strong>{{ resultados.ultimo_mes }}</strong></p>
-        
-        <div class="accordion">
-            <details open>
-                <summary>Descontos Relevantes (Total: R$ {{ "%.2f"|format(resultados.descontos_totais_planserv.total)|replace('.', ',') }})</summary>
-                <div class="content">
-                    {% if resultados.descontos_totais_planserv and resultados.descontos_totais_planserv.detalhes %}
-                        <table class="results-table">
-                            <thead>
-                                <tr>
-                                    <th>Descrição</th>
-                                    <th>Código</th>
-                                    <th style="text-align: right;">Valor (R$)</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                {% for item in resultados.descontos_totais_planserv.detalhes %}
-                                <tr>
-                                    <td>{{ item.descricao }}</td>
-                                    <td>{{ item.codigo }}</td>
-                                    <td style="text-align: right;">{{ "%.2f"|format(item.valor)|replace('.', ',') }}</td>
-                                </tr>
-                                {% endfor %}
-                                <tr class="total-row">
-                                    <td colspan="2">TOTAL DESCONTOS</td>
-                                    <td style="text-align: right;">R$ {{ "%.2f"|format(resultados.descontos_totais_planserv.total)|replace('.', ',') }}</td>
-                                </tr>
-                            </tbody>
-                        </table>
-                    {% else %}
-                        <p>Nenhum desconto relevante encontrado.</p>
-                    {% endif %}
-                </div>
-            </details>
+{% block title %}Análise de Contracheque - Maida{% endblock %}
 
-            <details>
-                <summary>Ver Proventos (Total: R$ {{ "%.2f"|format(resultados.proventos_totais_planserv.total)|replace('.', ',') }})</summary>
-                <div class="content">
-                    {% if resultados.proventos_totais_planserv and resultados.proventos_totais_planserv.detalhes %}
-                        <table class="results-table">
-                            <thead>
-                                <tr>
-                                    <th>Descrição</th>
-                                    <th>Código</th>
-                                    <th style="text-align: right;">Valor (R$)</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                {% for item in resultados.proventos_totais_planserv.detalhes %}
-                                <tr>
-                                    <td>{{ item.descricao }}</td>
-                                    <td>{{ item.codigo }}</td>
-                                    <td style="text-align: right;">{{ "%.2f"|format(item.valor)|replace('.', ',') }}</td>
-                                </tr>
-                                {% endfor %}
-                                <tr class="total-row">
-                                    <td colspan="2">TOTAL PROVENTOS</td>
-                                    <td style="text-align: right;">R$ {{ "%.2f"|format(resultados.proventos_totais_planserv.total)|replace('.', ',') }}</td>
-                                </tr>
-                            </tbody>
-                        </table>
-                    {% else %}
-                        <p>Nenhum provento encontrado.</p>
-                    {% endif %}
-                </div>
-            </details>
-        </div>
-        
-        <div style="margin-top: 2rem; text-align: center;">
-            <a href="{{ url_for('calculadora') }}" class="btn">Fazer Nova Análise</a>
-        </div>
+{% block body_class %}page-analise{% endblock %}
 
-    </main>
-    
-    <footer>
-        </footer>
-    <script src="{{ url_for('static', filename='js/main.js') }}"></script>
-</body>
-</html>
+{% block extra_css %}
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/pages/analise.css') }}">
+{% endblock %}
+
+{% block content %}
+<div class="analysis-container">
+    <h1>Análise do Contracheque</h1>
+    {% if resultados.primeiro_mes %}
+        <p class="periodo">Período analisado de {{ resultados.primeiro_mes }} a {{ resultados.ultimo_mes }}</p>
+    {% endif %}
+
+    <section class="proventos-section">
+        <h2>Tabela de Proventos</h2>
+        {% if resultados.proventos_totais_planserv and resultados.proventos_totais_planserv.detalhes %}
+            <table class="results-table">
+                <thead>
+                    <tr>
+                        <th>Descrição</th>
+                        <th>Código</th>
+                        <th class="col-valor">Valor (R$)</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for item in resultados.proventos_totais_planserv.detalhes %}
+                    <tr>
+                        <td>{{ item.descricao }}</td>
+                        <td>{{ item.codigo }}</td>
+                        <td class="col-valor">{{ "%.2f"|format(item.valor)|replace('.', ',') }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+                <tfoot>
+                    <tr class="total-row">
+                        <td colspan="2">TOTAL PROVENTOS</td>
+                        <td class="col-valor">R$ {{ "%.2f"|format(resultados.proventos_totais_planserv.total)|replace('.', ',') }}</td>
+                    </tr>
+                </tfoot>
+            </table>
+        {% else %}
+            <p>Nenhum provento encontrado para análise.</p>
+        {% endif %}
+    </section>
+
+    <section class="descontos-section">
+        <h2>Tabela de Descontos</h2>
+        {% if resultados.descontos_totais_planserv and resultados.descontos_totais_planserv.detalhes %}
+            <table class="results-table">
+                <thead>
+                    <tr>
+                        <th>Descrição</th>
+                        <th>Código</th>
+                        <th class="col-valor">Valor (R$)</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for item in resultados.descontos_totais_planserv.detalhes %}
+                    <tr>
+                        <td>{{ item.descricao }}</td>
+                        <td>{{ item.codigo }}</td>
+                        <td class="col-valor">{{ "%.2f"|format(item.valor)|replace('.', ',') }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+                <tfoot>
+                    <tr class="total-row">
+                        <td colspan="2">TOTAL DESCONTOS</td>
+                        <td class="col-valor">R$ {{ "%.2f"|format(resultados.descontos_totais_planserv.total)|replace('.', ',') }}</td>
+                    </tr>
+                </tfoot>
+            </table>
+        {% else %}
+            <p>Nenhum desconto relevante encontrado.</p>
+        {% endif %}
+    </section>
+
+    <a href="{{ url_for('calculadora') }}" class="action-button">Fazer Nova Análise</a>
+
+</div>
+{% endblock %}
