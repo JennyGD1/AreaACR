@@ -50,7 +50,6 @@ class ProcessadorContracheque:
                 mes = match.group(1).capitalize()
                 ano = match.group(2)
                 mes_ano_chave = f"{mes}/{ano}"
-                # Em vez de texto, guardamos a própria página
                 sections[mes_ano_chave].append(page)
         
         if not sections:
@@ -111,50 +110,36 @@ class ProcessadorContracheque:
 
     def _processar_pagina_individual(self, page, mes_ano):
         resultados_mes = {"rubricas": defaultdict(float), "rubricas_detalhadas": defaultdict(float)}
-        
-        # Ponto central da página para dividir as colunas
         ponto_medio_x = page.rect.width / 2
-        
-        words = page.get_text("words")  # Extrai palavras com coordenadas
+        words = page.get_text("words")
         
         padrao_codigo = re.compile(r'^([A-Z0-9/]{3,5})$')
         padrao_valor = re.compile(r'^(\d{1,3}(?:[.,]\d{3})*,\d{2})$')
-
-        # Agrupa palavras por linha visual
-        linhas = defaultdict(list)
-        for word in words:
-            y0 = round(word[1]) # Agrupa pela coordenada Y
-            linhas[y0].append(word)
-
-        for y, palavras_linha in linhas.items():
-            # Ordena palavras na linha pela posição X
-            palavras_linha.sort(key=lambda w: w[0])
+        
+        codigos_encontrados = [w for w in words if padrao_codigo.match(w[4])]
+        valores_encontrados = [w for w in words if padrao_valor.match(w[4])]
+        
+        for cod_word in codigos_encontrados:
+            codigo = cod_word[4]
+            valor_associado = None
             
-            codigos_na_linha = [p[4] for p in palavras_linha if padrao_codigo.match(p[4])]
-            valores_na_linha = [p[4] for p in palavras_linha if padrao_valor.match(p[4])]
+            # Encontra o valor mais próximo na mesma linha (vertical)
+            for val_word in valores_encontrados:
+                if abs(cod_word[1] - val_word[1]) < 5: # Tolerância vertical
+                    valor_associado = self.extrair_valor(val_word[4])
+                    break
+            
+            if valor_associado is not None:
+                is_provento = cod_word[0] < ponto_medio_x and codigo in self.codigos_proventos
+                is_desconto = cod_word[0] > ponto_medio_x and codigo in self.codigos_descontos
 
-            if not codigos_na_linha or not valores_na_linha:
-                continue
-
-            # Tenta parear códigos e valores pela posição horizontal
-            for codigo in codigos_na_linha:
-                valor_associado = None
-                for valor in valores_na_linha:
-                    # Se o código está na esquerda e o valor também, eles são um par de provento
-                    if palavras_linha[0][0] < ponto_medio_x and palavras_linha[-1][0] < ponto_medio_x:
-                         valor_associado = self.extrair_valor(valor)
-                    # Se o código está na direita e o valor também, eles são um par de desconto
-                    elif palavras_linha[0][0] > ponto_medio_x and palavras_linha[-1][0] > ponto_medio_x:
-                        valor_associado = self.extrair_valor(valor)
-
-                if valor_associado is not None:
-                    if codigo in self.codigos_proventos:
-                        resultados_mes["rubricas"][codigo] = valor_associado
-                        logger.debug(f"DEBUG: Provento Identificado - Mês/Ano: {mes_ano}, Código: '{codigo}', Valor: {valor_associado}")
-                    elif codigo in self.codigos_descontos:
-                        resultados_mes["rubricas_detalhadas"][codigo] = valor_associado
-                        logger.debug(f"DEBUG: Desconto Identificado - Mês/Ano: {mes_ano}, Código: '{codigo}', Valor: {valor_associado}")
-                        
+                if is_provento:
+                    resultados_mes["rubricas"][codigo] = valor_associado
+                    logger.debug(f"DEBUG: Provento - {mes_ano}, '{codigo}', {valor_associado}")
+                elif is_desconto:
+                    resultados_mes["rubricas_detalhadas"][codigo] = valor_associado
+                    logger.debug(f"DEBUG: Desconto - {mes_ano}, '{codigo}', {valor_associado}")
+                    
         return resultados_mes
 
     def converter_data_para_numerico(self, data_texto: str) -> str:
