@@ -596,8 +596,7 @@
         "2147": { "descricao": "RRA-Instrutoria" },
         "2HP6": { "descricao": "CET Magisterio Sup Inc" },
         "4032": { "descricao": "Plantão Extra" }
-    }
-    },
+    },
     "descontos": {
       "7033": {"descricao": "Titular", "tipo": "planserv"},
       "7035": {"descricao": "Cônjuge", "tipo": "planserv"},
