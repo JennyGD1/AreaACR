@@ -116,37 +116,46 @@ class ProcessadorContracheque:
             logger.error(f"Erro ao processar contracheque: {str(e)}")
             raise
 
-    def _processar_mes_conteudo(self, texto_secao, mes_ano):
-        resultados_mes = {"rubricas": defaultdict(float), "rubricas_detalhadas": defaultdict(float)}
 
-        tabela_match = re.search(r'(VANTAGENS|Descrição)(.*?)TOTAL DE VANTAGENS', texto_secao, re.DOTALL | re.IGNORECASE)
-        if not tabela_match: return resultados_mes
-        
-        bloco_tabela = tabela_match.group(2)
+def _processar_mes_conteudo(self, texto_completo, mes_ano):
+    resultados_mes = {"rubricas": defaultdict(float), "rubricas_detalhadas": defaultdict(float)}
 
-        # Padrões para encontrar códigos e valores em qualquer lugar da linha
-        padrao_codigo = re.compile(r'\b([0-9A-Z/]{2,5})\b')
-        padrao_valor = re.compile(r'\b(\d{1,3}(?:[.,]\d{3})*,\d{2})\b')
+    # Isola os blocos de VANTAGENS e DESCONTOS
+    bloco_vantagens_match = re.search(r'VANTAGENS(.*?)TOTAL DE VANTAGENS', texto_completo, re.DOTALL | re.IGNORECASE)
+    texto_vantagens = bloco_vantagens_match.group(1) if bloco_vantagens_match else ""
+    
+    bloco_descontos_match = re.search(r'DESCONTOS(.*?)TOTAL DE DESCONTOS', texto_completo, re.DOTALL | re.IGNORECASE)
+    texto_descontos = bloco_descontos_match.group(1) if bloco_descontos_match else ""
 
-        for linha in bloco_tabela.strip().split('\n'):
-            codigos_na_linha = [m for m in padrao_codigo.finditer(linha)]
-            valores_na_linha = [m for m in padrao_valor.finditer(linha)]
+    # Padrão para encontrar um código no início da linha e um valor no final
+    padrao_linha = re.compile(r"^\s*([A-Z0-9/]+)\s+.*?\s+([\d.,]+)\s*$", re.MULTILINE)
 
-            # Associa códigos e valores pela ordem em que aparecem na linha
-            pares_encontrados = min(len(codigos_na_linha), len(valores_na_linha))
-            for i in range(pares_encontrados):
-                codigo = codigos_na_linha[i].group(1)
-                valor = self.extrair_valor(valores_na_linha[i].group(1))
+    # --- Processa o Bloco de VANTAGENS ---
+    for match in padrao_linha.finditer(texto_vantagens):
+        codigo, valor_str = match.groups()
+        if codigo in self.codigos_proventos:
+            valor = self.extrair_valor(valor_str)
+            resultados_mes["rubricas"][codigo] = valor
+            logger.debug(f"DEBUG: Provento Identificado - Mês/Ano: {mes_ano}, Código: '{codigo}', Valor: {valor}")
 
-                # Classifica como Provento ou Desconto
-                if codigo in self.codigos_proventos:
-                    resultados_mes["rubricas"][codigo] = valor
-                    logger.debug(f"DEBUG: Provento Identificado - Mês/Ano: {mes_ano}, Código: '{codigo}', Valor: {valor}")
-                elif codigo in self.codigos_descontos:
-                    resultados_mes["rubricas_detalhadas"][codigo] = valor
-                    logger.debug(f"DEBUG: Desconto Identificado - Mês/Ano: {mes_ano}, Código: '{codigo}', Valor: {valor}")
-        
-        return resultados_mes
+    # --- CORREÇÃO: Processa o Bloco de DESCONTOS (parte que faltava) ---
+    for match in padrao_linha.finditer(texto_descontos):
+        codigo, valor_str = match.groups()
+        if codigo in self.codigos_descontos:
+            valor = self.extrair_valor(valor_str)
+            resultados_mes["rubricas_detalhadas"][codigo] = valor
+            logger.debug(f"DEBUG: Desconto Identificado - Mês/Ano: {mes_ano}, Código: '{codigo}', Valor: {valor}")
+
+    # Lógica de soma final (já estava correta)
+    total_proventos_calculado = sum(
+        valor for codigo, valor in resultados_mes["rubricas"].items()
+        if not self.rubricas.get('proventos', {}).get(codigo, {}).get('ignorar_na_soma', False)
+    )
+    
+    resultados_mes["total_proventos"] = total_proventos_calculado
+    logger.debug(f"TOTAIS FINAIS PARA {mes_ano}: Proventos (soma)={total_proventos_calculado:.2f}, Descontos={sum(resultados_mes['rubricas_detalhadas'].values()):.2f}")
+    
+    return resultados_mes
     
     def gerar_tabela_proventos_resumida(self, resultados):
         tabela = {"colunas": ["Mês/Ano", "Total de Proventos"], "dados": []}
