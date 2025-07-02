@@ -586,7 +586,8 @@
       "2147": { "descricao": "RRA-Instrutoria" },
       "2HP6": { "descricao": "CET Magisterio Sup Inc" },
       "4032": { "descricao": "Plantão Extra" },
-      "4068": { "descricao": "Plantao Noturno" }
+      "4068": { "descricao": "Plantao Noturno" },
+      "4043": { "descricao": "Adicional Noturn Horas PM" }
     },
     "descontos": {
       "7033": {"descricao": "Titular", "tipo": "planserv"},
