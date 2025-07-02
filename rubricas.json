@@ -590,20 +590,20 @@
         "2HP6": { "descricao": "CET Magisterio Sup Inc" },
         "4032": { "descricao": "Plantão Extra" }
     },
-    "descontos": {
-      "7033": {"descricao": "Titular", "tipo": "planserv"},
-      "7035": {"descricao": "Cônjuge", "tipo": "planserv"},
-      "7038": {"descricao": "Agregado Jovem", "tipo": "planserv"},
-      "7039": {"descricao": "Agregado Maior", "tipo": "planserv"},
-      "7034": {"descricao": "Dependente", "tipo": "planserv"},
-      "7037": {"descricao": "Plano Especial", "tipo": "planserv"},
-      "7040": {"descricao": "Coparticipação", "tipo": "planserv"},
-      "7088": {"descricao": "Parc. Risco Titular", "tipo": "planserv"},
-      "7090": {"descricao": "Parc. Risco Cônjuge", "tipo": "planserv"},
-      "7089": {"descricao": "Parc. Risco Dependente", "tipo": "planserv"},
-      "7091": {"descricao": "Parc. Risco Agregado", "tipo": "planserv"},
-      "7044": {"descricao": "Restituição", "tipo": "planserv"},
-      "7049": {"descricao": "Retroativo", "tipo": "planserv"}
-    }
+    "descontos": {
+      "7033": {"descricao": "Titular", "tipo": "planserv"},
+      "7035": {"descricao": "Cônjuge", "tipo": "planserv"},
+      "7038": {"descricao": "Agregado Jovem", "tipo": "planserv"},
+      "7039": {"descricao": "Agregado Maior", "tipo": "planserv"},
+      "7034": {"descricao": "Dependente", "tipo": "planserv"},
+      "7037": {"descricao": "Plano Especial", "tipo": "planserv"},
+      "7040": {"descricao": "Coparticipação", "tipo": "planserv"},
+      "7088": {"descricao": "Parc. Risco Titular", "tipo": "planserv"},
+      "7090": {"descricao": "Parc. Risco Cônjuge", "tipo": "planserv"},
+      "7089": {"descricao": "Parc. Risco Dependente", "tipo": "planserv"},
+      "7091": {"descricao": "Parc. Risco Agregado", "tipo": "planserv"},
+      "7044": {"descricao": "Restituição", "tipo": "planserv"},
+      "7049": {"descricao": "Retroativo", "tipo": "planserv"}
+    }
   }
 }
