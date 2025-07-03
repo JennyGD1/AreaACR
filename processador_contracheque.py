@@ -43,48 +43,66 @@ class ProcessadorContracheque:
             return f"{mes_num}/{ano}"
         return "Desconhecido/0000"
 
-    def _extrair_rubricas(self, texto: str) -> (List[Dict], List[Dict]):
-        """Extrai as rubricas de proventos e descontos."""
+    # COLOQUE ESTE CÓDIGO NO SEU ARQUIVO processador_contracheque.py
+
+    def _extrair_rubricas(self, texto: str) -> (list[dict], list[dict]):
+        """Extrai as rubricas de proventos e descontos de forma mais robusta."""
         proventos = []
         descontos = []
-
-        # Regex para capturar uma linha de rubrica (código, descrição, valor)
-        # É mais flexível com os espaços e captura o valor no final da linha.
+    
+        # Regex mais flexível para capturar uma linha de rubrica (código, descrição, valor)
+        # Lida com colunas intermediárias (como referência) que podem ou não existir.
         padrao_rubrica = re.compile(
-            r"^(?P<codigo>\d{4})\s+(?P<descricao>.+?)\s+(?P<valor>[\d\.,]+)$",
+            r"^\s*(?P<codigo>\d{4})\s+(?P<descricao>.+?)\s+(?:[\d\.,]+\s+)?(?P<valor>[\d\.,]+)\s*$",
             re.MULTILINE
         )
-
-        # Delimita a área de proventos
-        try:
-            area_proventos = re.search(
-                r"DESCRIÇÃO DOS PROVENTOS(.*?)TOTAIS",
-                texto, re.DOTALL | re.IGNORECASE
-            ).group(1)
-            for match in padrao_rubrica.finditer(area_proventos):
-                proventos.append({
-                    'codigo': match.group('codigo'),
-                    'descricao': match.group('descricao').strip(),
-                    'valor': float(match.group('valor').replace('.', '').replace(',', '.'))
-                })
-        except AttributeError:
-            logger.warning("Não foi possível encontrar a seção de proventos.")
-
-        # Delimita a área de descontos
-        try:
-            area_descontos = re.search(
-                r"DESCRIÇÃO DOS DESCONTOS(.*?)LÍQUIDO",
-                texto, re.DOTALL | re.IGNORECASE
-            ).group(1)
-            for match in padrao_rubrica.finditer(area_descontos):
-                descontos.append({
-                    'codigo': match.group('codigo'),
-                    'descricao': match.group('descricao').strip(),
-                    'valor': float(match.group('valor').replace('.', '').replace(',', '.'))
-                })
-        except AttributeError:
-            logger.warning("Não foi possível encontrar a seção de descontos.")
-            
+    
+        # Delimita o bloco inteiro de rubricas, desde o início dos proventos até o fim dos descontos
+        bloco_rubricas_match = re.search(
+            r"(?:VANTAGENS|PROVENTOS|DESCRIÇÃO DOS PROVENTOS)(.*?)(?:LÍQUIDO|TOTAL GERAL)",
+            texto, re.DOTALL | re.IGNORECASE
+        )
+    
+        if not bloco_rubricas_match:
+            logger.warning("Não foi possível encontrar o bloco principal de proventos e descontos.")
+            return [], []
+    
+        bloco_inteiro = bloco_rubricas_match.group(1)
+    
+        # Identifica a linha que separa proventos de descontos
+        separador_match = re.search(r"DESCONTOS|DESCRIÇÃO DOS DESCONTOS", bloco_inteiro, re.IGNORECASE)
+    
+        if separador_match:
+            posicao_separador = separador_match.start()
+            area_proventos = bloco_inteiro[:posicao_separador]
+            area_descontos = bloco_inteiro[posicao_separador:]
+        else:
+            # Se não encontrar um separador claro, assume que tudo é provento
+            area_proventos = bloco_inteiro
+            area_descontos = ""
+            logger.warning("Não foi possível encontrar o separador de descontos. Analisando apenas proventos.")
+    
+        # Processa proventos
+        for match in padrao_rubrica.finditer(area_proventos):
+            proventos.append({
+                'codigo': match.group('codigo'),
+                'descricao': re.sub(r'\s{2,}', ' ', match.group('descricao')).strip(),
+                'valor': float(match.group('valor').replace('.', '').replace(',', '.'))
+            })
+    
+        # Processa descontos
+        for match in padrao_rubrica.finditer(area_descontos):
+            descontos.append({
+                'codigo': match.group('codigo'),
+                'descricao': re.sub(r'\s{2,}', ' ', match.group('descricao')).strip(),
+                'valor': float(match.group('valor').replace('.', '').replace(',', '.'))
+            })
+        
+        if not proventos:
+            logger.warning("Nenhuma rubrica de provento foi extraída.")
+        if not descontos:
+            logger.warning("Nenhuma rubrica de desconto foi extraída.")
+    
         return proventos, descontos
 
     def processar(self, file_bytes: bytes) -> Dict[str, Any]:
