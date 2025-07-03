@@ -30,17 +30,27 @@ class ProcessadorContracheque:
             raise ValueError("Não foi possível ler o arquivo PDF.")
 
     def _extrair_periodo(self, texto: str) -> str:
-        """Extrai o período (mês/ano) do contracheque."""
-        padrao_periodo = re.search(
+        """Extrai o período (mês/ano) do contracheque de forma mais robusta."""
+        padroes_periodo = [
             r"referente ao mês de\s+(?P<mes>\w+)\s+/\s+(?P<ano>\d{4})",
-            texto,
-            re.IGNORECASE
-        )
-        if padrao_periodo:
-            mes_nome = padrao_periodo.group("mes").upper()
-            ano = padrao_periodo.group("ano")
-            mes_num = self.meses.get(mes_nome, "00")
-            return f"{mes_num}/{ano}"
+            r"AVISO DE CRÉDITO\s+(?P<mes>\w+)/(?P<ano>\d{4})"
+        ]
+        
+        for padrao in padroes_periodo:
+            match = re.search(padrao, texto, re.IGNORECASE)
+            if match:
+                mes_nome = match.group("mes").upper()
+                ano = match.group("ano")
+                # Garante que o nome do mês esteja no dicionário antes de converter
+                if mes_nome in self.meses:
+                    mes_num = self.meses[mes_nome]
+                    return f"{mes_num}/{ano}"
+                else: # Tenta tratar o caso de "JAN" para "JANEIRO"
+                    for mes_completo, mes_num in self.meses.items():
+                        if mes_completo.startswith(mes_nome):
+                            return f"{mes_num}/{ano}"
+    
+        logger.warning("Não foi possível extrair o período do contracheque.")
         return "Desconhecido/0000"
 
     # COLOQUE ESTE CÓDIGO NO SEU ARQUIVO processador_contracheque.py
@@ -50,60 +60,48 @@ class ProcessadorContracheque:
         proventos = []
         descontos = []
     
-        # Regex mais flexível para capturar uma linha de rubrica (código, descrição, valor)
-        # Lida com colunas intermediárias (como referência) que podem ou não existir.
+        # Regex aprimorada para capturar linhas de rubrica, mesmo com colunas de referência no meio.
         padrao_rubrica = re.compile(
             r"^\s*(?P<codigo>\d{4})\s+(?P<descricao>.+?)\s+(?:[\d\.,]+\s+)?(?P<valor>[\d\.,]+)\s*$",
             re.MULTILINE
         )
     
-        # Delimita o bloco inteiro de rubricas, desde o início dos proventos até o fim dos descontos
-        bloco_rubricas_match = re.search(
-            r"(?:VANTAGENS|PROVENTOS|DESCRIÇÃO DOS PROVENTOS)(.*?)(?:LÍQUIDO|TOTAL GERAL)",
+        # Bloco para encontrar as seções de forma flexível
+        bloco_proventos_match = re.search(
+            r"(?:VANTAGENS|PROVENTOS|DESCRIÇÃO DOS PROVENTOS)(.*?)(?:DESCONTOS|DESCRIÇÃO DOS DESCONTOS|TOTAIS)",
+            texto, re.DOTALL | re.IGNORECASE
+        )
+        bloco_descontos_match = re.search(
+            r"(?:DESCONTOS|DESCRIÇÃO DOS DESCONTOS)(.*?)(?:LÍQUIDO|TOTAL GERAL)",
             texto, re.DOTALL | re.IGNORECASE
         )
     
-        if not bloco_rubricas_match:
-            logger.warning("Não foi possível encontrar o bloco principal de proventos e descontos.")
-            return [], []
-    
-        bloco_inteiro = bloco_rubricas_match.group(1)
-    
-        # Identifica a linha que separa proventos de descontos
-        separador_match = re.search(r"DESCONTOS|DESCRIÇÃO DOS DESCONTOS", bloco_inteiro, re.IGNORECASE)
-    
-        if separador_match:
-            posicao_separador = separador_match.start()
-            area_proventos = bloco_inteiro[:posicao_separador]
-            area_descontos = bloco_inteiro[posicao_separador:]
-        else:
-            # Se não encontrar um separador claro, assume que tudo é provento
-            area_proventos = bloco_inteiro
-            area_descontos = ""
-            logger.warning("Não foi possível encontrar o separador de descontos. Analisando apenas proventos.")
-    
-        # Processa proventos
-        for match in padrao_rubrica.finditer(area_proventos):
-            proventos.append({
-                'codigo': match.group('codigo'),
-                'descricao': re.sub(r'\s{2,}', ' ', match.group('descricao')).strip(),
-                'valor': float(match.group('valor').replace('.', '').replace(',', '.'))
-            })
-    
-        # Processa descontos
-        for match in padrao_rubrica.finditer(area_descontos):
-            descontos.append({
-                'codigo': match.group('codigo'),
-                'descricao': re.sub(r'\s{2,}', ' ', match.group('descricao')).strip(),
-                'valor': float(match.group('valor').replace('.', '').replace(',', '.'))
-            })
+        if bloco_proventos_match:
+            area_proventos = bloco_proventos_match.group(1)
+            for match in padrao_rubrica.finditer(area_proventos):
+                proventos.append({
+                    'codigo': match.group('codigo'),
+                    'descricao': re.sub(r'\s{2,}', ' ', match.group('descricao')).strip(),
+                    'valor': float(match.group('valor').replace('.', '').replace(',', '.'))
+                })
         
         if not proventos:
             logger.warning("Nenhuma rubrica de provento foi extraída.")
+    
+        if bloco_descontos_match:
+            area_descontos = bloco_descontos_match.group(1)
+            for match in padrao_rubrica.finditer(area_descontos):
+                descontos.append({
+                    'codigo': match.group('codigo'),
+                    'descricao': re.sub(r'\s{2,}', ' ', match.group('descricao')).strip(),
+                    'valor': float(match.group('valor').replace('.', '').replace(',', '.'))
+                })
+    
         if not descontos:
             logger.warning("Nenhuma rubrica de desconto foi extraída.")
     
         return proventos, descontos
+
 
     def processar(self, file_bytes: bytes) -> Dict[str, Any]:
         """Processa um arquivo de contracheque em bytes."""
