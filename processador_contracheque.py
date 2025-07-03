@@ -33,8 +33,9 @@ class ProcessadorContracheque:
 
     def extrair_valor(self, valor_str: str) -> float:
         try:
-            valor_limpo = valor_str.replace('.', '').replace(',', '.')
-            return float(valor_limpo)
+            valor_limpo = re.sub(r'[^\d,]', '', valor_str)
+            valor = valor_limpo.replace('.', '').replace(',', '.')
+            return float(valor)
         except (ValueError, AttributeError):
             return 0.0
 
@@ -58,7 +59,9 @@ class ProcessadorContracheque:
 
     def processar_contracheque(self, filepath):
         try:
-            with open(filepath, 'rb') as f: file_bytes = f.read()
+            with open(filepath, 'rb') as f:
+                file_bytes = f.read()
+
             doc = fitz.open(stream=file_bytes, filetype="pdf")
             secoes = self._extrair_secoes_por_mes_ano(doc)
             
@@ -87,7 +90,9 @@ class ProcessadorContracheque:
                 key=lambda m: (int(m.split('/')[1]), int(self.meses.get(m.split('/')[0], 0)))
             )
             
-            if not meses_processados: raise ValueError("Nenhum dado mensal foi processado.")
+            if not meses_processados:
+                raise ValueError("Nenhum dado mensal foi processado.")
+
             resultados_finais['primeiro_mes'] = meses_processados[0]
             resultados_finais['ultimo_mes'] = meses_processados[-1]
             
@@ -105,47 +110,30 @@ class ProcessadorContracheque:
 
     def _processar_pagina_individual(self, page, mes_ano):
         resultados_mes = {"rubricas": defaultdict(float), "rubricas_detalhadas": defaultdict(float)}
+        
+        # Ponto central da página para dividir as colunas
         ponto_medio_x = page.rect.width / 2
-        words = page.get_text("words")
 
-        # Separa as palavras em duas colunas com base na posição X
-        palavras_vantagens = [w for w in words if w[0] < ponto_medio_x]
-        palavras_descontos = [w for w in words if w[0] > ponto_medio_x]
+        # Retângulo para a coluna de VANTAGENS (esquerda)
+        rect_vantagens = fitz.Rect(0, 300, ponto_medio_x, 600) # Coordenadas ajustadas para focar na tabela
+        # Retângulo para a coluna de DESCONTOS (direita)
+        rect_descontos = fitz.Rect(ponto_medio_x, 300, page.rect.width, 600)
+        
+        texto_vantagens = page.get_text(clip=rect_vantagens, sort=True)
+        texto_descontos = page.get_text(clip=rect_descontos, sort=True)
 
-        def associar_em_coluna(palavras_coluna, codigos_alvo):
-            pares = {}
-            # Para cada código que conhecemos...
-            for codigo in codigos_alvo:
-                # ...encontra todas as suas ocorrências na coluna
-                ocorrencias_codigo = [w for w in palavras_coluna if w[4] == codigo]
-                if not ocorrencias_codigo:
-                    continue
-                
-                # Para cada ocorrência do código, encontra o valor mais próximo
-                for cod_word in ocorrencias_codigo:
-                    valor_mais_proximo = None
-                    menor_distancia = float('inf')
+        padrao_geral = re.compile(r"^\s*([A-Z0-9/]+)\s+.*?\s+([\d.,]+)\s*$", re.MULTILINE)
 
-                    for val_word in palavras_coluna:
-                        # Verifica se a palavra é um valor monetário
-                        if re.match(r'^\d{1,3}(?:[.,]\d{3})*,\d{2}$', val_word[4]):
-                            distancia = abs(cod_word[1] - val_word[1]) + abs(cod_word[0] - val_word[0]) # Distância simples
-                            if distancia < menor_distancia:
-                                menor_distancia = distancia
-                                valor_mais_proximo = val_word[4]
-                    
-                    if valor_mais_proximo:
-                        pares[codigo] = self.extrair_valor(valor_mais_proximo)
-            return pares
+        for match in padrao_geral.finditer(texto_vantagens):
+            codigo, valor_str = match.groups()
+            if codigo in self.codigos_proventos:
+                resultados_mes["rubricas"][codigo] = self.extrair_valor(valor_str)
 
-        proventos_encontrados = associar_em_coluna(palavras_vantagens, self.codigos_proventos)
-        descontos_encontrados = associar_em_coluna(palavras_descontos, self.codigos_descontos)
-
-        for codigo, valor in proventos_encontrados.items():
-            resultados_mes["rubricas"][codigo] = valor
-        for codigo, valor in descontos_encontrados.items():
-            resultados_mes["rubricas_detalhadas"][codigo] = valor
-            
+        for match in padrao_geral.finditer(texto_descontos):
+            codigo, valor_str = match.groups()
+            if codigo in self.codigos_descontos:
+                resultados_mes["rubricas_detalhadas"][codigo] = self.extrair_valor(valor_str)
+        
         return resultados_mes
     
     def converter_data_para_numerico(self, data_texto: str) -> str:
@@ -162,10 +150,18 @@ class ProcessadorContracheque:
 
     def gerar_tabela_descontos_detalhada(self, resultados):
         descontos_de_origem = self.rubricas.get('descontos', {})
-        codigos_encontrados = set(cod for dados_mes in resultados.get("dados_mensais", {}).values() for cod in dados_mes.get("rubricas_detalhadas", {}).keys())
-        codigos_para_exibir = sorted([cod for cod in codigos_encontrados if descontos_de_origem.get(cod, {}).get("tipo") == "planserv"])
+        codigos_encontrados = set(
+            cod for dados_mes in resultados.get("dados_mensais", {}).values()
+            for cod in dados_mes.get("rubricas_detalhadas", {}).keys()
+        )
+        codigos_para_exibir = sorted([
+            cod for cod in codigos_encontrados
+            if descontos_de_origem.get(cod, {}).get("tipo") == "planserv"
+        ])
+        
         descricoes = {cod: descontos_de_origem.get(cod, {}).get('descricao', cod) for cod in codigos_para_exibir}
         tabela = {"colunas": ["Mês/Ano"] + [descricoes.get(cod, cod) for cod in codigos_para_exibir], "dados": []}
+        
         for mes_ano in resultados.get("meses_para_processar", []):
             linha = {"mes_ano": self.converter_data_para_numerico(mes_ano), "valores": []}
             rubricas_detalhadas_mes = resultados.get("dados_mensais", {}).get(mes_ano, {}).get("rubricas_detalhadas", {})
