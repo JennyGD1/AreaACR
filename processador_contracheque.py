@@ -110,30 +110,40 @@ class ProcessadorContracheque:
 
     def _processar_pagina_individual(self, page, mes_ano):
         resultados_mes = {"rubricas": defaultdict(float), "rubricas_detalhadas": defaultdict(float)}
-        
-        # Ponto central da página para dividir as colunas
         ponto_medio_x = page.rect.width / 2
 
-        # Retângulo para a coluna de VANTAGENS (esquerda)
-        rect_vantagens = fitz.Rect(0, 300, ponto_medio_x, 600) # Coordenadas ajustadas para focar na tabela
-        # Retângulo para a coluna de DESCONTOS (direita)
-        rect_descontos = fitz.Rect(ponto_medio_x, 300, page.rect.width, 600)
+        words = page.get_text("words")
         
-        texto_vantagens = page.get_text(clip=rect_vantagens, sort=True)
-        texto_descontos = page.get_text(clip=rect_descontos, sort=True)
+        padrao_codigo = re.compile(r'^([A-Z0-9/]{3,5})$')
+        padrao_valor = re.compile(r'^(\d{1,3}(?:[.,]\d{3})*,\d{2})$')
 
-        padrao_geral = re.compile(r"^\s*([A-Z0-9/]+)\s+.*?\s+([\d.,]+)\s*$", re.MULTILINE)
+        codigos_encontrados = [w for w in words if padrao_codigo.match(w[4])]
+        valores_encontrados = [w for w in words if padrao_valor.match(w[4])]
 
-        for match in padrao_geral.finditer(texto_vantagens):
-            codigo, valor_str = match.groups()
-            if codigo in self.codigos_proventos:
-                resultados_mes["rubricas"][codigo] = self.extrair_valor(valor_str)
-
-        for match in padrao_geral.finditer(texto_descontos):
-            codigo, valor_str = match.groups()
-            if codigo in self.codigos_descontos:
-                resultados_mes["rubricas_detalhadas"][codigo] = self.extrair_valor(valor_str)
-        
+        for cod_word in codigos_encontrados:
+            codigo = cod_word[4]
+            valor_associado = None
+            menor_distancia = float('inf')
+            
+            for val_word in valores_encontrados:
+                # Verifica se o código e o valor estão na mesma coluna
+                mesma_coluna = (cod_word[0] < ponto_medio_x and val_word[0] < ponto_medio_x) or \
+                               (cod_word[0] > ponto_medio_x and val_word[0] > ponto_medio_x)
+                if mesma_coluna:
+                    # Calcula a "proximidade" (distância euclidiana)
+                    distancia = ((cod_word[0] - val_word[0])**2 + (cod_word[1] - val_word[1])**2)**0.5
+                    if distancia < menor_distancia:
+                        menor_distancia = distancia
+                        valor_associado = self.extrair_valor(val_word[4])
+            
+            if valor_associado is not None:
+                if codigo in self.codigos_proventos:
+                    resultados_mes["rubricas"][codigo] = valor_associado
+                    logger.debug(f"DEBUG: Provento - {mes_ano}, '{codigo}', {valor_associado}")
+                elif codigo in self.codigos_descontos:
+                    resultados_mes["rubricas_detalhadas"][codigo] = valor_associado
+                    logger.debug(f"DEBUG: Desconto - {mes_ano}, '{codigo}', {valor_associado}")
+                        
         return resultados_mes
     
     def converter_data_para_numerico(self, data_texto: str) -> str:
@@ -150,18 +160,10 @@ class ProcessadorContracheque:
 
     def gerar_tabela_descontos_detalhada(self, resultados):
         descontos_de_origem = self.rubricas.get('descontos', {})
-        codigos_encontrados = set(
-            cod for dados_mes in resultados.get("dados_mensais", {}).values()
-            for cod in dados_mes.get("rubricas_detalhadas", {}).keys()
-        )
-        codigos_para_exibir = sorted([
-            cod for cod in codigos_encontrados
-            if descontos_de_origem.get(cod, {}).get("tipo") == "planserv"
-        ])
-        
+        codigos_encontrados = set(cod for dados_mes in resultados.get("dados_mensais", {}).values() for cod in dados_mes.get("rubricas_detalhadas", {}).keys())
+        codigos_para_exibir = sorted([cod for cod in codigos_encontrados if descontos_de_origem.get(cod, {}).get("tipo") == "planserv"])
         descricoes = {cod: descontos_de_origem.get(cod, {}).get('descricao', cod) for cod in codigos_para_exibir}
         tabela = {"colunas": ["Mês/Ano"] + [descricoes.get(cod, cod) for cod in codigos_para_exibir], "dados": []}
-        
         for mes_ano in resultados.get("meses_para_processar", []):
             linha = {"mes_ano": self.converter_data_para_numerico(mes_ano), "valores": []}
             rubricas_detalhadas_mes = resultados.get("dados_mensais", {}).get(mes_ano, {}).get("rubricas_detalhadas", {})
