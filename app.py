@@ -127,6 +127,7 @@ def upload():
                 
                 # Verifica se houve erro no processamento do arquivo individual
                 if dados_arquivo_atual.get('erro'):
+                    logger.warning(f"Falha ao processar {filename}: {dados_arquivo_atual['erro']}")
                     resultados_globais['erros'].append(f"{filename}: {dados_arquivo_atual['erro']}")
                     os.remove(filepath)
                     continue # Pula para o próximo arquivo
@@ -137,7 +138,6 @@ def upload():
                         resultados_globais['dados_mensais'][mes_ano] = dados_mes
                     else:
                         # Se o mês já existe, soma os valores (caso haja múltiplos arquivos para o mesmo mês)
-                        # Esta parte pode ser ajustada dependendo da lógica de negócio desejada
                         resultados_globais['dados_mensais'][mes_ano]['total_proventos'] += dados_mes.get('total_proventos', 0)
                         resultados_globais['dados_mensais'][mes_ano]['total_descontos'] += dados_mes.get('total_descontos', 0)
                         for codigo, valor in dados_mes.get('rubricas', {}).items():
@@ -145,17 +145,17 @@ def upload():
                         for codigo, valor in dados_mes.get('rubricas_detalhadas', {}).items():
                             resultados_globais['dados_mensais'][mes_ano]['rubricas_detalhadas'][codigo] = resultados_globais['dados_mensais'][mes_ano]['rubricas_detalhadas'].get(codigo, 0) + valor
 
-
                 resultados_globais['quantidade_arquivos'] += 1
                 os.remove(filepath)
 
         # Após processar todos os arquivos, verifica se houve algum sucesso
         if not resultados_globais['dados_mensais']:
-            flash('Nenhum dos arquivos pôde ser processado. Verifique o formato dos PDFs e os logs.', 'error')
-            # Se houver erros específicos, mostra-os
+            # Agrupa todas as mensagens de erro em um único flash
             if resultados_globais['erros']:
-                for erro in resultados_globais['erros']:
-                    flash(erro, 'error')
+                error_list_html = "<ul>" + "".join([f"<li>{err}</li>" for err in resultados_globais['erros']]) + "</ul>"
+                flash(f"Nenhum arquivo pôde ser processado.<br>Detalhes:{error_list_html}", 'error')
+            else:
+                flash('Nenhum arquivo válido foi enviado ou processado.', 'error')
             return redirect(url_for('calculadora'))
 
         # **CORREÇÃO PRINCIPAL: Usa os métodos que existem no processador**
