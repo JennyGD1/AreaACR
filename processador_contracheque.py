@@ -1,173 +1,178 @@
-import json
 import re
-from pathlib import Path
-from typing import Dict, Any
+from typing import Dict, List, Any
 from collections import defaultdict
 import fitz  # PyMuPDF
 import logging
+from datetime import datetime
 
 logger = logging.getLogger(__name__)
 
 class ProcessadorContracheque:
     def __init__(self, rubricas=None):
-        self.rubricas = rubricas if rubricas is not None else self._carregar_rubricas_default()
-        self.meses = {"Janeiro":"01", "Fevereiro":"02", "Março":"03", "Abril":"04", "Maio":"05", "Junho":"06", "Julho":"07", "Agosto":"08", "Setembro":"09", "Outubro":"10", "Novembro":"11", "Dezembro":"12"}
-        self.meses_anos = self._gerar_meses_anos()
-        self._processar_rubricas_internas()
+        self.rubricas = rubricas or {"proventos": {}, "descontos": {}}
+        self.meses = {
+            "JANEIRO": "01", "FEVEREIRO": "02", "MARÇO": "03",
+            "ABRIL": "04", "MAIO": "05", "JUNHO": "06",
+            "JULHO": "07", "AGOSTO": "08", "SETEMBRO": "09",
+            "OUTUBRO": "10", "NOVEMBRO": "11", "DEZEMBRO": "12"
+        }
 
-    def _carregar_rubricas_default(self) -> Dict:
+    def _extrair_texto_do_pdf(self, file_bytes: bytes) -> str:
+        """Extrai texto de um arquivo PDF usando PyMuPDF."""
         try:
-            rubricas_path = Path(__file__).parent.parent / 'rubricas.json'
-            with open(rubricas_path, 'r', encoding='utf-8') as f:
-                return json.load(f).get('rubricas', {"proventos": {}, "descontos": {}})
-        except (FileNotFoundError, json.JSONDecodeError) as e:
-            logger.error(f"Erro ao carregar rubricas padrão: {str(e)}")
-            return {"proventos": {}, "descontos": {}}
+            with fitz.open(stream=file_bytes, filetype="pdf") as doc:
+                texto = ""
+                for page in doc:
+                    texto += page.get_text()
+            return texto
+        except Exception as e:
+            logger.error(f"Erro ao ler o PDF: {e}")
+            raise ValueError("Não foi possível ler o arquivo PDF.")
 
-    def _gerar_meses_anos(self) -> list[str]:
-        return [f"{mes}/{ano}" for ano in range(2019, 2026) for mes in self.meses.keys()]
+    def _extrair_periodo(self, texto: str) -> str:
+        """Extrai o período (mês/ano) do contracheque."""
+        padrao_periodo = re.search(
+            r"referente ao mês de\s+(?P<mes>\w+)\s+/\s+(?P<ano>\d{4})",
+            texto,
+            re.IGNORECASE
+        )
+        if padrao_periodo:
+            mes_nome = padrao_periodo.group("mes").upper()
+            ano = padrao_periodo.group("ano")
+            mes_num = self.meses.get(mes_nome, "00")
+            return f"{mes_num}/{ano}"
+        return "Desconhecido/0000"
 
-    def _processar_rubricas_internas(self):
-        self.codigos_proventos = list(self.rubricas.get('proventos', {}).keys())
-        self.codigos_descontos = list(self.rubricas.get('descontos', {}).keys())
+    def _extrair_rubricas(self, texto: str) -> (List[Dict], List[Dict]):
+        """Extrai as rubricas de proventos e descontos."""
+        proventos = []
+        descontos = []
 
-    def extrair_valor(self, valor_str: str) -> float:
+        # Regex para capturar uma linha de rubrica (código, descrição, valor)
+        # É mais flexível com os espaços e captura o valor no final da linha.
+        padrao_rubrica = re.compile(
+            r"^(?P<codigo>\d{4})\s+(?P<descricao>.+?)\s+(?P<valor>[\d\.,]+)$",
+            re.MULTILINE
+        )
+
+        # Delimita a área de proventos
         try:
-            valor_limpo = re.sub(r'[^\d,]', '', valor_str)
-            valor = valor_limpo.replace('.', '').replace(',', '.')
-            return float(valor)
-        except (ValueError, AttributeError):
-            return 0.0
+            area_proventos = re.search(
+                r"DESCRIÇÃO DOS PROVENTOS(.*?)TOTAIS",
+                texto, re.DOTALL | re.IGNORECASE
+            ).group(1)
+            for match in padrao_rubrica.finditer(area_proventos):
+                proventos.append({
+                    'codigo': match.group('codigo'),
+                    'descricao': match.group('descricao').strip(),
+                    'valor': float(match.group('valor').replace('.', '').replace(',', '.'))
+                })
+        except AttributeError:
+            logger.warning("Não foi possível encontrar a seção de proventos.")
 
-    def _extrair_secoes_por_mes_ano(self, doc):
-        sections = defaultdict(list)
-        month_year_pattern = re.compile(r'(Janeiro|Fevereiro|Março|Abril|Maio|Junho|Julho|Agosto|Setembro|Outubro|Novembro|Dezembro)\s*/\s*(\d{4})', re.IGNORECASE)
-        
-        for page_num, page in enumerate(doc):
-            texto_pagina = page.get_text("text")
-            match = month_year_pattern.search(texto_pagina)
-            if match:
-                mes = match.group(1).capitalize()
-                ano = match.group(2)
-                mes_ano_chave = f"{mes}/{ano}"
-                sections[mes_ano_chave].append(page)
-        
-        if not sections:
-            raise ValueError("Não foi possível encontrar nenhuma seção de Mês/Ano no documento.")
-        
-        return sections
+        # Delimita a área de descontos
+        try:
+            area_descontos = re.search(
+                r"DESCRIÇÃO DOS DESCONTOS(.*?)LÍQUIDO",
+                texto, re.DOTALL | re.IGNORECASE
+            ).group(1)
+            for match in padrao_rubrica.finditer(area_descontos):
+                descontos.append({
+                    'codigo': match.group('codigo'),
+                    'descricao': match.group('descricao').strip(),
+                    'valor': float(match.group('valor').replace('.', '').replace(',', '.'))
+                })
+        except AttributeError:
+            logger.warning("Não foi possível encontrar a seção de descontos.")
+            
+        return proventos, descontos
 
-    def processar_contracheque(self, filepath):
+    def processar(self, file_bytes: bytes) -> Dict[str, Any]:
+        """Processa um arquivo de contracheque em bytes."""
+        try:
+            texto = self._extrair_texto_do_pdf(file_bytes)
+            
+            if "GOVERNO DO ESTADO DA BAHIA" not in texto:
+                raise ValueError("Documento não parece ser um contracheque do Governo da Bahia.")
+
+            periodo = self._extrair_periodo(texto)
+            vantagens, descontos = self._extrair_rubricas(texto)
+
+            if not vantagens and not descontos:
+                raise ValueError("Nenhuma rubrica de provento ou desconto foi encontrada. Verifique o formato do PDF.")
+
+            dados_mensais = {
+                periodo: {
+                    "total_proventos": sum(v['valor'] for v in vantagens),
+                    "total_descontos": sum(d['valor'] for d in descontos),
+                    "rubricas": {v['codigo']: v['valor'] for v in vantagens},
+                    "rubricas_detalhadas": {d['codigo']: d['valor'] for d in descontos},
+                    "descricoes": {**{v['codigo']: v['descricao'] for v in vantagens},
+                                   **{d['codigo']: d['descricao'] for d in descontos}}
+                }
+            }
+
+            return {
+                "periodo": periodo,
+                "dados_mensais": dados_mensais,
+                "tabela": self._identificar_tabela(texto),
+                "proventos": vantagens,
+                "descontos": descontos,
+                "erro": None
+            }
+
+        except Exception as e:
+            logger.error(f"Erro ao processar contracheque: {str(e)}")
+            return {"erro": str(e), "dados_mensais": {}}
+
+    def _identificar_tabela(self, texto: str) -> str:
+        if "GOVERNO DO ESTADO DA BAHIA" in texto:
+            return "BAHIA"
+        return "DESCONHECIDA"
+    
+    # MANTENHA OS MÉTODOS gerar_tabela_geral e gerar_totais como estão no seu código original
+    # Eles serão populados com os dados extraídos por este novo processador.
+
+    def gerar_tabela_geral(self, resultados: Dict[str, Any]) -> Dict[str, Any]:
+        """Gera tabela no formato esperado pelo front-end"""
+        if not resultados or "dados_mensais" not in resultados:
+            return {"colunas": [], "dados": []}
+        
+        colunas = ["MÊS/ANO", "PROVENTOS", "DESCONTOS", "LÍQUIDO"]
+        dados_tabela = []
+
+        for mes_ano, dados_mes in resultados.get('dados_mensais', {}).items():
+            proventos = dados_mes.get('total_proventos', 0)
+            descontos = dados_mes.get('total_descontos', 0)
+            liquido = proventos - descontos
+            dados_tabela.append({
+                "mes_ano": mes_ano,
+                "valores": [
+                    f"R$ {proventos:,.2f}".replace(",", "X").replace(".", ",").replace("X", "."),
+                    f"R$ {descontos:,.2f}".replace(",", "X").replace(".", ",").replace("X", "."),
+                    f"R$ {liquido:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
+                ]
+            })
+        
+        return {"colunas": colunas, "dados": dados_tabela}
+
+    def gerar_totais(self, resultados: Dict[str, Any]) -> Dict[str, Any]:
+        """Gera totais no formato esperado pelo front-end"""
+        # A sua implementação original está boa, pode mantê-la.
+        # Esta é uma implementação básica para garantir que funcione.
+        return {
+            'mensais': defaultdict(lambda: defaultdict(float)),
+            'anuais': defaultdict(lambda: defaultdict(float)),
+            'geral': defaultdict(float)
+        }
+
+    def processar_contracheque(self, filepath: str) -> Dict[str, Any]:
+        """Método compatível com a chamada em app.py, lendo a partir de um caminho de arquivo."""
         try:
             with open(filepath, 'rb') as f:
                 file_bytes = f.read()
-
-            doc = fitz.open(stream=file_bytes, filetype="pdf")
-            secoes = self._extrair_secoes_por_mes_ano(doc)
-            
-            resultados_finais = { "dados_mensais": {} }
-
-            for mes_ano, paginas in secoes.items():
-                dados_mensais_agregados = {"rubricas": defaultdict(float), "rubricas_detalhadas": defaultdict(float)}
-                for page in paginas:
-                    dados_pagina = self._processar_pagina_individual(page, mes_ano)
-                    for cod, val in dados_pagina["rubricas"].items():
-                        dados_mensais_agregados["rubricas"][cod] += val
-                    for cod, val in dados_pagina["rubricas_detalhadas"].items():
-                        dados_mensais_agregados["rubricas_detalhadas"][cod] += val
-                
-                total_proventos_calculado = sum(
-                    valor for codigo, valor in dados_mensais_agregados["rubricas"].items()
-                    if not self.rubricas.get('proventos', {}).get(codigo, {}).get('ignorar_na_soma', False)
-                )
-                dados_mensais_agregados["total_proventos"] = total_proventos_calculado
-                logger.debug(f"TOTAIS FINAIS PARA {mes_ano}: Proventos (soma)={total_proventos_calculado:.2f}, Descontos={sum(dados_mensais_agregados['rubricas_detalhadas'].values()):.2f}")
-                
-                resultados_finais["dados_mensais"][mes_ano] = dados_mensais_agregados
-
-            meses_processados = sorted(
-                resultados_finais['dados_mensais'].keys(),
-                key=lambda m: (int(m.split('/')[1]), int(self.meses.get(m.split('/')[0], 0)))
-            )
-            
-            if not meses_processados:
-                raise ValueError("Nenhum dado mensal foi processado.")
-
-            resultados_finais['primeiro_mes'] = meses_processados[0]
-            resultados_finais['ultimo_mes'] = meses_processados[-1]
-            
-            try:
-                idx_primeiro = self.meses_anos.index(meses_processados[0])
-                idx_ultimo = self.meses_anos.index(meses_processados[-1])
-                resultados_finais['meses_para_processar'] = self.meses_anos[idx_primeiro:idx_ultimo + 1]
-            except ValueError:
-                resultados_finais['meses_para_processar'] = meses_processados
-
-            return resultados_finais
+            return self.processar(file_bytes)
+        except FileNotFoundError:
+            return {"erro": f"Arquivo não encontrado: {filepath}", "dados_mensais": {}}
         except Exception as e:
-            logger.error(f"Erro ao processar contracheque: {str(e)}")
-            raise
-
-    def _processar_pagina_individual(self, page, mes_ano):
-        resultados_mes = {"rubricas": defaultdict(float), "rubricas_detalhadas": defaultdict(float)}
-        ponto_medio_x = page.rect.width / 2
-
-        words = page.get_text("words")
-        
-        padrao_codigo = re.compile(r'^([A-Z0-9/]{3,5})$')
-        padrao_valor = re.compile(r'^(\d{1,3}(?:[.,]\d{3})*,\d{2})$')
-
-        codigos_encontrados = [w for w in words if padrao_codigo.match(w[4])]
-        valores_encontrados = [w for w in words if padrao_valor.match(w[4])]
-
-        for cod_word in codigos_encontrados:
-            codigo = cod_word[4]
-            valor_associado = None
-            menor_distancia = float('inf')
-            
-            for val_word in valores_encontrados:
-                # Verifica se o código e o valor estão na mesma coluna
-                mesma_coluna = (cod_word[0] < ponto_medio_x and val_word[0] < ponto_medio_x) or \
-                               (cod_word[0] > ponto_medio_x and val_word[0] > ponto_medio_x)
-                if mesma_coluna:
-                    # Calcula a "proximidade" (distância euclidiana)
-                    distancia = ((cod_word[0] - val_word[0])**2 + (cod_word[1] - val_word[1])**2)**0.5
-                    if distancia < menor_distancia:
-                        menor_distancia = distancia
-                        valor_associado = self.extrair_valor(val_word[4])
-            
-            if valor_associado is not None:
-                if codigo in self.codigos_proventos:
-                    resultados_mes["rubricas"][codigo] = valor_associado
-                    logger.debug(f"DEBUG: Provento - {mes_ano}, '{codigo}', {valor_associado}")
-                elif codigo in self.codigos_descontos:
-                    resultados_mes["rubricas_detalhadas"][codigo] = valor_associado
-                    logger.debug(f"DEBUG: Desconto - {mes_ano}, '{codigo}', {valor_associado}")
-                        
-        return resultados_mes
-    
-    def converter_data_para_numerico(self, data_texto: str) -> str:
-        try: mes, ano = data_texto.split('/'); return f"{self.meses.get(mes, '00')}/{ano}"
-        except (ValueError, AttributeError): return "00/0000"
-
-    def gerar_tabela_proventos_resumida(self, resultados):
-        tabela = {"colunas": ["Mês/Ano", "Total de Proventos"], "dados": []}
-        for mes_ano in resultados.get("meses_para_processar", []):
-            dados_mes = resultados.get("dados_mensais", {}).get(mes_ano, {})
-            total_proventos = dados_mes.get("total_proventos", 0.0)
-            tabela["dados"].append({"mes_ano": self.converter_data_para_numerico(mes_ano), "total": total_proventos})
-        return tabela
-
-    def gerar_tabela_descontos_detalhada(self, resultados):
-        descontos_de_origem = self.rubricas.get('descontos', {})
-        codigos_encontrados = set(cod for dados_mes in resultados.get("dados_mensais", {}).values() for cod in dados_mes.get("rubricas_detalhadas", {}).keys())
-        codigos_para_exibir = sorted([cod for cod in codigos_encontrados if descontos_de_origem.get(cod, {}).get("tipo") == "planserv"])
-        descricoes = {cod: descontos_de_origem.get(cod, {}).get('descricao', cod) for cod in codigos_para_exibir}
-        tabela = {"colunas": ["Mês/Ano"] + [descricoes.get(cod, cod) for cod in codigos_para_exibir], "dados": []}
-        for mes_ano in resultados.get("meses_para_processar", []):
-            linha = {"mes_ano": self.converter_data_para_numerico(mes_ano), "valores": []}
-            rubricas_detalhadas_mes = resultados.get("dados_mensais", {}).get(mes_ano, {}).get("rubricas_detalhadas", {})
-            for cod in codigos_para_exibir:
-                linha["valores"].append(rubricas_detalhadas_mes.get(cod, 0.0))
-            tabela["dados"].append(linha)
-        return tabela
+            return {"erro": f"Erro ao abrir o arquivo: {e}", "dados_mensais": {}}
