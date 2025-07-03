@@ -17,9 +17,10 @@ class ProcessadorContracheque:
 
     def _carregar_rubricas_default(self) -> Dict:
         try:
+            # Carrega o arquivo JSON completo
             rubricas_path = Path(__file__).parent.parent / 'rubricas.json'
             with open(rubricas_path, 'r', encoding='utf-8') as f:
-                return json.load(f) # Carrega o JSON completo
+                return json.load(f)
         except (FileNotFoundError, json.JSONDecodeError) as e:
             logger.error(f"Erro ao carregar rubricas padrão: {str(e)}")
             return {"rubricas": {"proventos": {}, "descontos": {}}}
@@ -28,8 +29,10 @@ class ProcessadorContracheque:
         return [f"{mes}/{ano}" for ano in range(2019, 2026) for mes in self.meses.keys()]
 
     def _processar_rubricas_internas(self):
-        self.codigos_proventos = list(self.rubricas.get('proventos', {}).keys())
-        self.codigos_descontos = list(self.rubricas.get('descontos', {}).keys())
+        # Acessa a chave 'rubricas' para obter os proventos e descontos
+        config_rubricas = self.rubricas.get('rubricas', {})
+        self.codigos_proventos = list(config_rubricas.get('proventos', {}).keys())
+        self.codigos_descontos = list(config_rubricas.get('descontos', {}).keys())
 
     def extrair_valor(self, valor_str: str) -> float:
         try:
@@ -40,20 +43,28 @@ class ProcessadorContracheque:
             return 0.0
 
     def _extrair_secoes_por_mes_ano(self, doc):
-        sections = defaultdict(list)
+        sections = defaultdict(str)
         month_year_pattern = re.compile(r'(Janeiro|Fevereiro|Março|Abril|Maio|Junho|Julho|Agosto|Setembro|Outubro|Novembro|Dezembro)\s*/\s*(\d{4})', re.IGNORECASE)
         
-        for page_num, page in enumerate(doc):
-            texto_pagina = page.get_text("text")
-            match = month_year_pattern.search(texto_pagina)
+        texto_completo = ""
+        for page in doc:
+            texto_completo += page.get_text("text", sort=True) + "\n---PAGE_BREAK---\n"
+
+        # Divide o texto em seções baseadas no padrão de Mês/Ano
+        secoes_encontradas = month_year_pattern.finditer(texto_completo)
+        pontos_de_corte = [m.start() for m in secoes_encontradas]
+        
+        if not pontos_de_corte:
+            raise ValueError("Não foi possível encontrar nenhuma seção de Mês/Ano no documento.")
+
+        for i, start_pos in enumerate(pontos_de_corte):
+            end_pos = pontos_de_corte[i+1] if i+1 < len(pontos_de_corte) else len(texto_completo)
+            texto_secao = texto_completo[start_pos:end_pos]
+            match = month_year_pattern.search(texto_secao)
             if match:
                 mes = match.group(1).capitalize()
                 ano = match.group(2)
-                mes_ano_chave = f"{mes}/{ano}"
-                sections[mes_ano_chave].append(page.get_text("text", sort=True))
-        
-        if not sections:
-            raise ValueError("Não foi possível encontrar nenhuma seção de Mês/Ano no documento.")
+                sections[f"{mes}/{ano}"] += texto_secao
         
         return sections
 
@@ -67,23 +78,8 @@ class ProcessadorContracheque:
             
             resultados_finais = { "dados_mensais": {} }
 
-            for mes_ano, textos_secao in secoes.items():
-                dados_mensais_agregados = {"rubricas": defaultdict(float), "rubricas_detalhadas": defaultdict(float)}
-                for texto_secao in textos_secao:
-                    dados_pagina = self._processar_mes_conteudo(texto_secao, mes_ano)
-                    for cod, val in dados_pagina["rubricas"].items():
-                        dados_mensais_agregados["rubricas"][cod] += val
-                    for cod, val in dados_pagina["rubricas_detalhadas"].items():
-                        dados_mensais_agregados["rubricas_detalhadas"][cod] += val
-                
-                total_proventos_calculado = sum(
-                    valor for codigo, valor in dados_mensais_agregados["rubricas"].items()
-                    if not self.rubricas.get('proventos', {}).get(codigo, {}).get('ignorar_na_soma', False)
-                )
-                dados_mensais_agregados["total_proventos"] = total_proventos_calculado
-                logger.debug(f"TOTAIS FINAIS PARA {mes_ano}: Proventos (soma)={total_proventos_calculado:.2f}, Descontos={sum(dados_mensais_agregados['rubricas_detalhadas'].values()):.2f}")
-                
-                resultados_finais["dados_mensais"][mes_ano] = dados_mensais_agregados
+            for mes_ano, texto_secao in secoes.items():
+                resultados_finais["dados_mensais"][mes_ano] = self._processar_mes_conteudo(texto_secao, mes_ano)
 
             meses_processados = sorted(
                 resultados_finais['dados_mensais'].keys(),
@@ -129,9 +125,15 @@ class ProcessadorContracheque:
             if codigo in self.codigos_descontos:
                 resultados_mes["rubricas_detalhadas"][codigo] += self.extrair_valor(valor_str)
         
+        total_proventos_calculado = sum(
+            valor for codigo, valor in resultados_mes["rubricas"].items()
+            if not self.rubricas.get('proventos', {}).get(codigo, {}).get('ignorar_na_soma', False)
+        )
+        resultados_mes["total_proventos"] = total_proventos_calculado
+        logger.debug(f"TOTAIS FINAIS PARA {mes_ano}: Proventos (soma)={total_proventos_calculado:.2f}, Descontos={sum(resultados_mes['rubricas_detalhadas'].values()):.2f}")
+
         return resultados_mes
     
-    # --- FUNÇÕES RESTAURADAS ---
     def converter_data_para_numerico(self, data_texto: str) -> str:
         try: mes, ano = data_texto.split('/'); return f"{self.meses.get(mes, '00')}/{ano}"
         except (ValueError, AttributeError): return "00/0000"
