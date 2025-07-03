@@ -33,24 +33,26 @@ class ProcessadorContracheque:
 
     def extrair_valor(self, valor_str: str) -> float:
         try:
-            valor_limpo = re.sub(r'[^\d,]', '', valor_str)
-            valor = valor_limpo.replace('.', '').replace(',', '.')
-            return float(valor)
+            # Esta regex é mais segura para extrair o último valor monetário de uma string
+            match = re.search(r'(\d{1,3}(?:[.,]\d{3})*,\d{2})', valor_str)
+            if not match: return 0.0
+            valor_limpo = match.group(1).replace('.', '').replace(',', '.')
+            return float(valor_limpo)
         except (ValueError, AttributeError):
             return 0.0
 
     def _extrair_secoes_por_mes_ano(self, doc):
-        sections = defaultdict(list)
+        sections = defaultdict(str)
         month_year_pattern = re.compile(r'(Janeiro|Fevereiro|Março|Abril|Maio|Junho|Julho|Agosto|Setembro|Outubro|Novembro|Dezembro)\s*/\s*(\d{4})', re.IGNORECASE)
         
         for page_num, page in enumerate(doc):
-            texto_pagina = page.get_text("text")
+            texto_pagina = page.get_text("text", sort=True)
             match = month_year_pattern.search(texto_pagina)
             if match:
                 mes = match.group(1).capitalize()
                 ano = match.group(2)
-                mes_ano_chave = f"{mes}/{ano}"
-                sections[mes_ano_chave].append(page)
+                mes_ano_chave = f"{mes}/{ano}_{page_num}"
+                sections[mes_ano_chave] = texto_pagina
         
         if not sections:
             raise ValueError("Não foi possível encontrar nenhuma seção de Mês/Ano no documento.")
@@ -67,16 +69,17 @@ class ProcessadorContracheque:
             
             resultados_finais = { "dados_mensais": {} }
 
-            for mes_ano, paginas in secoes.items():
-                dados_mensais_agregados = {"rubricas": defaultdict(float), "rubricas_detalhadas": defaultdict(float)}
-                for page in paginas:
-                    dados_pagina = self._processar_pagina_individual(page, mes_ano)
-                    for cod, val in dados_pagina["rubricas"].items():
-                        dados_mensais_agregados["rubricas"][cod] += val
-                    for cod, val in dados_pagina["rubricas_detalhadas"].items():
-                        dados_mensais_agregados["rubricas_detalhadas"][cod] += val
-                
-                resultados_finais["dados_mensais"][mes_ano] = dados_mensais_agregados
+            for mes_ano_chave, texto_secao in secoes.items():
+                mes_ano_real = mes_ano_chave.split('_')[0]
+                dados_mes_atual = self._processar_mes_conteudo(texto_secao, mes_ano_real)
+
+                if mes_ano_real not in resultados_finais["dados_mensais"]:
+                    resultados_finais["dados_mensais"][mes_ano_real] = dados_mes_atual
+                else:
+                    for codigo, valor in dados_mes_atual["rubricas"].items():
+                        resultados_finais["dados_mensais"][mes_ano_real]["rubricas"][codigo] += valor
+                    for codigo, valor in dados_mes_atual["rubricas_detalhadas"].items():
+                        resultados_finais["dados_mensais"][mes_ano_real]["rubricas_detalhadas"][codigo] += valor
 
             for mes_ano, dados in resultados_finais["dados_mensais"].items():
                 total_proventos_calculado = sum(
@@ -108,40 +111,43 @@ class ProcessadorContracheque:
             logger.error(f"Erro ao processar contracheque: {str(e)}")
             raise
 
-    def _processar_pagina_individual(self, page, mes_ano):
+    def _processar_mes_conteudo(self, texto_secao, mes_ano):
         resultados_mes = {"rubricas": defaultdict(float), "rubricas_detalhadas": defaultdict(float)}
-        ponto_medio_x = page.rect.width / 2
-        words = page.get_text("words")
-        
-        padrao_codigo = re.compile(r'^([A-Z0-9/]{3,5})$')
-        padrao_valor = re.compile(r'^(\d{1,3}(?:[.,]\d{3})*,\d{2})$')
-        
-        codigos_encontrados = [w for w in words if padrao_codigo.match(w[4])]
-        valores_encontrados = [w for w in words if padrao_valor.match(w[4])]
-        
-        for cod_word in codigos_encontrados:
-            codigo = cod_word[4]
-            valor_associado = None
-            
-            # Encontra o valor mais próximo na mesma linha (vertical)
-            for val_word in valores_encontrados:
-                if abs(cod_word[1] - val_word[1]) < 5: # Tolerância vertical
-                    valor_associado = self.extrair_valor(val_word[4])
-                    break
-            
-            if valor_associado is not None:
-                is_provento = cod_word[0] < ponto_medio_x and codigo in self.codigos_proventos
-                is_desconto = cod_word[0] > ponto_medio_x and codigo in self.codigos_descontos
 
-                if is_provento:
-                    resultados_mes["rubricas"][codigo] = valor_associado
-                    logger.debug(f"DEBUG: Provento - {mes_ano}, '{codigo}', {valor_associado}")
-                elif is_desconto:
-                    resultados_mes["rubricas_detalhadas"][codigo] = valor_associado
-                    logger.debug(f"DEBUG: Desconto - {mes_ano}, '{codigo}', {valor_associado}")
-                    
+        bloco_vantagens_match = re.search(r'VANTAGENS(.*?)TOTAL DE VANTAGENS', texto_secao, re.DOTALL | re.IGNORECASE)
+        texto_vantagens = bloco_vantagens_match.group(1) if bloco_vantagens_match else ""
+        
+        bloco_descontos_match = re.search(r'DESCONTOS(.*?)TOTAL DE DESCONTOS', texto_secao, re.DOTALL | re.IGNORECASE)
+        texto_descontos = bloco_descontos_match.group(1) if bloco_descontos_match else ""
+
+        def encontrar_e_associar(bloco_texto, codigos_alvo):
+            pares = {}
+            for linha in bloco_texto.strip().split('\n'):
+                # Encontra o primeiro código da lista de alvos que aparece na linha
+                codigo_encontrado = next((codigo for codigo in codigos_alvo if re.search(r'\b' + re.escape(codigo) + r'\b', linha)), None)
+                
+                if codigo_encontrado:
+                    # Encontra todos os valores monetários na linha
+                    valores_encontrados = re.findall(r'\d{1,3}(?:[.,]\d{3})*,\d{2}', linha)
+                    if valores_encontrados:
+                        # Associa o código ao último valor encontrado na linha
+                        valor = self.extrair_valor(valores_encontrados[-1])
+                        pares[codigo_encontrado] = valor
+            return pares
+
+        proventos_encontrados = encontrar_e_associar(texto_vantagens, self.codigos_proventos)
+        descontos_encontrados = encontrar_e_associar(texto_descontos, self.codigos_descontos)
+
+        for codigo, valor in proventos_encontrados.items():
+            resultados_mes["rubricas"][codigo] = valor
+            logger.debug(f"DEBUG: Provento Identificado - Mês/Ano: {mes_ano}, Código: '{codigo}', Valor: {valor}")
+
+        for codigo, valor in descontos_encontrados.items():
+            resultados_mes["rubricas_detalhadas"][codigo] = valor
+            logger.debug(f"DEBUG: Desconto Identificado - Mês/Ano: {mes_ano}, Código: '{codigo}', Valor: {valor}")
+        
         return resultados_mes
-
+    
     def converter_data_para_numerico(self, data_texto: str) -> str:
         try: mes, ano = data_texto.split('/'); return f"{self.meses.get(mes, '00')}/{ano}"
         except (ValueError, AttributeError): return "00/0000"
