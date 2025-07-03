@@ -16,7 +16,6 @@ def load_rubricas() -> Dict[str, Any]:
     try:
         rubricas_path = Path(__file__).parent / 'rubricas.json'
         with open(rubricas_path, 'r', encoding='utf-8') as f:
-            # Carrega o JSON completo, o processador vai lidar com a estrutura 'rubricas'
             return json.load(f)
     except Exception as e:
         logger.error(f"Erro fatal ao carregar rubricas.json: {e}")
@@ -75,7 +74,6 @@ def upload():
         return redirect(url_for('calculadora'))
 
     try:
-        # Processa apenas o primeiro arquivo da lista para simplificar
         file = files[0]
         if file and allowed_file(file.filename):
             filename = secure_filename(file.filename)
