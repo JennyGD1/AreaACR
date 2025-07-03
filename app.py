@@ -70,7 +70,7 @@ def allowed_file(filename):
 def converter_para_dict_serializavel(resultados: Dict[str, Any]) -> Dict[str, Any]:
     """Converte defaultdicts e outros objetos não serializáveis para dicts/listas regulares."""
     if not isinstance(resultados, dict):
-        return resultados # Já é serializável ou um tipo inesperado
+        return resultados 
     
     serializable_results = {}
     for key, value in resultados.items():
@@ -91,14 +91,12 @@ def index():
 
 @app.route('/calculadora')
 def calculadora():
-    # --- MUDANÇA 1: Limpa quaisquer resultados antigos ao carregar a página da calculadora ---
-    # Isso garante que a página esteja sempre pronta para um novo upload.
+    
     session.pop('resultados', None)
     return render_template('indexcalculadora.html')
 
 @app.route('/upload', methods=['POST'])
 def upload():
-    # ... (a sua função upload continua exatamente igual, não precisa mexer aqui) ...
     if 'files[]' not in request.files:
         flash('Nenhum arquivo selecionado', 'error')
         return redirect(url_for('calculadora'))
@@ -108,9 +106,11 @@ def upload():
         flash('Nenhum arquivo selecionado', 'error')
         return redirect(url_for('calculadora'))
 
+    # Estrutura para agregar os resultados de todos os arquivos
     resultados_globais = {
-        'dados_mensais': {}, 'erros': [], 'quantidade_arquivos': 0, 'primeiro_mes': None,
-        'ultimo_mes': None, 'meses_para_processar': [], 'tabela': 'Desconhecida'
+        'dados_mensais': {},
+        'erros': [],
+        'quantidade_arquivos': 0
     }
 
     try:
@@ -121,65 +121,81 @@ def upload():
                 file.save(filepath)
                 
                 logger.info(f"Processando arquivo: {filename}")
+                
+                # Processa um único contracheque
                 dados_arquivo_atual = processador.processar_contracheque(filepath)
                 
+                # Verifica se houve erro no processamento do arquivo individual
+                if dados_arquivo_atual.get('erro'):
+                    resultados_globais['erros'].append(f"{filename}: {dados_arquivo_atual['erro']}")
+                    os.remove(filepath)
+                    continue # Pula para o próximo arquivo
+
+                # Agrega os dados mensais do arquivo atual aos resultados globais
                 for mes_ano, dados_mes in dados_arquivo_atual.get('dados_mensais', {}).items():
                     if mes_ano not in resultados_globais['dados_mensais']:
                         resultados_globais['dados_mensais'][mes_ano] = dados_mes
                     else:
-                        for k, v in dados_mes.items():
-                            if isinstance(v, dict):
-                                for sub_k, sub_v in v.items():
-                                    resultados_globais['dados_mensais'][mes_ano][k][sub_k] += sub_v
-                            elif isinstance(v, (int, float)):
-                                resultados_globais['dados_mensais'][mes_ano][k] += v
+                        # Se o mês já existe, soma os valores (caso haja múltiplos arquivos para o mesmo mês)
+                        # Esta parte pode ser ajustada dependendo da lógica de negócio desejada
+                        resultados_globais['dados_mensais'][mes_ano]['total_proventos'] += dados_mes.get('total_proventos', 0)
+                        resultados_globais['dados_mensais'][mes_ano]['total_descontos'] += dados_mes.get('total_descontos', 0)
+                        for codigo, valor in dados_mes.get('rubricas', {}).items():
+                            resultados_globais['dados_mensais'][mes_ano]['rubricas'][codigo] = resultados_globais['dados_mensais'][mes_ano]['rubricas'].get(codigo, 0) + valor
+                        for codigo, valor in dados_mes.get('rubricas_detalhadas', {}).items():
+                            resultados_globais['dados_mensais'][mes_ano]['rubricas_detalhadas'][codigo] = resultados_globais['dados_mensais'][mes_ano]['rubricas_detalhadas'].get(codigo, 0) + valor
 
-                if dados_arquivo_atual.get('primeiro_mes'):
-                    if not resultados_globais['primeiro_mes'] or processador.meses_anos.index(dados_arquivo_atual['primeiro_mes']) < processador.meses_anos.index(resultados_globais['primeiro_mes']):
-                        resultados_globais['primeiro_mes'] = dados_arquivo_atual['primeiro_mes']
-                
-                if dados_arquivo_atual.get('ultimo_mes'):
-                    if not resultados_globais['ultimo_mes'] or processador.meses_anos.index(dados_arquivo_atual['ultimo_mes']) > processador.meses_anos.index(resultados_globais['ultimo_mes']):
-                        resultados_globais['ultimo_mes'] = dados_arquivo_atual['ultimo_mes']
 
                 resultados_globais['quantidade_arquivos'] += 1
                 os.remove(filepath)
 
-        if resultados_globais['primeiro_mes'] and resultados_globais['ultimo_mes']:
-            idx_primeiro = processador.meses_anos.index(resultados_globais['primeiro_mes'])
-            idx_ultimo = processador.meses_anos.index(resultados_globais['ultimo_mes'])
-            resultados_globais['meses_para_processar'] = processador.meses_anos[idx_primeiro:idx_ultimo + 1]
+        # Após processar todos os arquivos, verifica se houve algum sucesso
+        if not resultados_globais['dados_mensais']:
+            flash('Nenhum dos arquivos pôde ser processado. Verifique o formato dos PDFs e os logs.', 'error')
+            # Se houver erros específicos, mostra-os
+            if resultados_globais['erros']:
+                for erro in resultados_globais['erros']:
+                    flash(erro, 'error')
+            return redirect(url_for('calculadora'))
 
-        tabela_proventos = processador.gerar_tabela_proventos_resumida(resultados_globais)
-        tabela_descontos = processador.gerar_tabela_descontos_detalhada(resultados_globais)
-
-        final_results_for_session = {
-            'tabela_proventos_resumida': tabela_proventos,
-            'tabela_descontos_detalhada': tabela_descontos,
-        }
-
-        session['resultados'] = json.dumps(converter_para_dict_serializavel(final_results_for_session))
+        # **CORREÇÃO PRINCIPAL: Usa os métodos que existem no processador**
+        tabela_geral = processador.gerar_tabela_geral(resultados_globais)
+        totais = processador.gerar_totais(resultados_globais)
         
-        flash('Arquivos processados com sucesso!', 'success')
+        # Analisa os resultados globais para obter os totais do Planserv
+        analise_planserv = analisador.analisar_resultados(resultados_globais)
+
+        # Combina todos os resultados em um único dicionário para a sessão
+        resultados_finais = {
+            **resultados_globais,
+            'tabela_geral': tabela_geral,
+            'totais': totais,
+            'analise_planserv': analise_planserv # Adiciona a análise do Planserv
+        }
+        
+        # Converte para um formato serializável e salva na sessão
+        session['resultados'] = json.dumps(converter_para_dict_serializavel(resultados_finais))
+        
+        flash(f"{resultados_globais['quantidade_arquivos']} arquivo(s) processado(s) com sucesso!", 'success')
         return redirect(url_for('analise_detalhada'))
 
     except Exception as e:
-        logger.error(f"Erro no processamento global: {str(e)}")
-        flash(f'Ocorreu um erro ao processar os arquivos: {str(e)}', 'error')
+        # Captura de exceção genérica para problemas inesperados
+        logger.error(f"Erro inesperado no processamento global: {str(e)}", exc_info=True)
+        flash(f'Ocorreu um erro inesperado ao processar os arquivos: {str(e)}', 'error')
         return redirect(url_for('calculadora'))
 
 
 @app.route('/analise')
 def analise_detalhada():
-    # --- MUDANÇA 2: Removemos a limpeza da sessão daqui ---
-    # Agora a página de análise pode ser recarregada sem problemas.
+    
     if 'resultados' not in session:
         flash('Nenhum dado de análise disponível. Por favor, envie um arquivo primeiro.', 'error')
         return redirect(url_for('calculadora'))
     
     try:
         resultados_json = session['resultados']
-        # A linha "session.pop('resultados', None)" foi REMOVIDA daqui.
+       
         
         resultados = json.loads(resultados_json)
         
