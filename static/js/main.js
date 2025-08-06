@@ -1,12 +1,12 @@
 // static/js/main.js
 
-// 1. Preloader (mantenha como está)
+// 1. Preloader 
 window.addEventListener('load', () => {
   const preloader = document.getElementById('preloader');
   if (preloader) preloader.classList.add('hidden');
 });
 
-// 2. Scroll (mantenha como está)
+// 2. Scroll 
 const scrollThumb = document.getElementById('scrollThumb');
 window.addEventListener('scroll', () => {
   const scrollTop = window.scrollY;
@@ -14,7 +14,7 @@ window.addEventListener('scroll', () => {
   scrollThumb.style.height = `${(scrollTop / docHeight) * 100}%`;
 });
 
-// 3. Ripple effect (mantenha como está)
+// 3. Ripple effect 
 document.body.addEventListener("click", (e) => {
   const ripple = document.createElement("div");
   ripple.className = "ripple";
@@ -26,10 +26,10 @@ document.body.addEventListener("click", (e) => {
   setTimeout(() => ripple.remove(), 600);
 });
 
-// 4. Upload Form (substitua pelo novo código)
+// 4. Upload Form 
 document.addEventListener('DOMContentLoaded', () => {
   const form = document.getElementById('upload-form');
-  if (!form) return; // Segurança se o formulário não existir
+  if (!form) return; 
 
   const fileInput = form.querySelector('input[type="file"]');
   const fileNameText = document.getElementById('file-name');
