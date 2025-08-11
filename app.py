@@ -6,7 +6,6 @@ import json
 from pathlib import Path
 from typing import Dict, Any
 from processador_contracheque import ProcessadorContracheque
-from analisador import AnalisadorPlanserv
 import logging
 
 logging.basicConfig(level=logging.DEBUG)
@@ -23,7 +22,6 @@ def load_rubricas() -> Dict[str, Any]:
 
 rubricas_globais = load_rubricas()
 processador = ProcessadorContracheque(rubricas=rubricas_globais.get('rubricas', {}))
-analisador = AnalisadorPlanserv(processador=processador)
 
 try:
     from dotenv import load_dotenv
