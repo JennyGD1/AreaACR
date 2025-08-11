@@ -112,39 +112,36 @@ class ProcessadorContracheque:
             resultados_mes = {"rubricas": defaultdict(float), "rubricas_detalhadas": defaultdict(float)}
             ponto_medio_x = page.rect.width / 2
         
-            # Ajuste das coordenadas para garantir captura da tabela
-            y_inicio_tabela = 200  # Ajustado para capturar tabela mais acima
-            y_fim_tabela = 700     # Ajustado para tabela mais longa
+            # Define as coordenadas da tabela (ajuste se necessário)
+            y_inicio_tabela = 200
+            y_fim_tabela = 700
         
-            rect_vantagens = fitz.Rect(0, y_inicio_tabela, ponto_medio_x, y_fim_tabela)
-            rect_descontos = fitz.Rect(ponto_medio_x, y_inicio_tabela, page.rect.width, y_fim_tabela)
-            
+            # Extrai palavras com posições
+            words = page.get_text("words")
+        
+            # Filtra texto para coluna esquerda (vantagens) e direita (descontos), respeitando y
+            texto_vantagens = ' '.join([w[4] for w in words if w[0] < ponto_medio_x and y_inicio_tabela < w[1] < y_fim_tabela])
+            texto_descontos = ' '.join([w[4] for w in words if w[0] > ponto_medio_x and y_inicio_tabela < w[1] < y_fim_tabela])
+        
+            logger.debug(f"Texto extraído para vantagens em {mes_ano}: {texto_vantagens}")
+            logger.debug(f"Texto extraído para descontos em {mes_ano}: {texto_descontos}")
+        
             # Processa vantagens e descontos
-            for section, rect, is_proventos in [("vantagens", rect_vantagens, True), ("descontos", rect_descontos, False)]:
-                texto = page.get_text(clip=rect, sort=True)
-                logger.debug(f"Texto extraído para {section} em {mes_ano}:\n{texto}")
-                
-                lines = [l.strip() for l in texto.splitlines() if l.strip()]
+            for is_proventos, text in [(True, texto_vantagens), (False, texto_descontos)]:
+                words_list = text.split()
                 i = 0
-                while i < len(lines):
-                    line = lines[i]
-                    match = re.match(r"([A-Z0-9/]+)", line)
+                while i < len(words_list):
+                    word = words_list[i]
+                    match = re.match(r"([A-Z0-9/]+)", word)
                     if match:
                         codigo = match.group(1)
                         valores = []
-                        # Coleta números da linha atual (após o código)
-                        rest = line[match.end():]
-                        numeros = re.findall(r"[\d.,]+", rest)
-                        valores.extend(numeros)
-                        
-                        # Coleta números das linhas subsequentes até próximo código ou "TOTAL"
                         i += 1
-                        while i < len(lines) and not re.match(r"([A-Z0-9/]+)", lines[i]) and "TOTAL" not in lines[i].upper():
-                            numeros = re.findall(r"[\d.,]+", lines[i])
-                            valores.extend(numeros)
+                        while i < len(words_list) and not re.match(r"([A-Z0-9/]+)", words_list[i]) and "TOTAL" not in words_list[i].upper():
+                            # Coleta apenas palavras que parecem números (inclui , . / para casos como 005/999, mas ignora se não for puro)
+                            if re.match(r"[\d.,/]+", words_list[i]):
+                                valores.append(words_list[i])
                             i += 1
-                        
-                        # O último número é o valor desejado
                         if valores:
                             valor_str = valores[-1]
                             valor = self.extrair_valor(valor_str)
@@ -155,7 +152,6 @@ class ProcessadorContracheque:
                     else:
                         i += 1
             
-            logger.debug(f"Resultados para {mes_ano}: {resultados_mes}")
             return resultados_mes
     
     def converter_data_para_numerico(self, data_texto: str) -> str:
