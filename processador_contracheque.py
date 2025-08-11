@@ -112,19 +112,22 @@ class ProcessadorContracheque:
             resultados_mes = {"rubricas": defaultdict(float), "rubricas_detalhadas": defaultdict(float)}
             ponto_medio_x = page.rect.width / 2
         
-            # Define as coordenadas da tabela (ajuste se necessário)
+            # Define as coordenadas da tabela
             y_inicio_tabela = 200
             y_fim_tabela = 700
         
             # Extrai palavras com posições
             words = page.get_text("words")
         
-            # Filtra texto para coluna esquerda (vantagens) e direita (descontos), respeitando y
+            # Filtra texto para coluna esquerda (vantagens) e direita (descontos)
             texto_vantagens = ' '.join([w[4] for w in words if w[0] < ponto_medio_x and y_inicio_tabela < w[1] < y_fim_tabela])
             texto_descontos = ' '.join([w[4] for w in words if w[0] > ponto_medio_x and y_inicio_tabela < w[1] < y_fim_tabela])
         
             logger.debug(f"Texto extraído para vantagens em {mes_ano}: {texto_vantagens}")
             logger.debug(f"Texto extraído para descontos em {mes_ano}: {texto_descontos}")
+        
+            # Regex para números monetários (ex: 989,92)
+            padrao_monetario = re.compile(r"^\d{1,3}(?:\.\d{3})*,\d{2}$")
         
             # Processa vantagens e descontos
             for is_proventos, text in [(True, texto_vantagens), (False, texto_descontos)]:
@@ -137,11 +140,13 @@ class ProcessadorContracheque:
                         codigo = match.group(1)
                         valores = []
                         i += 1
+                        # Coleta palavras até o próximo código ou "TOTAL"
                         while i < len(words_list) and not re.match(r"([A-Z0-9/]+)", words_list[i]) and "TOTAL" not in words_list[i].upper():
-                            # Coleta apenas palavras que parecem números (inclui , . / para casos como 005/999, mas ignora se não for puro)
-                            if re.match(r"[\d.,/]+", words_list[i]):
+                            # Verifica se é um número monetário
+                            if padrao_monetario.match(words_list[i]):
                                 valores.append(words_list[i])
                             i += 1
+                        # Usa o último número monetário encontrado
                         if valores:
                             valor_str = valores[-1]
                             valor = self.extrair_valor(valor_str)
@@ -151,9 +156,9 @@ class ProcessadorContracheque:
                                 resultados_mes["rubricas_detalhadas"][codigo] += valor
                     else:
                         i += 1
-            
+        
+            logger.debug(f"Resultados para {mes_ano}: {resultados_mes}")
             return resultados_mes
-    
     def converter_data_para_numerico(self, data_texto: str) -> str:
         try:
             mes, ano = data_texto.split('/')
