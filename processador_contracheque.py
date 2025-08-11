@@ -109,32 +109,54 @@ class ProcessadorContracheque:
             raise
 
     def _processar_pagina_individual(self, page: fitz.Page, mes_ano: str) -> Dict[str, Any]:
-        resultados_mes = {"rubricas": defaultdict(float), "rubricas_detalhadas": defaultdict(float)}
-        ponto_medio_x = page.rect.width / 2
-
-        # Define as coordenadas da tabela (ajuste se necessário)
-        y_inicio_tabela = 300
-        y_fim_tabela = 600
-
-        rect_vantagens = fitz.Rect(0, y_inicio_tabela, ponto_medio_x, y_fim_tabela)
-        rect_descontos = fitz.Rect(ponto_medio_x, y_inicio_tabela, page.rect.width, y_fim_tabela)
+            resultados_mes = {"rubricas": defaultdict(float), "rubricas_detalhadas": defaultdict(float)}
+            ponto_medio_x = page.rect.width / 2
         
-        texto_vantagens = page.get_text(clip=rect_vantagens, sort=True)
-        texto_descontos = page.get_text(clip=rect_descontos, sort=True)
-
-        padrao_geral = re.compile(r"^\s*([A-Z0-9/]+)\s+.*?\s+([\d.,]+)\s*$", re.MULTILINE)
-
-        for match in padrao_geral.finditer(texto_vantagens):
-            codigo, valor_str = match.groups()
-            if codigo in self.codigos_proventos:
-                resultados_mes["rubricas"][codigo] += self.extrair_valor(valor_str)
-
-        for match in padrao_geral.finditer(texto_descontos):
-            codigo, valor_str = match.groups()
-            if codigo in self.codigos_descontos:
-                resultados_mes["rubricas_detalhadas"][codigo] += self.extrair_valor(valor_str)
+            # Ajuste sugerido: amplie a área para garantir captura da tabela
+            y_inicio_tabela = 200  # Reduza se a tabela começar mais acima
+            y_fim_tabela = 700     # Aumente se a tabela for mais longa
         
-        return resultados_mes
+            rect_vantagens = fitz.Rect(0, y_inicio_tabela, ponto_medio_x, y_fim_tabela)
+            rect_descontos = fitz.Rect(ponto_medio_x, y_inicio_tabela, page.rect.width, y_fim_tabela)
+            
+            # Loop unificado para processar vantagens e descontos
+            for section, rect, is_proventos in [("vantagens", rect_vantagens, True), ("descontos", rect_descontos, False)]:
+                texto = page.get_text(clip=rect, sort=True)
+                logger.debug(f"Texto extraído para {section}: {texto}")  # Adicione isso para debug (veja o que é capturado)
+                
+                lines = [l.strip() for l in texto.splitlines() if l.strip()]
+                i = 0
+                while i < len(lines):
+                    line = lines[i]
+                    match = re.match(r"([A-Z0-9/]+)", line)
+                    if match:
+                        codigo = match.group(1)
+                        # Extrai números do resto da linha atual (após o código)
+                        rest = line[match.end():]
+                        numeros = re.findall(r"[\d.,]+", rest)
+                        valores = list(numeros)
+                        
+                        # Coleta números das linhas subsequentes até próximo código ou TOTAL
+                        i += 1
+                        while i < len(lines) and not re.match(r"([A-Z0-9/]+)", lines[i]) and "TOTAL" not in lines[i].upper():
+                            numeros = re.findall(r"[\d.,]+", lines[i])
+                            valores.extend(numeros)
+                            i += 1
+                        
+                        # O último número é o valor desejado
+                        if valores:
+                            valor_str = valores[-1]
+                            valor = self.extrair_valor(valor_str)
+                            if is_proventos:
+                                if codigo in self.codigos_proventos:
+                                    resultados_mes["rubricas"][codigo] += valor
+                            else:
+                                if codigo in self.codigos_descontos:
+                                    resultados_mes["rubricas_detalhadas"][codigo] += valor
+                    else:
+                        i += 1
+            
+            return resultados_mes
     
     def converter_data_para_numerico(self, data_texto: str) -> str:
         try:
