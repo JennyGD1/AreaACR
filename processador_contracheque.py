@@ -126,8 +126,8 @@ class ProcessadorContracheque:
             logger.debug(f"Texto extraído para vantagens em {mes_ano}: {texto_vantagens}")
             logger.debug(f"Texto extraído para descontos em {mes_ano}: {texto_descontos}")
         
-            # Regex para números monetários (ex: 989,92)
-            padrao_monetario = re.compile(r"^\d{1,3}(?:\.\d{3})*,\d{2}$")
+            # Regex para números monetários (ex: 123,45 ou 1.234,56)
+            padrao_monetario = re.compile(r"^\d{1,3}(?:\.\d{3})*,\d{2}\b")
         
             # Processa vantagens e descontos
             for is_proventos, text in [(True, texto_vantagens), (False, texto_descontos)]:
@@ -150,6 +150,7 @@ class ProcessadorContracheque:
                         if valores:
                             valor_str = valores[-1]
                             valor = self.extrair_valor(valor_str)
+                            logger.debug(f"Código: {codigo}, Valor: {valor_str} -> {valor}")
                             if is_proventos and codigo in self.codigos_proventos:
                                 resultados_mes["rubricas"][codigo] += valor
                             elif not is_proventos and codigo in self.codigos_descontos:
@@ -159,6 +160,7 @@ class ProcessadorContracheque:
         
             logger.debug(f"Resultados para {mes_ano}: {resultados_mes}")
             return resultados_mes
+    
     def converter_data_para_numerico(self, data_texto: str) -> str:
         try:
             mes, ano = data_texto.split('/')
