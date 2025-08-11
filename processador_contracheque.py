@@ -166,7 +166,6 @@ class ProcessadorContracheque:
             meses_processados = sorted(
                 resultados_finais['dados_mensais'].keys(),
                 key=lambda m: (int(m.split('/')[1]), int(self.meses.get(m.split('/')[0], 0)))
-            )
             
             if meses_processados:
                 resultados_finais['primeiro_mes'] = meses_processados[0]
