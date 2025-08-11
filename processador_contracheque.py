@@ -124,61 +124,63 @@ class ProcessadorContracheque:
         
         return resultados_mes
 
-    def processar_contracheque(self, filepath: str) -> Dict[str, Any]:
-        try:
-            logger.info(f"Iniciando processamento do arquivo: {filepath}")
-            
-            with open(filepath, 'rb') as f:
-                file_bytes = f.read()
-
-            doc = fitz.open(stream=file_bytes, filetype="pdf")
-            secoes = self._extrair_secoes_por_mes_ano(doc)
-            
-            resultados_finais = {"dados_mensais": {}}
-
-            for mes_ano, textos_pagina in secoes.items():
-                dados_mensais_agregados = {
-                    "rubricas": defaultdict(float),
-                    "rubricas_detalhadas": defaultdict(float)
-                }
+        def processar_contracheque(self, filepath: str) -> Dict[str, Any]:
+            try:
+                logger.info(f"Iniciando processamento do arquivo: {filepath}")
                 
-                for texto_secao in textos_pagina:
-                    dados_pagina = self._processar_conteudo_mes(texto_secao, mes_ano)
-                    for cod, val in dados_pagina["rubricas"].items():
-                        dados_mensais_agregados["rubricas"][cod] += val
-                    for cod, val in dados_pagina["rubricas_detalhadas"].items():
-                        dados_mensais_agregados["rubricas_detalhadas"][cod] += val
+                with open(filepath, 'rb') as f:
+                    file_bytes = f.read()
+    
+                doc = fitz.open(stream=file_bytes, filetype="pdf")
+                secoes = self._extrair_secoes_por_mes_ano(doc)
                 
-                total_proventos = sum(
-                    val for cod, val in dados_mensais_agregados["rubricas"].items()
-                    if not self.rubricas.get('proventos', {}).get(cod, {}).get('ignorar_na_soma', False)
+                resultados_finais = {"dados_mensais": {}}
+    
+                for mes_ano, textos_pagina in secoes.items():
+                    dados_mensais_agregados = {
+                        "rubricas": defaultdict(float),
+                        "rubricas_detalhadas": defaultdict(float)
+                    }
+                    
+                    for texto_secao in textos_pagina:
+                        dados_pagina = self._processar_conteudo_mes(texto_secao, mes_ano)
+                        for cod, val in dados_pagina["rubricas"].items():
+                            dados_mensais_agregados["rubricas"][cod] += val
+                        for cod, val in dados_pagina["rubricas_detalhadas"].items():
+                            dados_mensais_agregados["rubricas_detalhadas"][cod] += val
+                    
+                    total_proventos = sum(
+                        val for cod, val in dados_mensais_agregados["rubricas"].items()
+                        if not self.rubricas.get('proventos', {}).get(cod, {}).get('ignorar_na_soma', False)
+                    )
+                    
+                    total_descontos = sum(dados_mensais_agregados["rubricas_detalhadas"].values())
+                    
+                    dados_mensais_agregados["total_proventos"] = total_proventos
+                    dados_mensais_agregados["total_descontos"] = total_descontos
+                    
+                    logger.info(f"Totais para {mes_ano}: Proventos={total_proventos:.2f}, Descontos={total_descontos:.2f}")
+                    
+                    resultados_finais["dados_mensais"][mes_ano] = dados_mensais_agregados
+    
+                # CORRIGIDO: Parênteses corretamente fechados
+                meses_processados = sorted(
+                    resultados_finais['dados_mensais'].keys(),
+                    key=lambda m: (int(m.split('/')[1]), int(self.meses.get(m.split('/')[0], 0)))
                 )
                 
-                total_descontos = sum(dados_mensais_agregados["rubricas_detalhadas"].values())
-                
-                dados_mensais_agregados["total_proventos"] = total_proventos
-                dados_mensais_agregados["total_descontos"] = total_descontos
-                
-                logger.info(f"Totais para {mes_ano}: Proventos={total_proventos:.2f}, Descontos={total_descontos:.2f}")
-                
-                resultados_finais["dados_mensais"][mes_ano] = dados_mensais_agregados
-
-            meses_processados = sorted(
-                resultados_finais['dados_mensais'].keys(),
-                key=lambda m: (int(m.split('/')[1]), int(self.meses.get(m.split('/')[0], 0)))
-            
-            if meses_processados:
-                resultados_finais['primeiro_mes'] = meses_processados[0]
-                resultados_finais['ultimo_mes'] = meses_processados[-1]
-                resultados_finais['meses_para_processar'] = meses_processados
-            else:
-                logger.warning("Nenhum mês foi processado com sucesso")
-                resultados_finais['meses_para_processar'] = []
-
-            return resultados_finais
-        except Exception as e:
-            logger.error(f"Erro ao processar contracheque {filepath}: {str(e)}", exc_info=True)
-            raise
+                if meses_processados:
+                    resultados_finais['primeiro_mes'] = meses_processados[0]
+                    resultados_finais['ultimo_mes'] = meses_processados[-1]
+                    resultados_finais['meses_para_processar'] = meses_processados
+                else:
+                    logger.warning("Nenhum mês foi processado com sucesso")
+                    resultados_finais['meses_para_processar'] = []
+    
+                return resultados_finais
+            except Exception as e:
+                logger.error(f"Erro ao processar contracheque {filepath}: {str(e)}", exc_info=True)
+                raise
 
     def converter_data_para_numerico(self, data_texto: str) -> str:
         try:
