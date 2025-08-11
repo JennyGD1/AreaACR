@@ -1,9 +1,7 @@
-import json
 import re
-from pathlib import Path
-from typing import Dict, Any, List, DefaultDict
+from typing import Dict, List, DefaultDict
 from collections import defaultdict
-import fitz  # PyMuPDF
+import fitz
 import logging
 
 logger = logging.getLogger(__name__)
@@ -17,7 +15,6 @@ class ProcessadorContracheque:
             "Julho": "07", "Agosto": "08", "Setembro": "09",
             "Outubro": "10", "Novembro": "11", "Dezembro": "12"
         }
-        self.meses_anos = self._gerar_meses_anos()
         self._processar_rubricas_internas()
 
     def _carregar_rubricas_default(self) -> Dict:
@@ -26,161 +23,77 @@ class ProcessadorContracheque:
             with open(rubricas_path, 'r', encoding='utf-8') as f:
                 dados = json.load(f)
                 return dados.get('rubricas', {"proventos": {}, "descontos": {}})
-        except (FileNotFoundError, json.JSONDecodeError) as e:
-            logger.error(f"Erro ao carregar rubricas padrão: {str(e)}")
+        except Exception as e:
+            logger.error(f"Erro ao carregar rubricas: {str(e)}")
             return {"proventos": {}, "descontos": {}}
-
-    def _gerar_meses_anos(self) -> List[str]:
-        return [f"{mes}/{ano}" for ano in range(2019, 2026) for mes in self.meses.keys()]
 
     def _processar_rubricas_internas(self):
         self.codigos_proventos = list(self.rubricas.get('proventos', {}).keys())
         self.codigos_descontos = list(self.rubricas.get('descontos', {}).keys())
 
     def extrair_valor(self, valor_str: str) -> float:
+        """Converte formatos como '1.809,50' para 1809.50 e '250,90' para 250.90"""
         try:
-            # Remove todos os caracteres não numéricos exceto vírgula
             valor_limpo = re.sub(r'[^\d,]', '', valor_str)
             
-            # Verifica se há vírgula para separar decimais
             if ',' in valor_limpo:
                 partes = valor_limpo.split(',')
-                # Parte inteira (remove pontos como separadores de milhar)
                 inteiro = partes[0].replace('.', '')
-                # Parte decimal (sempre 2 dígitos)
-                decimal = partes[1][:2].ljust(2, '0')[:2]
-                valor = float(f"{inteiro}.{decimal}")
-            else:
-                valor = float(valor_limpo) / 100  # Assume que é um valor inteiro em centavos
-                
-            logger.debug(f"Valor convertido: '{valor_str}' -> {valor}")
-            return valor
-        except (ValueError, AttributeError) as e:
-            logger.warning(f"Erro ao converter valor '{valor_str}': {str(e)}")
+                decimal = partes[1][:2].ljust(2, '0')
+                return float(f"{inteiro}.{decimal}")
+            return float(valor_limpo) / 100
+        except Exception as e:
+            logger.warning(f"Valor inválido '{valor_str}': {str(e)}")
             return 0.0
 
-    def _extrair_secoes_por_mes_ano(self, doc) -> Dict[str, List[str]]:
-        sections = defaultdict(list)
-        month_year_pattern = re.compile(
-            r'(Janeiro|Fevereiro|Março|Abril|Maio|Junho|Julho|Agosto|Setembro|Outubro|Novembro|Dezembro)\s*[/\s]*(\d{4})',
-            re.IGNORECASE
+    def _processar_pagina(self, texto: str) -> Dict[str, DefaultDict[str, float]]:
+        resultados = {
+            "proventos": defaultdict(float),
+            "descontos": defaultdict(float)
+        }
+
+        # Padrão melhorado para capturar valores com/sem separadores de milhar
+        padrao = re.compile(
+            r'([A-Z0-9/]+)\s+(.*?)\s+(\d{1,3}(?:[.,\s]\d{3})*[.,]\d{2})',
+            re.MULTILINE
         )
-        
-        for page in doc:
-            texto_pagina = page.get_text("text", sort=True)
-            matches = list(month_year_pattern.finditer(texto_pagina))
-            
-            if matches:
-                for match in matches:
-                    mes = match.group(1).capitalize()
-                    ano = match.group(2)
-                    mes_ano_chave = f"{mes}/{ano}"
-                    sections[mes_ano_chave].append(texto_pagina)
-            else:
-                sections["Desconhecido"].append(texto_pagina)
-        
-        return sections
+
+        # Processa VANTAGENS
+        if (bloco := self._extrair_bloco(texto, 'VANTAGENS', 'TOTAL')):
+            for cod, desc, valor in padrao.findall(bloco):
+                if cod in self.codigos_proventos:
+                    resultados["proventos"][cod] += self.extrair_valor(valor)
+                    logger.debug(f"Provento: {cod} = {valor} -> {resultados['proventos'][cod]}")
+
+        # Processa DESCONTOS
+        if (bloco := self._extrair_bloco(texto, 'DESCONTOS', 'TOTAL')):
+            for cod, desc, valor in padrao.findall(bloco):
+                if cod in self.codigos_descontos:
+                    resultados["descontos"][cod] += self.extrair_valor(valor)
+
+        return resultados
 
     def _extrair_bloco(self, texto: str, inicio: str, fim: str) -> str:
-        padrao = re.compile(
-            rf'{re.escape(inicio)}(.*?){re.escape(fim)}',
-            re.DOTALL | re.IGNORECASE
-        )
+        """Extrai texto entre os marcadores"""
+        padrao = re.compile(rf'{re.escape(inicio)}(.*?){re.escape(fim)}', re.DOTALL)
         match = padrao.search(texto)
         return match.group(1).strip() if match else ""
 
-    def _processar_bloco_rubricas(self, texto_bloco: str, codigos_alvo: List[str]) -> DefaultDict[str, float]:
-        resultados = defaultdict(float)
-        padrao_rubrica = re.compile(
-            r'^\s*([A-Z0-9/]+)\b.*?(\d{1,3}(?:\.\d{3})*,\d{2}|\d+,\d{2})\s*$',
-            re.MULTILINE
-        )
-        
-        for match in padrao_rubrica.finditer(texto_bloco):
-            codigo, valor_str = match.groups()
-            if codigo in codigos_alvo:
-                valor = self.extrair_valor(valor_str)
-                resultados[codigo] += valor
-                logger.debug(f"Rubrica encontrada: {codigo} = {valor:.2f}")
-        
-        return resultados
-
-    def _processar_conteudo_mes(self, texto_secao: str, mes_ano: str) -> Dict[str, DefaultDict[str, float]]:
-        resultados_mes = {
-            "rubricas": defaultdict(float),
-            "rubricas_detalhadas": defaultdict(float)
-        }
-
-        bloco_vantagens = self._extrair_bloco(texto_secao, 'VANTAGENS', 'TOTAL DE VANTAGENS')
-        bloco_descontos = self._extrair_bloco(texto_secao, 'DESCONTOS', 'TOTAL DE DESCONTOS')
-
-        if bloco_vantagens:
-            resultados_mes["rubricas"].update(
-                self._processar_bloco_rubricas(bloco_vantagens, self.codigos_proventos)
-            )
-        
-        if bloco_descontos:
-            resultados_mes["rubricas_detalhadas"].update(
-                self._processar_bloco_rubricas(bloco_descontos, self.codigos_descontos)
-            )
-        
-        return resultados_mes
-
     def processar_contracheque(self, filepath: str) -> Dict[str, Any]:
         try:
-            logger.info(f"Iniciando processamento do arquivo: {filepath}")
+            doc = fitz.open(filepath)
+            texto_completo = "\n".join(page.get_text("text", sort=True) for page in doc)
             
-            with open(filepath, 'rb') as f:
-                file_bytes = f.read()
-
-            doc = fitz.open(stream=file_bytes, filetype="pdf")
-            secoes = self._extrair_secoes_por_mes_ano(doc)
+            dados = self._processar_pagina(texto_completo)
             
-            resultados_finais = {"dados_mensais": {}}
-
-            for mes_ano, textos_pagina in secoes.items():
-                dados_mensais_agregados = {
-                    "rubricas": defaultdict(float),
-                    "rubricas_detalhadas": defaultdict(float)
-                }
-                
-                for texto_secao in textos_pagina:
-                    dados_pagina = self._processar_conteudo_mes(texto_secao, mes_ano)
-                    for cod, val in dados_pagina["rubricas"].items():
-                        dados_mensais_agregados["rubricas"][cod] += val
-                    for cod, val in dados_pagina["rubricas_detalhadas"].items():
-                        dados_mensais_agregados["rubricas_detalhadas"][cod] += val
-                
-                total_proventos = sum(
-                    val for cod, val in dados_mensais_agregados["rubricas"].items()
-                    if not self.rubricas.get('proventos', {}).get(cod, {}).get('ignorar_na_soma', False)
-                )
-                
-                total_descontos = sum(dados_mensais_agregados["rubricas_detalhadas"].values())
-                
-                dados_mensais_agregados["total_proventos"] = total_proventos
-                dados_mensais_agregados["total_descontos"] = total_descontos
-                
-                logger.info(f"Totais para {mes_ano}: Proventos={total_proventos:.2f}, Descontos={total_descontos:.2f}")
-                
-                resultados_finais["dados_mensais"][mes_ano] = dados_mensais_agregados
-
-            meses_processados = sorted(
-                resultados_finais['dados_mensais'].keys(),
-                key=lambda m: (int(m.split('/')[1]), int(self.meses.get(m.split('/')[0], 0)))
-            )
-            
-            if meses_processados:
-                resultados_finais['primeiro_mes'] = meses_processados[0]
-                resultados_finais['ultimo_mes'] = meses_processados[-1]
-                resultados_finais['meses_para_processar'] = meses_processados
-            else:
-                logger.warning("Nenhum mês foi processado com sucesso")
-                resultados_finais['meses_para_processar'] = []
-
-            return resultados_finais
+            return {
+                "proventos": dict(dados["proventos"]),
+                "descontos": dict(dados["descontos"]),
+                "total_proventos": sum(dados["proventos"].values()),
+                "total_descontos": sum(dados["descontos"].values())
+            }
         except Exception as e:
-            logger.error(f"Erro ao processar contracheque {filepath}: {str(e)}", exc_info=True)
+            logger.error(f"Erro ao processar {filepath}: {str(e)}")
             raise
 
     def converter_data_para_numerico(self, data_texto: str) -> str:
