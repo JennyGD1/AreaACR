@@ -39,46 +39,23 @@ class ProcessadorContracheque:
         except (ValueError, AttributeError):
             return 0.0
 
-    def _extrair_secoes_por_mes_ano(self, doc) -> Dict[str, List[str]]:
+    def _extrair_secoes_por_mes_ano(self, doc) -> Dict[str, List[fitz.Page]]:
         sections = defaultdict(list)
-        month_year_pattern = re.compile(r'(Janeiro|Fevereiro|Março|Abril|Maio|Junho|Julho|Agosto|Setembro|Outubro|Novembro|Dezembro)\s*[/\s]*(\d{4})', re.IGNORECASE)
+        month_year_pattern = re.compile(r'(Janeiro|Fevereiro|Março|Abril|Maio|Junho|Julho|Agosto|Setembro|Outubro|Novembro|Dezembro)\s*/\s*(\d{4})', re.IGNORECASE)
         
         for page in doc:
-            texto_pagina = page.get_text("text", sort=True)
+            texto_pagina = page.get_text("text")
             match = month_year_pattern.search(texto_pagina)
             if match:
                 mes = match.group(1).capitalize()
                 ano = match.group(2)
                 mes_ano_chave = f"{mes}/{ano}"
-                sections[mes_ano_chave].append(texto_pagina)
+                sections[mes_ano_chave].append(page)
         
         if not sections:
             raise ValueError("Não foi possível encontrar nenhuma seção de Mês/Ano no documento.")
         
         return sections
-
-    def _processar_mes_conteudo(self, texto_secao: str, mes_ano: str) -> Dict[str, Any]:
-        resultados_mes = {"rubricas": defaultdict(float), "rubricas_detalhadas": defaultdict(float)}
-
-        bloco_vantagens_match = re.search(r'VANTAGENS(.*?)TOTAL DE VANTAGENS', texto_secao, re.DOTALL | re.IGNORECASE)
-        texto_vantagens = bloco_vantagens_match.group(1) if bloco_vantagens_match else ""
-        
-        bloco_descontos_match = re.search(r'DESCONTOS(.*?)TOTAL DE DESCONTOS', texto_secao, re.DOTALL | re.IGNORECASE)
-        texto_descontos = bloco_descontos_match.group(1) if bloco_descontos_match else ""
-
-        padrao_geral = re.compile(r"^\s*([A-Z0-9/]+)\s+.*?\s+([\d.,]+)\s*$", re.MULTILINE)
-
-        for match in padrao_geral.finditer(texto_vantagens):
-            codigo, valor_str = match.groups()
-            if codigo in self.codigos_proventos:
-                resultados_mes["rubricas"][codigo] += self.extrair_valor(valor_str)
-
-        for match in padrao_geral.finditer(texto_descontos):
-            codigo, valor_str = match.groups()
-            if codigo in self.codigos_descontos:
-                resultados_mes["rubricas_detalhadas"][codigo] += self.extrair_valor(valor_str)
-        
-        return resultados_mes
 
     def processar_contracheque(self, filepath: str) -> Dict[str, Any]:
         try:
@@ -90,10 +67,10 @@ class ProcessadorContracheque:
             
             resultados_finais = {"dados_mensais": {}}
 
-            for mes_ano, textos_pagina in secoes.items():
+            for mes_ano, paginas in secoes.items():
                 dados_mensais_agregados = {"rubricas": defaultdict(float), "rubricas_detalhadas": defaultdict(float)}
-                for texto_secao in textos_pagina:
-                    dados_pagina = self._processar_mes_conteudo(texto_secao, mes_ano)
+                for page in paginas:
+                    dados_pagina = self._processar_pagina_individual(page, mes_ano)
                     for cod, val in dados_pagina["rubricas"].items():
                         dados_mensais_agregados["rubricas"][cod] += val
                     for cod, val in dados_pagina["rubricas_detalhadas"].items():
@@ -131,6 +108,34 @@ class ProcessadorContracheque:
             logger.error(f"Erro ao processar contracheque: {str(e)}")
             raise
 
+    def _processar_pagina_individual(self, page: fitz.Page, mes_ano: str) -> Dict[str, Any]:
+        resultados_mes = {"rubricas": defaultdict(float), "rubricas_detalhadas": defaultdict(float)}
+        ponto_medio_x = page.rect.width / 2
+
+        # Define as coordenadas da tabela (ajuste se necessário)
+        y_inicio_tabela = 300
+        y_fim_tabela = 600
+
+        rect_vantagens = fitz.Rect(0, y_inicio_tabela, ponto_medio_x, y_fim_tabela)
+        rect_descontos = fitz.Rect(ponto_medio_x, y_inicio_tabela, page.rect.width, y_fim_tabela)
+        
+        texto_vantagens = page.get_text(clip=rect_vantagens, sort=True)
+        texto_descontos = page.get_text(clip=rect_descontos, sort=True)
+
+        padrao_geral = re.compile(r"^\s*([A-Z0-9/]+)\s+.*?\s+([\d.,]+)\s*$", re.MULTILINE)
+
+        for match in padrao_geral.finditer(texto_vantagens):
+            codigo, valor_str = match.groups()
+            if codigo in self.codigos_proventos:
+                resultados_mes["rubricas"][codigo] += self.extrair_valor(valor_str)
+
+        for match in padrao_geral.finditer(texto_descontos):
+            codigo, valor_str = match.groups()
+            if codigo in self.codigos_descontos:
+                resultados_mes["rubricas_detalhadas"][codigo] += self.extrair_valor(valor_str)
+        
+        return resultados_mes
+    
     def converter_data_para_numerico(self, data_texto: str) -> str:
         try:
             mes, ano = data_texto.split('/')
