@@ -112,17 +112,17 @@ class ProcessadorContracheque:
             resultados_mes = {"rubricas": defaultdict(float), "rubricas_detalhadas": defaultdict(float)}
             ponto_medio_x = page.rect.width / 2
         
-            # Ajuste sugerido: amplie a área para garantir captura da tabela
-            y_inicio_tabela = 200  # Reduza se a tabela começar mais acima
-            y_fim_tabela = 700     # Aumente se a tabela for mais longa
+            # Ajuste das coordenadas para garantir captura da tabela
+            y_inicio_tabela = 200  # Ajustado para capturar tabela mais acima
+            y_fim_tabela = 700     # Ajustado para tabela mais longa
         
             rect_vantagens = fitz.Rect(0, y_inicio_tabela, ponto_medio_x, y_fim_tabela)
             rect_descontos = fitz.Rect(ponto_medio_x, y_inicio_tabela, page.rect.width, y_fim_tabela)
             
-            # Loop unificado para processar vantagens e descontos
+            # Processa vantagens e descontos
             for section, rect, is_proventos in [("vantagens", rect_vantagens, True), ("descontos", rect_descontos, False)]:
                 texto = page.get_text(clip=rect, sort=True)
-                logger.debug(f"Texto extraído para {section}: {texto}")  # Adicione isso para debug (veja o que é capturado)
+                logger.debug(f"Texto extraído para {section} em {mes_ano}:\n{texto}")
                 
                 lines = [l.strip() for l in texto.splitlines() if l.strip()]
                 i = 0
@@ -131,12 +131,13 @@ class ProcessadorContracheque:
                     match = re.match(r"([A-Z0-9/]+)", line)
                     if match:
                         codigo = match.group(1)
-                        # Extrai números do resto da linha atual (após o código)
+                        valores = []
+                        # Coleta números da linha atual (após o código)
                         rest = line[match.end():]
                         numeros = re.findall(r"[\d.,]+", rest)
-                        valores = list(numeros)
+                        valores.extend(numeros)
                         
-                        # Coleta números das linhas subsequentes até próximo código ou TOTAL
+                        # Coleta números das linhas subsequentes até próximo código ou "TOTAL"
                         i += 1
                         while i < len(lines) and not re.match(r"([A-Z0-9/]+)", lines[i]) and "TOTAL" not in lines[i].upper():
                             numeros = re.findall(r"[\d.,]+", lines[i])
@@ -147,15 +148,14 @@ class ProcessadorContracheque:
                         if valores:
                             valor_str = valores[-1]
                             valor = self.extrair_valor(valor_str)
-                            if is_proventos:
-                                if codigo in self.codigos_proventos:
-                                    resultados_mes["rubricas"][codigo] += valor
-                            else:
-                                if codigo in self.codigos_descontos:
-                                    resultados_mes["rubricas_detalhadas"][codigo] += valor
+                            if is_proventos and codigo in self.codigos_proventos:
+                                resultados_mes["rubricas"][codigo] += valor
+                            elif not is_proventos and codigo in self.codigos_descontos:
+                                resultados_mes["rubricas_detalhadas"][codigo] += valor
                     else:
                         i += 1
             
+            logger.debug(f"Resultados para {mes_ano}: {resultados_mes}")
             return resultados_mes
     
     def converter_data_para_numerico(self, data_texto: str) -> str:
