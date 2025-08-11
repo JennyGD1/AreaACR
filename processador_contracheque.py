@@ -39,10 +39,24 @@ class ProcessadorContracheque:
 
     def extrair_valor(self, valor_str: str) -> float:
         try:
-            valor_limpo = re.sub(r'[^\d,]', '', valor_str.replace('.', '').replace(',', '.'))
-            return float(valor_limpo)
-        except (ValueError, AttributeError):
-            logger.warning(f"Valor inválido encontrado: {valor_str}")
+            # Remove todos os caracteres não numéricos exceto vírgula
+            valor_limpo = re.sub(r'[^\d,]', '', valor_str)
+            
+            # Verifica se há vírgula para separar decimais
+            if ',' in valor_limpo:
+                partes = valor_limpo.split(',')
+                # Parte inteira (remove pontos como separadores de milhar)
+                inteiro = partes[0].replace('.', '')
+                # Parte decimal (sempre 2 dígitos)
+                decimal = partes[1][:2].ljust(2, '0')[:2]
+                valor = float(f"{inteiro}.{decimal}")
+            else:
+                valor = float(valor_limpo) / 100  # Assume que é um valor inteiro em centavos
+                
+            logger.debug(f"Valor convertido: '{valor_str}' -> {valor}")
+            return valor
+        except (ValueError, AttributeError) as e:
+            logger.warning(f"Erro ao converter valor '{valor_str}': {str(e)}")
             return 0.0
 
     def _extrair_secoes_por_mes_ano(self, doc) -> Dict[str, List[str]]:
