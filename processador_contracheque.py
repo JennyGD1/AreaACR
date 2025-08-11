@@ -1,7 +1,7 @@
 import json
 import re
 from pathlib import Path
-from typing import Dict, List, DefaultDict, Any
+from typing import Dict, List, DefaultDict, Any, Tuple
 from collections import defaultdict
 import fitz  # PyMuPDF
 import logging
@@ -88,8 +88,9 @@ class ProcessadorContracheque:
 
     def _processar_bloco_rubricas(self, texto_bloco: str, codigos_alvo: List[str]) -> DefaultDict[str, float]:
         resultados = defaultdict(float)
+        # Padrão melhorado para capturar valores com diferentes formatos
         padrao_rubrica = re.compile(
-            r'^\s*([A-Z0-9/]+)\b.*?(\d{1,3}(?:\.\d{3})*,\d{2}|\d+,\d{2})\s*$',
+            r'^\s*([A-Z0-9/]+)\b.*?(\d{1,3}(?:[.,\s]\d{3})*[.,]\d{2})\s*$',
             re.MULTILINE
         )
         
@@ -162,11 +163,10 @@ class ProcessadorContracheque:
                 
                 resultados_finais["dados_mensais"][mes_ano] = dados_mensais_agregados
 
-            # Na linha problemática (aproximadamente linha 165), corrija para:
-                meses_processados = sorted(
-                    resultados_finais['dados_mensais'].keys(),
-                    key=lambda m: (int(m.split('/')[1]), int(self.meses.get(m.split('/')[0], 0)))
-                )
+            meses_processados = sorted(
+                resultados_finais['dados_mensais'].keys(),
+                key=lambda m: (int(m.split('/')[1]), int(self.meses.get(m.split('/')[0], 0)))
+            )
             
             if meses_processados:
                 resultados_finais['primeiro_mes'] = meses_processados[0]
