@@ -5,6 +5,7 @@ import os
 import json
 from pathlib import Path
 from typing import Dict, Any
+from collections import defaultdict
 from processador_contracheque import ProcessadorContracheque
 import logging
 
@@ -15,12 +16,15 @@ def load_rubricas() -> Dict[str, Any]:
     try:
         rubricas_path = Path(__file__).parent / 'rubricas.json'
         with open(rubricas_path, 'r', encoding='utf-8') as f:
+            # Carrega o JSON completo para o processador
             return json.load(f)
     except Exception as e:
         logger.error(f"Erro fatal ao carregar rubricas.json: {e}")
         return {"rubricas": {"proventos": {}, "descontos": {}}}
 
+# Carrega as rubricas uma vez
 rubricas_globais = load_rubricas()
+# Passa a seção 'rubricas' para o processador
 processador = ProcessadorContracheque(rubricas=rubricas_globais.get('rubricas', {}))
 
 try:
@@ -72,6 +76,7 @@ def upload():
         return redirect(url_for('calculadora'))
 
     try:
+        # Simplificado para processar o primeiro arquivo
         file = files[0]
         if file and allowed_file(file.filename):
             filename = secure_filename(file.filename)
@@ -82,11 +87,10 @@ def upload():
             resultados_finais = processador.processar_contracheque(filepath)
             os.remove(filepath)
             
-            # Chama os métodos para gerar as tabelas
+            # Chama os métodos corretos para gerar as tabelas
             tabela_proventos = processador.gerar_tabela_proventos_resumida(resultados_finais)
             tabela_descontos = processador.gerar_tabela_descontos_detalhada(resultados_finais)
 
-            # Prepara os dados para a sessão
             final_results_for_session = {
                 'tabela_proventos_resumida': tabela_proventos,
                 'tabela_descontos_detalhada': tabela_descontos,
