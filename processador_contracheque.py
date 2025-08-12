@@ -80,6 +80,7 @@ class ProcessadorContracheque:
                 end_keywords = re.compile(r'\b(LÍQUIDO A RECEBER|TOTAL LÍQUIDO|VALOR LÍQUIDO)\b', re.IGNORECASE)
         
                 for linha in texto_secao.strip().split('\n'):
+                    print(f"DEBUG LINHA: {linha}")
                     # Verifica se a linha indica o início da seção de proventos
                     if proventos_keywords.search(linha):
                         in_proventos_section = True
