@@ -56,70 +56,53 @@ class ProcessadorContracheque:
         return sections
 
     def _processar_mes_conteudo(self, texto_secao: str, mes_ano: str) -> Dict[str, Any]:
-                """
-                Processa o conteúdo de texto de um mês específico, lendo linha por linha
-                e usando flags para identificar as seções de proventos e descontos.
-                Esta abordagem é mais robusta a variações de layout no PDF.
-                """
-                resultados_mes = {
-                    "rubricas": defaultdict(float),
-                    "rubricas_detalhadas": defaultdict(float)
-                }
-        
-                padrao_codigo = re.compile(r'\b([0-9A-Z/]{3,5})\b')
-                padrao_valor = re.compile(r'\b(\d{1,3}(?:[.,]\d{3})*,\d{2})\b')
-        
-                # --- Lógica Aprimorada com Flags de Seção ---
-                in_proventos_section = False
-                in_descontos_section = False
-        
-                # Palavras-chave para identificar o início e fim de cada seção.
-                # Adicionamos várias opções para aumentar a compatibilidade.
-                proventos_keywords = re.compile(r'\b(VANTAGENS|PROVENTOS|RENDIMENTOS)\b', re.IGNORECASE)
-                descontos_keywords = re.compile(r'\b(DESCONTOS|DEDUCOES|DEDUÇÕES)\b', re.IGNORECASE)
-                end_keywords = re.compile(r'\b(LÍQUIDO A RECEBER|TOTAL LÍQUIDO|VALOR LÍQUIDO)\b', re.IGNORECASE)
-        
-                for linha in texto_secao.strip().split('\n'):
-                    print(f"DEBUG LINHA: {linha}")
-                    # Verifica se a linha indica o início da seção de proventos
-                    if proventos_keywords.search(linha):
-                        in_proventos_section = True
-                        in_descontos_section = False
-                        continue  # Pula para a próxima linha para não processar o cabeçalho
-        
-                    # Verifica se a linha indica o início da seção de descontos
-                    if descontos_keywords.search(linha):
-                        in_proventos_section = False
-                        in_descontos_section = True
-                        continue  # Pula para a próxima linha
-        
-                    # Verifica se a linha indica o fim da tabela
-                    if end_keywords.search(linha):
-                        break  # Para o loop, pois o que importa já foi processado
-        
-                    # Se não estamos em nenhuma seção, ignora a linha
-                    if not in_proventos_section and not in_descontos_section:
-                        continue
-        
-                    codigos_na_linha = padrao_codigo.findall(linha)
-                    valores_na_linha_str = padrao_valor.findall(linha)
-        
-                    # Se não encontrar um par de código e valor, pula a linha
-                    if not codigos_na_linha or not valores_na_linha_str:
-                        continue
-        
-                    # Pega o primeiro código e o último valor da linha. Isso ajuda a evitar
-                    # que datas ou outros números sejam confundidos com valores financeiros.
-                    codigo = codigos_na_linha[0]
-                    valor = self.extrair_valor(valores_na_linha_str[-1])
-        
-                    if in_proventos_section and codigo in self.codigos_proventos:
-                        resultados_mes["rubricas"][codigo] += valor
-                    
-                    elif in_descontos_section and codigo in self.codigos_descontos:
-                        resultados_mes["rubricas_detalhadas"][codigo] += valor
+            """
+            Processa o conteúdo de texto de um mês específico, adaptado para um layout
+            de colunas (vantagens e descontos na mesma linha).
+            """
+            resultados_mes = {
+                "rubricas": defaultdict(float),
+                "rubricas_detalhadas": defaultdict(float)
+            }
+            
+            # Flag para controlar quando estamos dentro da tabela de rubricas
+            in_table_section = False
+            
+            # Regex aprimorada para encontrar todos os pares de código e valor em uma linha.
+            # Captura: (código com possível lixo), (qualquer texto no meio), (valor financeiro)
+            # Exemplo: ("0003", "Soldo 30.00 01.2022", "1.083,58") e ("/401", "IRRF 27,50", "536,78")
+            padrao_rubrica = re.compile(r'([0-9A-Z/]{3,5})\s+(?:.+?)\s+([\d.,]+,\d{2})\b')
+    
+            for linha in texto_secao.strip().split('\n'):
+                # O cabeçalho "Cód. Descrição" marca o início da nossa área de interesse
+                if 'Cód.  Descrição' in linha:
+                    in_table_section = True
+                    continue
                 
-                return resultados_mes
+                # A linha de totais marca o fim da nossa área de interesse
+                if 'TOTAL DE VANTAGENS' in linha:
+                    in_table_section = False
+                    break
+    
+                # Se não estivermos na seção da tabela, pulamos a linha
+                if not in_table_section:
+                    continue
+                
+                # Encontra todos os pares (código, valor) que existem na linha
+                rubricas_encontradas = padrao_rubrica.findall(linha)
+    
+                for codigo_bruto, valor_str in rubricas_encontradas:
+                    # Limpa o código para remover caracteres como "/"
+                    codigo = re.sub(r'[^0-9A-Z]', '', codigo_bruto)
+                    valor = self.extrair_valor(valor_str)
+    
+                    if codigo in self.codigos_proventos:
+                        resultados_mes["rubricas"][codigo] += valor
+                    elif codigo in self.codigos_descontos:
+                        # Se encontrarmos um código de desconto, adicionamos aos detalhes
+                        resultados_mes["rubricas_detalhadas"][codigo] += valor
+                        
+            return resultados_mes
 
     def processar_contracheque(self, filepath: str) -> Dict[str, Any]:
         try:
