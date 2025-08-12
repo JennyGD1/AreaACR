@@ -39,23 +39,52 @@ class ProcessadorContracheque:
         except (ValueError, AttributeError):
             return 0.0
 
-    def _extrair_secoes_por_mes_ano(self, doc) -> Dict[str, List[fitz.Page]]:
+    def _extrair_secoes_por_mes_ano(self, doc) -> Dict[str, List[str]]:
         sections = defaultdict(list)
-        month_year_pattern = re.compile(r'(Janeiro|Fevereiro|Março|Abril|Maio|Junho|Julho|Agosto|Setembro|Outubro|Novembro|Dezembro)\s*/\s*(\d{4})', re.IGNORECASE)
-        
+        month_year_pattern = re.compile(
+            r'(Janeiro|Fevereiro|Março|Abril|Maio|Junho|Julho|Agosto|Setembro|Outubro|Novembro|Dezembro)\s*[/\s]*(\d{4})',
+            re.IGNORECASE
+        )
         for page in doc:
-            texto_pagina = page.get_text("text")
+            texto_pagina = page.get_text("text", sort=True)
             match = month_year_pattern.search(texto_pagina)
             if match:
                 mes = match.group(1).capitalize()
                 ano = match.group(2)
                 mes_ano_chave = f"{mes}/{ano}"
-                sections[mes_ano_chave].append(page)
-        
-        if not sections:
-            raise ValueError("Não foi possível encontrar nenhuma seção de Mês/Ano no documento.")
-        
+                sections[mes_ano_chave].append(texto_pagina)
         return sections
+
+    def _processar_mes_conteudo(self, texto_secao: str, mes_ano: str) -> Dict[str, Any]:
+        resultados_mes = {
+            "rubricas": defaultdict(float),
+            "rubricas_detalhadas": defaultdict(float)
+        }
+
+        tabela_match = re.search(r'(VANTAGENS|Descrição)(.*?)TOTAL DE VANTAGENS', texto_secao, re.DOTALL | re.IGNORECASE)
+        if not tabela_match:
+            return resultados_mes
+        
+        bloco_tabela = tabela_match.group(2)
+        
+        padrao_codigo = re.compile(r'\b([0-9A-Z/]{3,5})\b')
+        padrao_valor = re.compile(r'\b(\d{1,3}(?:[.,]\d{3})*,\d{2})\b')
+
+        for linha in bloco_tabela.strip().split('\n'):
+            codigos_na_linha = [m.group(1) for m in padrao_codigo.finditer(linha)]
+            valores_na_linha = [m.group(1) for m in padrao_valor.finditer(linha)]
+
+            pares_encontrados = min(len(codigos_na_linha), len(valores_na_linha))
+            for i in range(pares_encontrados):
+                codigo = codigos_na_linha[i]
+                valor = self.extrair_valor(valores_na_linha[i])
+                
+                if codigo in self.codigos_proventos:
+                    resultados_mes["rubricas"][codigo] += valor
+                elif codigo in self.codigos_descontos:
+                    resultados_mes["rubricas_detalhadas"][codigo] += valor
+        
+        return resultados_mes
 
     def processar_contracheque(self, filepath: str) -> Dict[str, Any]:
         try:
@@ -67,22 +96,26 @@ class ProcessadorContracheque:
             
             resultados_finais = {"dados_mensais": {}}
 
-            for mes_ano, paginas in secoes.items():
-                dados_mensais_agregados = {"rubricas": defaultdict(float), "rubricas_detalhadas": defaultdict(float)}
-                for page in paginas:
-                    dados_pagina = self._processar_pagina_individual(page, mes_ano)
+            for mes_ano, textos_pagina in secoes.items():
+                dados_mensais_agregados = {
+                    "rubricas": defaultdict(float),
+                    "rubricas_detalhadas": defaultdict(float)
+                }
+                for texto_secao in textos_pagina:
+                    dados_pagina = self._processar_mes_conteudo(texto_secao, mes_ano)
                     for cod, val in dados_pagina["rubricas"].items():
                         dados_mensais_agregados["rubricas"][cod] += val
                     for cod, val in dados_pagina["rubricas_detalhadas"].items():
                         dados_mensais_agregados["rubricas_detalhadas"][cod] += val
-                
-                total_proventos_calculado = sum(
-                    valor for codigo, valor in dados_mensais_agregados["rubricas"].items()
-                    if not self.rubricas.get('proventos', {}).get(codigo, {}).get('ignorar_na_soma', False)
+
+                total_proventos = sum(
+                    val for cod, val in dados_mensais_agregados["rubricas"].items()
+                    if not self.rubricas.get('proventos', {}).get(cod, {}).get('ignorar_na_soma', False)
                 )
-                dados_mensais_agregados["total_proventos"] = total_proventos_calculado
-                logger.debug(f"TOTAIS FINAIS PARA {mes_ano}: Proventos (soma)={total_proventos_calculado:.2f}, Descontos={sum(dados_mensais_agregados['rubricas_detalhadas'].values()):.2f}")
                 
+                dados_mensais_agregados["total_proventos"] = total_proventos
+                logger.debug(f"TOTAIS FINAIS PARA {mes_ano}: Proventos (soma)={total_proventos:.2f}, Descontos={sum(dados_mensais_agregados['rubricas_detalhadas'].values()):.2f}")
+
                 resultados_finais["dados_mensais"][mes_ano] = dados_mensais_agregados
 
             meses_processados = sorted(
@@ -90,77 +123,21 @@ class ProcessadorContracheque:
                 key=lambda m: (int(m.split('/')[1]), int(self.meses.get(m.split('/')[0], 0)))
             )
             
-            if not meses_processados:
-                raise ValueError("Nenhum dado mensal foi processado.")
-
-            resultados_finais['primeiro_mes'] = meses_processados[0]
-            resultados_finais['ultimo_mes'] = meses_processados[-1]
+            if meses_processados:
+                resultados_finais['primeiro_mes'] = meses_processados[0]
+                resultados_finais['ultimo_mes'] = meses_processados[-1]
+                try:
+                    idx_primeiro = self.meses_anos.index(meses_processados[0])
+                    idx_ultimo = self.meses_anos.index(meses_processados[-1])
+                    resultados_finais['meses_para_processar'] = self.meses_anos[idx_primeiro:idx_ultimo + 1]
+                except ValueError:
+                    resultados_finais['meses_para_processar'] = meses_processados
             
-            try:
-                idx_primeiro = self.meses_anos.index(meses_processados[0])
-                idx_ultimo = self.meses_anos.index(meses_processados[-1])
-                resultados_finais['meses_para_processar'] = self.meses_anos[idx_primeiro:idx_ultimo + 1]
-            except ValueError:
-                resultados_finais['meses_para_processar'] = meses_processados
-
             return resultados_finais
         except Exception as e:
-            logger.error(f"Erro ao processar contracheque: {str(e)}")
+            logger.error(f"Erro ao processar contracheque: {str(e)}", exc_info=True)
             raise
-
-    def _processar_pagina_individual(self, page: fitz.Page, mes_ano: str) -> Dict[str, Any]:
-            resultados_mes = {"rubricas": defaultdict(float), "rubricas_detalhadas": defaultdict(float)}
-            ponto_medio_x = page.rect.width / 2
-        
-            # Define as coordenadas da tabela
-            y_inicio_tabela = 200
-            y_fim_tabela = 700
-        
-            # Extrai palavras com posições
-            words = page.get_text("words")
-        
-            # Filtra texto para coluna esquerda (vantagens) e direita (descontos)
-            texto_vantagens = ' '.join([w[4] for w in words if w[0] < ponto_medio_x and y_inicio_tabela < w[1] < y_fim_tabela])
-            texto_descontos = ' '.join([w[4] for w in words if w[0] > ponto_medio_x and y_inicio_tabela < w[1] < y_fim_tabela])
-        
-            logger.debug(f"Texto extraído para vantagens em {mes_ano}: {texto_vantagens}")
-            logger.debug(f"Texto extraído para descontos em {mes_ano}: {texto_descontos}")
-        
-            # Regex para números monetários (ex: 123,45 ou 1.234,56)
-            padrao_monetario = re.compile(r"^\d{1,3}(?:\.\d{3})*,\d{2}\b")
-        
-            # Processa vantagens e descontos
-            for is_proventos, text in [(True, texto_vantagens), (False, texto_descontos)]:
-                words_list = text.split()
-                i = 0
-                while i < len(words_list):
-                    word = words_list[i]
-                    match = re.match(r"([A-Z0-9/]+)", word)
-                    if match:
-                        codigo = match.group(1)
-                        valores = []
-                        i += 1
-                        # Coleta palavras até o próximo código ou "TOTAL"
-                        while i < len(words_list) and not re.match(r"([A-Z0-9/]+)", words_list[i]) and "TOTAL" not in words_list[i].upper():
-                            # Verifica se é um número monetário
-                            if padrao_monetario.match(words_list[i]):
-                                valores.append(words_list[i])
-                            i += 1
-                        # Usa o último número monetário encontrado
-                        if valores:
-                            valor_str = valores[-1]
-                            valor = self.extrair_valor(valor_str)
-                            logger.debug(f"Código: {codigo}, Valor: {valor_str} -> {valor}")
-                            if is_proventos and codigo in self.codigos_proventos:
-                                resultados_mes["rubricas"][codigo] += valor
-                            elif not is_proventos and codigo in self.codigos_descontos:
-                                resultados_mes["rubricas_detalhadas"][codigo] += valor
-                    else:
-                        i += 1
-        
-            logger.debug(f"Resultados para {mes_ano}: {resultados_mes}")
-            return resultados_mes
-    
+            
     def converter_data_para_numerico(self, data_texto: str) -> str:
         try:
             mes, ano = data_texto.split('/')
