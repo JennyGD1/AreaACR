@@ -56,35 +56,69 @@ class ProcessadorContracheque:
         return sections
 
     def _processar_mes_conteudo(self, texto_secao: str, mes_ano: str) -> Dict[str, Any]:
-        resultados_mes = {
-            "rubricas": defaultdict(float),
-            "rubricas_detalhadas": defaultdict(float)
-        }
-
-        tabela_match = re.search(r'(VANTAGENS|Descrição)(.*?)TOTAL LÍQUIDO', texto_secao, re.DOTALL | re.IGNORECASE)
-        if not tabela_match:
-            return resultados_mes
+                """
+                Processa o conteúdo de texto de um mês específico, lendo linha por linha
+                e usando flags para identificar as seções de proventos e descontos.
+                Esta abordagem é mais robusta a variações de layout no PDF.
+                """
+                resultados_mes = {
+                    "rubricas": defaultdict(float),
+                    "rubricas_detalhadas": defaultdict(float)
+                }
         
-        bloco_tabela = tabela_match.group(2)
+                padrao_codigo = re.compile(r'\b([0-9A-Z/]{3,5})\b')
+                padrao_valor = re.compile(r'\b(\d{1,3}(?:[.,]\d{3})*,\d{2})\b')
         
-        padrao_codigo = re.compile(r'\b([0-9A-Z/]{3,5})\b')
-        padrao_valor = re.compile(r'\b(\d{1,3}(?:[.,]\d{3})*,\d{2})\b')
-
-        for linha in bloco_tabela.strip().split('\n'):
-            codigos_na_linha = [m.group(1) for m in padrao_codigo.finditer(linha)]
-            valores_na_linha = [m.group(1) for m in padrao_valor.finditer(linha)]
-
-            pares_encontrados = min(len(codigos_na_linha), len(valores_na_linha))
-            for i in range(pares_encontrados):
-                codigo = codigos_na_linha[i]
-                valor = self.extrair_valor(valores_na_linha[i])
+                # --- Lógica Aprimorada com Flags de Seção ---
+                in_proventos_section = False
+                in_descontos_section = False
+        
+                # Palavras-chave para identificar o início e fim de cada seção.
+                # Adicionamos várias opções para aumentar a compatibilidade.
+                proventos_keywords = re.compile(r'\b(VANTAGENS|PROVENTOS|RENDIMENTOS)\b', re.IGNORECASE)
+                descontos_keywords = re.compile(r'\b(DESCONTOS|DEDUCOES|DEDUÇÕES)\b', re.IGNORECASE)
+                end_keywords = re.compile(r'\b(LÍQUIDO A RECEBER|TOTAL LÍQUIDO|VALOR LÍQUIDO)\b', re.IGNORECASE)
+        
+                for linha in texto_secao.strip().split('\n'):
+                    # Verifica se a linha indica o início da seção de proventos
+                    if proventos_keywords.search(linha):
+                        in_proventos_section = True
+                        in_descontos_section = False
+                        continue  # Pula para a próxima linha para não processar o cabeçalho
+        
+                    # Verifica se a linha indica o início da seção de descontos
+                    if descontos_keywords.search(linha):
+                        in_proventos_section = False
+                        in_descontos_section = True
+                        continue  # Pula para a próxima linha
+        
+                    # Verifica se a linha indica o fim da tabela
+                    if end_keywords.search(linha):
+                        break  # Para o loop, pois o que importa já foi processado
+        
+                    # Se não estamos em nenhuma seção, ignora a linha
+                    if not in_proventos_section and not in_descontos_section:
+                        continue
+        
+                    codigos_na_linha = padrao_codigo.findall(linha)
+                    valores_na_linha_str = padrao_valor.findall(linha)
+        
+                    # Se não encontrar um par de código e valor, pula a linha
+                    if not codigos_na_linha or not valores_na_linha_str:
+                        continue
+        
+                    # Pega o primeiro código e o último valor da linha. Isso ajuda a evitar
+                    # que datas ou outros números sejam confundidos com valores financeiros.
+                    codigo = codigos_na_linha[0]
+                    valor = self.extrair_valor(valores_na_linha_str[-1])
+        
+                    if in_proventos_section and codigo in self.codigos_proventos:
+                        resultados_mes["rubricas"][codigo] += valor
+                    
+                    elif in_descontos_section and codigo in self.codigos_descontos:
+                        resultados_mes["rubricas_detalhadas"][codigo] += valor
                 
-                if codigo in self.codigos_proventos:
-                    resultados_mes["rubricas"][codigo] += valor
-                elif codigo in self.codigos_descontos:
-                    resultados_mes["rubricas_detalhadas"][codigo] += valor
-        
-        return resultados_mes
+                return resultados_mes
 
     def processar_contracheque(self, filepath: str) -> Dict[str, Any]:
         try:
