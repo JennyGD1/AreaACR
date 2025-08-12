@@ -61,31 +61,28 @@ class ProcessadorContracheque:
             "rubricas_detalhadas": defaultdict(float)
         }
 
-        bloco_vantagens_match = re.search(r'VANTAGENS(.*?)TOTAL DE VANTAGENS', texto_secao, re.DOTALL | re.IGNORECASE)
-        texto_vantagens = bloco_vantagens_match.group(1) if bloco_vantagens_match else ""
+        tabela_match = re.search(r'(VANTAGENS|Descrição)(.*?)TOTAL DE VANTAGENS', texto_secao, re.DOTALL | re.IGNORECASE)
+        if not tabela_match:
+            return resultados_mes
         
-        bloco_descontos_match = re.search(r'DESCONTOS(.*?)TOTAL DE DESCONTOS', texto_secao, re.DOTALL | re.IGNORECASE)
-        texto_descontos = bloco_descontos_match.group(1) if bloco_descontos_match else ""
+        bloco_tabela = tabela_match.group(2)
+        
+        padrao_codigo = re.compile(r'\b([0-9A-Z/]{3,5})\b')
+        padrao_valor = re.compile(r'\b(\d{1,3}(?:[.,]\d{3})*,\d{2})\b')
 
-        def encontrar_e_associar(bloco_texto, codigos_alvo):
-            pares = {}
-            for linha in bloco_texto.strip().split('\n'):
-                codigo_encontrado = next((codigo for codigo in codigos_alvo if re.search(r'\b' + re.escape(codigo) + r'\b', linha)), None)
+        for linha in bloco_tabela.strip().split('\n'):
+            codigos_na_linha = [m.group(1) for m in padrao_codigo.finditer(linha)]
+            valores_na_linha = [m.group(1) for m in padrao_valor.finditer(linha)]
+
+            pares_encontrados = min(len(codigos_na_linha), len(valores_na_linha))
+            for i in range(pares_encontrados):
+                codigo = codigos_na_linha[i]
+                valor = self.extrair_valor(valores_na_linha[i])
                 
-                if codigo_encontrado:
-                    valores_encontrados = re.findall(r'\d{1,3}(?:[.,]\d{3})*,\d{2}', linha)
-                    if valores_encontrados:
-                        valor = self.extrair_valor(valores_encontrados[-1])
-                        pares[codigo_encontrado] = valor
-            return pares
-
-        proventos_encontrados = encontrar_e_associar(texto_vantagens, self.codigos_proventos)
-        descontos_encontrados = encontrar_e_associar(texto_descontos, self.codigos_descontos)
-
-        for codigo, valor in proventos_encontrados.items():
-            resultados_mes["rubricas"][codigo] += valor
-        for codigo, valor in descontos_encontrados.items():
-            resultados_mes["rubricas_detalhadas"][codigo] += valor
+                if codigo in self.codigos_proventos:
+                    resultados_mes["rubricas"][codigo] += valor
+                elif codigo in self.codigos_descontos:
+                    resultados_mes["rubricas_detalhadas"][codigo] += valor
         
         return resultados_mes
 
