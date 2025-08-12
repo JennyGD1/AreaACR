@@ -61,7 +61,7 @@ class ProcessadorContracheque:
             "rubricas_detalhadas": defaultdict(float)
         }
 
-        tabela_match = re.search(r'(VANTAGENS|Descrição)(.*?)TOTAL DE VANTAGENS', texto_secao, re.DOTALL | re.IGNORECASE)
+        tabela_match = re.search(r'(VANTAGENS|Descrição)(.*?)TOTAL LÍQUIDO', texto_secao, re.DOTALL | re.IGNORECASE)
         if not tabela_match:
             return resultados_mes
         
